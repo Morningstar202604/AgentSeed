@@ -7,7 +7,7 @@
 A hybrid [Agent Plugins 1.0.0](https://agent-plugins.org) plugin (Skill + MCP Server) that forces spec-driven development and **verifies code before it is marked done** — so "Done, all tests pass" becomes an observed fact, not a claim.
 
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.2.0-blue)](https://github.com/weed33834/AgentSeed/releases)
+[![Version](https://img.shields.io/badge/version-1.3.0-blue)](https://github.com/weed33834/AgentSeed/releases)
 [![Agent Plugins](https://img.shields.io/badge/Agent%20Plugins-1.0.0-purple)](https://agent-plugins.org)
 [![CI](https://github.com/weed33834/AgentSeed/actions/workflows/ci.yml/badge.svg)](https://github.com/weed33834/AgentSeed/actions)
 [![Stars](https://img.shields.io/github/stars/weed33834/AgentSeed)](https://github.com/weed33834/AgentSeed)
@@ -40,7 +40,7 @@ It also fills two gaps the 1.0.0 spec deliberately leaves open:
 
 ## What it does
 
-Five zero-dependency MCP tools:
+Five MCP tools — zero *required* dependencies, enhanced by optional extras:
 
 | Tool | Catches | Technique |
 | --- | --- | --- |
@@ -82,7 +82,7 @@ $ check_plugin(path="/path/to/AgentSeed")
 # or use the installer, which drops it into a client of your choice:
 bash install.sh --client auto        # macOS / Linux
 ./install.ps1 -Client auto           # Windows PowerShell
-# --client: cursor | claude | opencode | vscode | copilot | manual
+# --client: claude | opencode | cursor | manual
 ```
 
 **Option B — clone:**
@@ -92,7 +92,7 @@ git clone https://github.com/weed33834/AgentSeed.git
 # or: https://gitcode.com/badhope/AgentSeed · https://gitee.com/badhope/AgentSeed
 ```
 
-1. **Drop** the `AgentSeed/` directory into any client that supports Agent Plugins 1.0.0 (Cursor, VS Code, Claude Code, Copilot…). No build, no install, no dependencies.
+1. **Drop** the `AgentSeed/` directory into any client that supports Agent Plugins 1.0.0 (Cursor, VS Code, Claude Code, Copilot…). No build, no install; zero required dependencies (optional extras below).
 2. The client auto-discovers the `verify-before-code` skill and the `agentseed` MCP server from `plugin.json` + `mcp.json`.
 3. **That's it.** The skill now gates every coding task: contract → implement → verify → evidence.
 
@@ -100,7 +100,7 @@ Run it standalone for a self-check:
 
 ```bash
 python3 server/guard_engine.py              # conformance + demos
-python3 -m unittest discover -s server      # 56 unit tests
+python3 -m unittest discover -s server      # 50+ unit tests
 ```
 
 Gate a human PR with the same rules (CI mode):
@@ -115,15 +115,35 @@ python3 server/guard_cli.py scan src/ --strict   # hallucination scan, blocking 
 > to start, change `command` to `["python", "server/guard_server.py"]` or
 > point it at your interpreter's absolute path.
 
+## Optional dependencies
+
+AgentSeed runs on the Python standard library alone. Installing the extras
+upgrades two tools to industry-standard engines (auto-detected, graceful
+fallback either way):
+
+```bash
+pip install -r server/requirements.txt
+```
+
+| Extra | Upgrades | Without it |
+| --- | --- | --- |
+| `jsonschema` | `schema_validate` → full Draft 2020-12 validation | built-in subset validator |
+| `pyflakes` | `verify_code` → pyflakes F821 undefined-name analysis | built-in AST walk |
+| `pyyaml` | SKILL.md frontmatter parsing → full YAML | built-in lite parser |
+
 ## Platform support
 
 | Client | Agent Plugins 1.0.0 | Status | Notes |
 | --- | --- | --- | --- |
-| Cursor | skills + mcp.json | verified | copy into project / global extensions dir |
 | Claude Code | skills + MCP config | verified | skills via `~/.claude/skills`, server via `claude mcp add` |
 | opencode | skills + MCP config | verified | `~/.config/opencode/opencode.json`, see docs |
-| VS Code (+Copilot) | MCP support rolling out | expected | use mcp.json fields as-is |
-| Cline / Windsurf | MCP config compatible | expected | stdio server entry maps directly |
+| Cursor | skills + mcp.json | untested* | copy into project; no stable plugin dir yet |
+| VS Code (+Copilot) | MCP support rolling out | untested* | use mcp.json fields as-is |
+| Cline / Windsurf | MCP config compatible | untested* | stdio server entry maps directly |
+
+\* honest states: the formats are spec-compatible and expected to work, but we
+have not run AgentSeed in these clients ourselves. Verified = actually exercised
+by the maintainers. If you verify one, open a PR updating this table.
 
 Clients honoring the full spec also set `${PLUGIN_DATA}`; AgentSeed reads
 `agentseed.config.json` from there (allowlist, severity map, sandbox timeout).

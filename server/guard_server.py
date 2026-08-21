@@ -13,7 +13,8 @@ Tools:
   - scan_hallucination -> scan_hallucination_words
   - check_plugin       -> check_plugin_conformance
   - sandbox_run        -> deterministic command execution (verification channel)
-  - schema_validate    -> JSON Schema subset validator for structured outputs
+  - schema_validate    -> JSON Schema validation (jsonschema when installed,
+                         built-in subset fallback)
 """
 
 from __future__ import annotations
@@ -22,20 +23,30 @@ import json
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import guard_engine as engine  # noqa: E402
 
-VERSION = "1.2.0"
+
+def _plugin_version() -> str:
+    """Single source of truth: the version field of the root plugin.json."""
+    pj = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "plugin.json"
+    )
+    try:
+        with open(pj, encoding="utf-8") as fh:
+            version = json.load(fh).get("version")
+            return version if isinstance(version, str) else "0.0.0"
+    except (OSError, ValueError):
+        return "0.0.0"
+
+
+VERSION = _plugin_version()
 
 # Loaded once at startup: AGENTSEED_CONFIG env, ${PLUGIN_DATA}/
 # agentseed.config.json (Agent Plugins v1.0.0 §9.1), or ./agentseed.config.json.
 CONFIG = engine.load_config()
 CONFIG_ALLOWLIST = engine._config_str_list(CONFIG, "allowlist")
 CONFIG_SEVERITIES = engine._config_severities(CONFIG)
-try:
-    CONFIG_TIMEOUT = int(CONFIG.get("timeout", 30))
-except (TypeError, ValueError):
-    CONFIG_TIMEOUT = 30
+CONFIG_TIMEOUT = engine._parse_timeout(CONFIG)
 
 
 def _tool(name: str, description: str, props: dict, required: list[str]) -> dict:
@@ -71,8 +82,11 @@ TOOLS = [
         "scan_hallucination",
         "Scan source for hallucination signals in three groups: stub_code "
         "(stub/mock/fake/placeholder/todo/...), oversold (guaranteed/all tests "
-        "pass/production ready/...), fabricated (simulated/invented/...). If "
-        "any hit is found, the task must be downgraded to incomplete.",
+        "pass/production ready/...), fabricated (simulated/invented/...). "
+        "Each hit carries a severity; only error-severity hits set "
+        "'blocking': true. A blocking result means the task is NOT done — "
+        "fix the flagged lines or downgrade deliberately via config. "
+        "Warning/info hits must be reported but do not block completion.",
         {
             "source": {"type": "string", "description": "Source code to scan."},
             "allowlist": {
@@ -124,9 +138,10 @@ TOOLS = [
     ),
     _tool(
         "schema_validate",
-        "Validate structured output (JSON) against a JSON Schema subset "
-        "(type/enum/const/minLength/maxLength/pattern/minItems/maxItems/items/"
-        "properties/required/additionalProperties). Zero dependencies.",
+        "Validate structured output (JSON) against a JSON Schema. Uses the "
+        "jsonschema library (Draft 2020-12, full keyword coverage) when "
+        "installed; otherwise falls back to a built-in subset validator. "
+        "Results include which validator ran.",
         {
             "instance": {
                 "description": "The value to validate (any JSON value).",
