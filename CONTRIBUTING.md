@@ -7,7 +7,7 @@ better.
 ## Quick start
 
 ```bash
-git clone https://github.com/weed33834/AgentSeed.git
+git clone https://gitcode.com/badhope/AgentSeed.git
 cd AgentSeed
 python -m unittest discover -s server -p "test_*.py"   # 56 tests, no deps needed
 python server/guard_cli.py check . --ci                # must print ok: true

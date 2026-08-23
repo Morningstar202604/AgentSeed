@@ -7,10 +7,9 @@
 A hybrid [Agent Plugins 1.0.0](https://agent-plugins.org) plugin (Skill + MCP Server) that forces spec-driven development and **verifies code before it is marked done** — so "Done, all tests pass" becomes an observed fact, not a claim.
 
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.3.0-blue)](https://github.com/weed33834/AgentSeed/releases)
+[![Version](https://img.shields.io/badge/version-1.3.0-blue)](https://gitcode.com/badhope/AgentSeed/releases)
 [![Agent Plugins](https://img.shields.io/badge/Agent%20Plugins-1.0.0-purple)](https://agent-plugins.org)
-[![CI](https://github.com/weed33834/AgentSeed/actions/workflows/ci.yml/badge.svg)](https://github.com/weed33834/AgentSeed/actions)
-[![Stars](https://img.shields.io/github/stars/weed33834/AgentSeed)](https://github.com/weed33834/AgentSeed)
+[![CI](https://gitcode.com/badhope/AgentSeed/actions/workflows/ci.yml/badge.svg)](https://gitcode.com/badhope/AgentSeed/actions)
 [![Platforms](https://img.shields.io/badge/platform-Cursor%20%7C%20VS%20Code%20%7C%20Claude%20Code%20%7C%20Copilot-blue)](https://agent-plugins.org)
 
 **English** · [中文](./README.zh.md) · [日本語](./README.ja.md)
@@ -78,7 +77,7 @@ $ check_plugin(path="/path/to/AgentSeed")
 **Option A — download a release (no git needed):**
 
 ```bash
-# grab the latest asset from https://github.com/weed33834/AgentSeed/releases
+# grab the latest asset from https://gitcode.com/badhope/AgentSeed/releases
 # or use the installer, which drops it into a client of your choice:
 bash install.sh --client auto        # macOS / Linux
 ./install.ps1 -Client auto           # Windows PowerShell
@@ -88,7 +87,7 @@ bash install.sh --client auto        # macOS / Linux
 **Option B — clone:**
 
 ```bash
-git clone https://github.com/weed33834/AgentSeed.git
+git clone https://gitcode.com/badhope/AgentSeed.git
 # or: https://gitcode.com/badhope/AgentSeed · https://gitee.com/badhope/AgentSeed
 ```
 
