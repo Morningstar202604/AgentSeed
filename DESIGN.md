@@ -83,19 +83,19 @@ AgentSeed fills: **code-level + real tooling + Skill/MCP closed-loop enforcement
 | `references/HALLUCINATION-PATTERNS.md` | failure-mode catalog (EN/ZH/JA) |
 | `references/VERIFICATION-CHECKLIST.md` | executable end-of-task checklist (EN/ZH/JA) |
 | `references/VENDOR-SOLUTIONS.md` | vendor technique adoption map (EN/ZH/JA) |
-| `server/guard_engine.py` | pure-stdlib checks (5 capabilities) |
+| `server/guard_engine.py` | pure-stdlib checks (6 capabilities) |
 | `server/guard_server.py` | hand-written JSON-RPC stdio MCP server |
 
 ## 4. MCP interface contract
 
 Transport: line-delimited JSON-RPC 2.0 over stdio. Server name `agentseed`,
-version `1.0.0`, protocol `2024-11-05`.
+version `0.1.1`, protocol `2024-11-05`.
 
 ### 4.1 `initialize` → result
 ```json
 { "protocolVersion": "2024-11-05",
   "capabilities": { "tools": {} },
-  "serverInfo": { "name": "agentseed", "version": "1.0.0" } }
+  "serverInfo": { "name": "agentseed", "version": "0.1.1" } }
 ```
 
 ### 4.2 `tools/list` → tools
@@ -105,6 +105,7 @@ version `1.0.0`, protocol `2024-11-05`.
 - `sandbox_run(command: string[], timeout?: int, cwd?: string)` →
   `{exit_code, stdout, stderr, timed_out}`
 - `schema_validate(instance: any, schema: object)` → `{valid: bool, errors[]}`
+- `record_verification(entry: object)` → `{ok: bool, path: string, error?: string}`
 
 ### 4.3 `tools/call` example
 Request:
@@ -179,7 +180,7 @@ Returns `ok`, `errors[]`, `warnings[]`.
 
 ## 8. Roadmap (moat)
 
-1. Extend `verify_code` to Go (TS/JS lexical pass already shipped in v1.0).
+1. Extend `verify_code` to Go (TS/JS lexical pass already shipped in v0.1).
 2. Add `sandbox_run` — actually execute tests/commands in a sandbox
    (implements CDV Channel A deterministic floor).
 3. Add `check_contract` — ingest the user's private spec as the contract.

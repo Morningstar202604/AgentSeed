@@ -58,7 +58,8 @@ AgentSeed は「**コードレベル + 実ツール実行 + Skill/MCP クロー�
                           │            │   ├ scan_hallucination     │
                           │            │   ├ check_plugin（linter） │
                           │            │   ├ sandbox_run（実行検証）│
-                          │            │   └ schema_validate        │
+                          │            │   ├ schema_validate        │
+                          │            │   └ record_verification    │
                           ▼            └──────────────────────────┘
                  ┌──────────────────┐
                  │ リファレンス     │  SDD-CONTRACT / PROMPT-POOL /
@@ -79,6 +80,7 @@ AgentSeed は「**コードレベル + 実ツール実行 + Skill/MCP クロー�
 | `check_plugin` | Agent Plugins 1.0.0 適合性 linter |
 | `sandbox_run` | 決定的実行チャネル（サブプロセス・タイムアウト付き） |
 | `schema_validate` | JSON Schema サブセット検証（ゼロ依存） |
+| `record_verification` | SDD 契約の証跡を `${PLUGIN_DATA}` 配下の JSONL に追記 |
 
 ## 5. 主要アルゴリズム
 

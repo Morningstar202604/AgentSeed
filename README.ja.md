@@ -9,8 +9,7 @@
 検証**します — "Done, all tests pass" を主張ではなく観測事実にします。
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.1.0-blue)](https://gitcode.com/badhope/AgentSeed/releases)
-[![CI](https://gitcode.com/badhope/AgentSeed/actions/workflows/ci.yml/badge.svg)](https://gitcode.com/badhope/AgentSeed/actions)
+[![Version](https://img.shields.io/badge/version-0.1.1-blue)](https://gitcode.com/badhope/AgentSeed/releases)
 [![Platforms](https://img.shields.io/badge/platform-Cursor%20%7C%20VS%20Code%20%7C%20Claude%20Code%20%7C%20Copilot-blue)](https://agent-plugins.org)
 
 **日本語** · [English](./README.md) · [中文](./README.zh.md)
@@ -109,19 +108,6 @@ python3 -m unittest discover -s server      # 90+ 個のユニットテスト（
 
 [CHANGELOG.md](./CHANGELOG.md) を参照。
 
-### 1.3.0（要約）
-- **モジュール化:** `guard_engine.py` を `server/engine/` パッケージへ分割。手書き実装を標準ライブラリの車輪に置換 — jsonschema（Draft 2020-12 フル検証）、pyflakes（F821 未定義名分析）、PyYAML（frontmatter）。すべてオプションで、未インストール時は内蔵実装へ自動フォールバック。
-- **一貫性修正:** スキル文と重要度モデルの整合、バージョンの plugin.json 単一ソース化、インストーラの推測パス削除、プラットフォームマトリクスの正直なステータス。
-
-### 1.2.0（要約）
-- **重要度レベル:** 各ヒットに `error`/`warning`/`info` を付与。既定では oversold/fabricated のみブロックし、TODO 系は warning へ。設定で再マップ可能。
-- **永続設定:** 仕様 §9.1 に従い `${PLUGIN_DATA}/agentseed.config.json` から allowlist・重要度マップ・サンドボックスタイムアウトを読み込み。
-- **拡張可能な語彙:** `extra_tokens` で幻覚トークン池を実行時に拡張（EN/CJ 組み込み）。未知の設定キーは stderr で警告され、決して黙視されない。
-- **シンボル抑制と行番号:** `verify_code` は `suspects_detail` の行番号を返し、`suppress_symbols` で既知の誤検知を除外（`suppressed` に表示）。
-- **実行ホワイトリスト:** `sandbox_allowed_prefixes` で `sandbox_run` の起動可能な実行ファイルを制限（未設定＝無制限）。⚠️ このツールは現在のユーザー権限で実際のプロセスを実行するため、クライアント側でのユーザー承認が必須。
-- **CLI:** `server/guard_cli.py` が `verify`/`scan`/`check --ci`/`sandbox` を提供。終了コードで人間の PR もゲート可能。
-- **Linter:** §7.2.1/§9.1 準拠 — サーバーエントリのクローズドバリアント検証、予約 env キー、リモート URL ルール。
-
 ## クライアント設定（正確なスニペット）
 
 AgentSeed は二つの要素で構成され、完全なゲートには両方が必要です：**スキル**（ワークフロー）と
@@ -171,7 +157,7 @@ AgentSeed は二つの要素で構成され、完全なゲートには両方が�
 **特定の LLM が必要ですか？** いいえ — クライアント・モデル非依存。ゲートはスキル +
 MCP サーバーが強制し、モデルには依存しません。
 
-**ゼロ依存？** コアは依存ゼロです — 何もインストールせずに完全動作します。server/requirements.txt（jsonschema / pyflakes / pyyaml）を入れると schema_validate が Draft 2020-12 フル検証に、erify_code が pyflakes 分析に、frontmatter 解析がフル YAML にアップグレードされます（未インストール時は内蔵実装へ自動フォールバック）。
+**ゼロ依存？** コアは依存ゼロです — 何もインストールせずに完全動作します。server/requirements.txt（jsonschema / pyflakes / pyyaml）を入れると schema_validate が Draft 2020-12 フル検証に、erify_code が pyflakes 分析に、frontmatter 解析がフル YAML にアップグレードされます（未インストール時は内蔵実装へ自動フォールバック）。
 
 **適合していますか？** `check_plugin` が 1.0.0 §5/§6/§7 に照らして検証 — AgentSeed は
 自身の linter を通過します（`ok: true`）。

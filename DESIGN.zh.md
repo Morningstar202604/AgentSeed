@@ -69,7 +69,7 @@ AgentSeed 填补：**代码级 + 真跑工具 + Skill/MCP 闭环强制**。`chec
 
 ## 4. MCP 接口契约
 
-传输：基于 stdio 的逐行 JSON-RPC 2.0。服务器名 `agentseed`，版本 `1.0.0`，
+传输：基于 stdio 的逐行 JSON-RPC 2.0。服务器名 `agentseed`，版本 `0.1.1`，
 协议 `2024-11-05`。
 
 | 方法 | 说明 |
@@ -134,7 +134,7 @@ AgentSeed 填补：**代码级 + 真跑工具 + Skill/MCP 闭环强制**。`chec
 
 ## 8. 路线图（护城河）
 
-1. `verify_code` 扩展到 Go（TS/JS 词法分析已随 v1.0 提供）。
+1. `verify_code` 扩展到 Go（TS/JS 词法分析已随 v0.1 提供）。
 2. 加 `sandbox_run` —— 在沙箱里真实执行测试/命令（实现 CDV 通道 A 的确定性下限）。
 3. 加 `check_contract` —— 把用户的私有规范作为契约摄入。
 4. 把 PROMPT-POOL 接入各客户端配置（Cursor rules、CLAUDE.md、AGENTS.md），

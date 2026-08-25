@@ -7,12 +7,12 @@
 #
 # --url   : download a specific release zip directly (any host). Skips repo
 #           resolution entirely.
-# --repo  : override the repository (default: weed33834/AgentSeed on GitHub,
-#           badhope/AgentSeed is the canonical GitCode home).
-# --forge : which release API to query (default: github).
+# --repo  : override the repository (default: badhope/AgentSeed, the canonical
+#           GitCode home; weed33834/* on GitHub is a deprecated mirror).
+# --forge : which release API to query (default: gitcode).
 set -e
-repo="weed33834/AgentSeed"
-forge="github"
+repo="badhope/AgentSeed"
+forge="gitcode"
 client="auto"
 dir=""
 want_sha=""

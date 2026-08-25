@@ -7,8 +7,7 @@
 基于 [Agent Plugins 1.0.0](https://agent-plugins.org) 规范的混合插件（Skill + MCP 服务器）：强制规范驱动开发，**在代码被标记为"完成"之前先验证**——让 "Done, all tests pass" 变成可观测的事实，而不是一句空话。
 
 [![License](https://img.shields.io/badge/license-Apache_2.0-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.1.0-blue)](https://gitcode.com/badhope/AgentSeed/releases)
-[![CI](https://gitcode.com/badhope/AgentSeed/actions/workflows/ci.yml/badge.svg)](https://gitcode.com/badhope/AgentSeed/actions)
+[![Version](https://img.shields.io/badge/version-0.1.1-blue)](https://gitcode.com/badhope/AgentSeed/releases)
 [![Platforms](https://img.shields.io/badge/platform-Cursor%20%7C%20VS%20Code%20%7C%20Claude%20Code%20%7C%20Copilot-blue)](https://agent-plugins.org)
 
 **中文** · [English](./README.md) · [日本語](./README.ja.md)
@@ -97,19 +96,6 @@ python3 -m unittest discover -s server      # 90+ 个单元测试（CI 中亦用
 ## 更新日志
 
 见 [CHANGELOG.md](./CHANGELOG.md)。
-
-### 1.3.0（摘要）
-- **模块化**：`guard_engine.py` 拆分为 `server/engine/` 包；用标准库轮子替换手写实现——jsonschema（完整 Draft 2020-12 校验）、pyflakes（F821 未定义名分析）、PyYAML（frontmatter），均为可选，未安装自动回退内置实现。
-- **一致性修复**：技能文本与严重级别模型对齐；版本号从 plugin.json 单源读取；安装脚本去掉推测路径；平台矩阵如实标注。
-
-### 1.2.0（摘要）
-- **扫描分级**：命中带 `error`/`warning`/`info` 严重级别，默认只有 oversold/fabricated 阻断，TODO 类降为 warning；可通过配置重映射。
-- **持久配置**：按规范 §9.1 从 `${PLUGIN_DATA}/agentseed.config.json` 读取 allowlist、严重级别映射与沙箱超时。
-- **可扩展词库**：`extra_tokens` 运行时扩充幻觉词池（内置中英双语 token）；未知配置键会在 stderr 告警，绝不静默忽略。
-- **符号抑制与定位**：`verify_code` 输出 `suspects_detail` 行号；`suppress_symbols` 可排除已知误报（仍回显在 `suppressed`）。
-- **执行白名单**：`sandbox_allowed_prefixes` 限定 `sandbox_run` 可启动的可执行文件（缺省不限）。⚠️ 该工具以当前用户权限执行真实进程，客户端必须经用户批准后调用。
-- **CLI**：`server/guard_cli.py` 提供 `verify`/`scan`/`check --ci`/`sandbox`，退出码可直接卡人类 PR。
-- **Linter 对齐 §7.2.1/§9.1**：服务端条目封闭变体校验、保留 env 键、远程 URL 规则。
 
 ## 客户端配置（确切片段）
 

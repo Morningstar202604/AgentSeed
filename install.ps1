@@ -6,9 +6,9 @@
 #
 # -Url   : download a specific release zip directly (any host). Skips repo
 #          resolution entirely.
-# -Repo  : override the repository (default: weed33834/AgentSeed on GitHub,
-#          badhope/AgentSeed is the canonical GitCode home).
-# -Forge : which release API to query (default: github).
+# -Repo  : override the repository (default: badhope/AgentSeed, the canonical
+#          GitCode home; weed33834/* on GitHub is a deprecated mirror).
+# -Forge : which release API to query (default: gitcode).
 param(
     [ValidateSet("auto", "claude", "opencode", "cursor", "manual")]
     [string]$Client = "auto",
@@ -16,11 +16,11 @@ param(
     [string]$Sha256 = "",
     [string]$Url = "",
     [ValidateSet("github", "gitcode")]
-    [string]$Forge = "github",
-    [string]$Repo = "weed33834/AgentSeed"
+    [string]$Forge = "gitcode",
+    [string]$Repo = "badhope/AgentSeed"
 )
 $ErrorActionPreference = "Stop"
-$repo = "weed33834/AgentSeed"
+$repo = "badhope/AgentSeed"
 
 if ($Url) {
     $downloadUrl = $Url
