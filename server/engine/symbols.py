@@ -330,6 +330,19 @@ def detect_undefined_symbols(
             name = node.func.id
         elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
             name = node.id
+        elif isinstance(node, ast.Delete):
+            # `del x` on a never-defined name raises NameError at runtime;
+            # the Load/Call contexts above never visit Del targets, so this
+            # class needs its own check (works without pyflakes too).
+            for target in node.targets:
+                if (
+                    isinstance(target, ast.Name)
+                    and target.id not in defined
+                    and target.id not in seen
+                ):
+                    seen.add(target.id)
+                    suspects.append(target.id)
+                    detail.append({"name": target.id, "line": getattr(target, "lineno", 0)})
         if name is not None and name not in defined and name not in seen:
             seen.add(name)
             suspects.append(name)

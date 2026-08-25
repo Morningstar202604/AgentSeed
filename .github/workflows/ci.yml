@@ -72,3 +72,19 @@ jobs:
         with:
           python-version: "3.12"
       - run: python scripts/pack.py --check-only
+
+  # Composite HARD gate — the enforcement layer behind the soft skill:
+  # conformance linter + undefined-symbol sweep + hallucination scan that
+  # fails only on NEW signals vs the committed baseline-scan.json.
+  gate:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python server/guard_cli.py gate --root .

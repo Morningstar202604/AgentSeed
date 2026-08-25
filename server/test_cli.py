@@ -86,6 +86,47 @@ class TestCli(unittest.TestCase):
         r = scan_hallucination_words("x = todo()", allowlist="tx")
         self.assertEqual(len(r["hits"]), 1)
 
+    def test_baseline_create_then_new_signal_fails(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as d:
+            src = os.path.join(d, "mod.py")
+            base = os.path.join(d, "baseline.json")
+            with open(src, "w", encoding="utf-8") as fh:
+                fh.write("# fine\nx = 1\n")
+            r = run_cli("scan", d, "--baseline", base)  # no baseline yet -> creates
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertTrue(os.path.isfile(base))
+            # same content: pass
+            r = run_cli("scan", d, "--baseline", base)
+            self.assertEqual(r.returncode, 0, r.stdout)
+            # NEW oversold signal appears -> exit 1 and names it
+            with open(src, "a", encoding="utf-8") as fh:
+                fh.write("\n# all tests pass, guaranteed\n")
+            r = run_cli("scan", d, "--baseline", base)
+            self.assertEqual(r.returncode, 1, r.stdout)
+            self.assertIn("oversold|all tests pass", r.stdout)
+            # --update-baseline freezes the new state
+            r = run_cli("scan", d, "--baseline", base, "--update-baseline")
+            self.assertEqual(r.returncode, 0, r.stdout)
+            r = run_cli("scan", d, "--baseline", base)
+            self.assertEqual(r.returncode, 0, r.stdout)
+
+    def test_baseline_line_edits_do_not_churn(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as d:
+            src = os.path.join(d, "doc.md")
+            base = os.path.join(d, "baseline.json")
+            with open(src, "w", encoding="utf-8") as fh:
+                fh.write("production ready claim lives here\n")
+            run_cli("scan", d, "--baseline", base)
+            # moving the SAME hit to another line must stay green (line-free fp)
+            with open(src, "w", encoding="utf-8") as fh:
+                fh.write("\n\n\nproduction ready claim lives here\n")
+            r = run_cli("scan", d, "--baseline", base)
+            self.assertEqual(r.returncode, 0, r.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

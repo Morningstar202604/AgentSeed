@@ -168,6 +168,47 @@ class TestSandboxAllowPolicyHardening(unittest.TestCase):
             r2 = sb.sandbox_run(["./prog.exe"], 5, cwd=real, allowed_prefixes=[real])
             self.assertNotEqual(r2["exit_code"], -10, r2)  # policy passed (file absent -> -2)
 
+    def test_env_scrub_drops_credential_like_vars(self):
+        marker = "AGENTSEED_TEST_FAKE_API_TOKEN"
+        os.environ[marker] = "leak-me"
+        try:
+            code = (
+                "import os, sys; sys.stdout.write("
+                f"'TOKEN-SEEN' if os.environ.get({marker!r}) else 'SCRUBBED')"
+            )
+            scrubbed = engine.sandbox_run([sys.executable, "-c", code], 20, env_mode="scrub")
+            inherited = engine.sandbox_run([sys.executable, "-c", code], 20, env_mode="inherit")
+        finally:
+            os.environ.pop(marker, None)
+        self.assertEqual(scrubbed["exit_code"], 0, scrubbed)
+        self.assertIn("SCRUBBED", scrubbed["stdout"], scrubbed)
+        self.assertIn("TOKEN-SEEN", inherited["stdout"])
+
+    def test_timeout_reaps_grandchild(self):
+        import subprocess as sp
+
+        inner = (
+            "import subprocess\n"
+            f"child = subprocess.Popen([{sys.executable!r}, '-c', 'import time; time.sleep(60)'])\n"
+            "print(child.pid, flush=True)\n"
+            "child.wait()\n"
+        )
+        r = engine.sandbox_run([sys.executable, "-c", inner], 2)
+        self.assertTrue(r["timed_out"], r)
+        gc_pid = int(r["stdout"].strip())
+        if os.name == "nt":
+            listing = sp.run(
+                ["tasklist", "/FI", f"PID eq {gc_pid}"],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+            ).stdout.lower()
+            self.assertNotIn(str(gc_pid), listing.replace(",", ""), listing)
+        else:
+            with self.assertRaises(ProcessLookupError):
+                os.kill(gc_pid, 0)
+
     def test_cli_sandbox_policy_block_exits_nonzero(self):
         import subprocess
 
@@ -350,6 +391,21 @@ class TestCliRecordAndAsyncPolicy(unittest.TestCase):
                 for _pipe in (proc.stdin, proc.stdout):
                     if _pipe is not None and not _pipe.closed:
                         _pipe.close()
+
+
+class TestDetectionBenchmark(unittest.TestCase):
+    """Regression lock: every injected defect class must stay caught with
+    zero false positives on the clean set (seeded synthetic corpus)."""
+
+    def test_corpus_precision_and_recall_are_perfect(self):
+        sys.path.insert(
+            0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts")
+        )
+        import bench_detection  # noqa: PLC0415
+
+        report = bench_detection.evaluate(bench_detection.build_corpus(4, 8, seed=7))
+        self.assertEqual(report["totals"]["fn"], 0, report)
+        self.assertEqual(report["totals"]["fp"], 0, report)
 
 
 if __name__ == "__main__":

@@ -144,6 +144,37 @@ class TestServerProtocol(unittest.TestCase):
         # server writes into its own PLUGIN_DATA; ok flag is what matters
         self.assertTrue(result["ok"], result)
 
+    def test_malformed_json_line_ignored_session_continues(self):
+        self.proc.stdin.write("this is definitely not json\n")
+        self.proc.stdin.flush()
+        r = self._rpc({"jsonrpc": "2.0", "id": 40, "method": "ping"})
+        self.assertEqual(r["id"], 40)
+
+    def test_unknown_tool_returns_is_error_result(self):
+        frame = self._rpc(
+            {
+                "jsonrpc": "2.0",
+                "id": 41,
+                "method": "tools/call",
+                "params": {"name": "no_such_tool", "arguments": {}},
+            }
+        )
+        text = frame["result"]["content"][0]["text"]
+        self.assertIn("Unknown tool", text)
+
+    def test_oversized_frame_rejected_session_survives(self):
+        # A >2MB line must get -32600 with null id, and the session must
+        # keep serving normal requests afterwards.
+        big = json.dumps(
+            {"jsonrpc": "2.0", "id": 30, "method": "ping", "params": {"pad": "a" * 2_100_000}}
+        )
+        self.proc.stdin.write(big + "\n")
+        self.proc.stdin.flush()
+        frame = json.loads(self.proc.stdout.readline())
+        self.assertEqual(frame["error"]["code"], -32600)
+        r = self._rpc({"jsonrpc": "2.0", "id": 31, "method": "ping"})
+        self.assertEqual(r["id"], 31)
+
     def test_async_sandbox_completes_normally(self):
         # Regression guard for the Windows stdin-inheritance deadlock:
         # spawned children must complete, never stall to their timeout.

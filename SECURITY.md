@@ -25,19 +25,26 @@ AgentSeed is a **developer-machine tool**, not a sandbox boundary:
   gate every call behind explicit user approval; enterprises should set
   `sandbox_allowed_prefixes` in `agentseed.config.json` to restrict which
   executables may run at all.
-- With an allowlist configured, the command head resolves through `PATH` to
-  its absolute path BEFORE execution: bare names can never be shadowed by an
-  executable planted in the caller-controlled working directory, path-prefix
-  entries require a separator boundary (`dir/safe` does not match
-  `dir/safe-x/app.exe`), and unmatched or unresolvable commands are refused
-  with exit code -10 without spawning. Matched commands execute under their
-  resolved absolute path.
-- Known hardening limits (documented non-goals): a timed-out child's own
-  descendants are not killed (no process-group/Job-Object teardown), child
-  output is buffered in full before truncation, and spawned processes inherit
-  the server's environment variables.
+- With an allowlist configured, the command head resolves through `PATH` (or
+  the run `cwd` for relative paths) to its absolute path BEFORE execution:
+  bare names can never be shadowed by an executable planted in the
+  caller-controlled working directory, path-prefix entries require a
+  separator boundary (`dir/safe` does not match `dir/safe-x/app.exe`), and
+  unmatched or unresolvable commands are refused with exit code -10 without
+  spawning. Matched commands execute under their resolved absolute path.
+- Timeouts and MCP cancellations terminate the whole process TREE (POSIX:
+  per-child session + SIGKILL on the group; Windows: `taskkill /F /T`), not
+  just the direct child.
+- Setting config `sandbox_env: "scrub"` drops credential-looking environment
+  variable names before spawn. This is a best-effort denylist for leak
+  reduction — NOT a security boundary; treat any spawned process as able to
+  read whatever remains.
+- Known hardening limits (documented non-goals): child output is buffered in
+  full before truncation (a multi-GB-writing child can stress memory), and
+  no CPU/memory rlimits are imposed on children.
 - The stdio MCP server trusts its launching client (local process). It binds
-  no sockets and performs no network I/O itself.
+  no sockets and performs no network I/O itself. Protocol frames larger than
+  2 MB are rejected unread (-32600) as a parse-cost bound.
 - Installers verify release archives only when given `--sha256` /
   `-Sha256`; without it they warn and proceed — always pin checksums in CI.
 

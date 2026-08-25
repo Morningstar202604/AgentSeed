@@ -307,6 +307,23 @@ class TestSchemaValidate(unittest.TestCase):
         self.assertFalse(r["valid"])
         self.assertTrue(any("name" in e for e in r["errors"]))
 
+    def test_oversized_pattern_rejected_both_paths(self):
+        from engine import schema as schema_mod
+
+        evil = "a" * 300
+        r = schema_mod.schema_validate("x", {"type": "string", "pattern": evil})
+        self.assertFalse(r["valid"])
+        self.assertIn("ReDoS", r["errors"][0])
+        # nested occurrence is caught too (jsonschema path compiles lazily)
+        r2 = schema_mod.schema_validate(
+            {"s": "x"}, {"type": "object", "properties": {"s": {"pattern": evil}}}
+        )
+        self.assertFalse(r2["valid"])
+        # boundary: 256 chars still validates normally
+        ok_pattern = "^" + "a" * 254 + "$"
+        r3 = schema_mod.schema_validate("a" * 254, {"type": "string", "pattern": ok_pattern})
+        self.assertTrue(r3["valid"], r3)
+
     def test_const_null_validated(self):
         r = engine.schema_validate(None, {"const": None})
         self.assertTrue(r["valid"])
@@ -434,17 +451,61 @@ class TestMatchGuardsForOldPythons(unittest.TestCase):
 
 
 class TestPyflakesMerge(unittest.TestCase):
-    """Optional pyflakes enhancement must genuinely add findings
-    (Del-context undefined names, which the Store/Load walk misses)."""
+    """Del-context undefined names are caught by the stdlib walk itself
+    (ast.Delete targets); when pyflakes is installed its findings merge in
+    as additional scope-aware coverage."""
 
-    def test_del_undefined_name_caught_when_available(self):
+    def test_del_undefined_name_caught_regardless_of_pyflakes(self):
         from engine import symbols as sym
 
         r = sym.detect_undefined_symbols("def f():\n    del ghost_var\n")
+        self.assertIn("ghost_var", r["suspects"], r)
         if sym._HAS_PYFLAKES:
-            self.assertIn("ghost_var", r["suspects"], r)
             self.assertIn("pyflakes", r["note"])
-        # zero-dep fallback legitimately misses Del-context names here
+
+
+class TestPluginVersionFallback(unittest.TestCase):
+    """version.py must degrade to '0.0.0' when its root has no/broken
+    plugin.json. Executed from a COPY so the __file__-derived root is tmpdir."""
+
+    @staticmethod
+    def _run_copy(source_path: str, fake_file: str) -> str:
+        import subprocess
+
+        script = (
+            "ns = {'__file__': %r, '__name__': 'v_under_test'}\n"
+            "code = open(%r, encoding='utf-8').read()\n"
+            "exec(compile(code, %r, 'exec'), ns)\n"
+            "print(ns['plugin_version']())\n" % (fake_file, source_path, source_path)
+        )
+        out = subprocess.run(
+            [sys.executable, "-c", script],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=60,
+        )
+        return out.stdout.strip()
+
+    def test_missing_and_broken_manifests_fall_back(self):
+        import tempfile
+
+        from engine import version as vmod
+
+        self.assertTrue(vmod.plugin_version().count(".") >= 1)  # sanity: real path works
+        source_path = os.path.abspath(vmod.__file__)
+
+        with tempfile.TemporaryDirectory() as d:
+            fake_file = os.path.join(d, "engine", "version.py")
+            os.makedirs(os.path.dirname(fake_file))
+            # broken plugin.json -> fallback
+            with open(os.path.join(d, "plugin.json"), "w", encoding="utf-8") as fh:
+                fh.write("{not json")
+            self.assertEqual(self._run_copy(source_path, fake_file), "0.0.0")
+            # missing plugin.json -> fallback
+            os.remove(os.path.join(d, "plugin.json"))
+            self.assertEqual(self._run_copy(source_path, fake_file), "0.0.0")
 
 
 if __name__ == "__main__":

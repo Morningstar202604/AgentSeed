@@ -47,6 +47,7 @@ CONFIG_TIMEOUT = engine.parse_timeout(CONFIG)
 CONFIG_EXTRA_TOKENS = engine.config_extra_tokens(CONFIG)
 CONFIG_SUPPRESS = engine.config_str_list(CONFIG, "suppress_symbols")
 CONFIG_SANDBOX_ALLOW = engine.config_str_list(CONFIG, "sandbox_allowed_prefixes")
+CONFIG_SANDBOX_ENV = engine.sandbox_env_mode(CONFIG)
 
 for _warn_key in engine.unknown_config_keys(CONFIG):
     print(
@@ -270,6 +271,7 @@ def _run_call_async(msg_id, name: str, args: dict) -> threading.Thread:
                     args.get("cwd"),
                     allowed_prefixes=CONFIG_SANDBOX_ALLOW,
                     on_proc=lambda proc: entry.__setitem__("proc", proc),
+                    env_mode=CONFIG_SANDBOX_ENV,
                 )
             else:
                 result = _execute(name, args)
@@ -310,10 +312,7 @@ def _handle_cancellation(params: dict) -> None:
             entry["cancelled"] = True
             proc = entry.get("proc")
     if proc is not None:
-        try:
-            proc.kill()  # unblocks communicate() in the worker thread
-        except OSError:
-            pass
+        engine.kill_tree(proc)  # unblocks communicate() in the worker thread, tree-wide
 
 
 def _dispatch(method: str, params: dict) -> dict:
@@ -342,11 +341,21 @@ def _force_utf8_stdio() -> None:
                 pass
 
 
+# Protocol DoS bound: one JSON-RPC frame may not exceed this many characters
+# (~2 MB). Larger lines are rejected unread with a -32600 error (id unknown).
+MAX_FRAME_CHARS = 2_000_000
+
+
 def main() -> None:
     _force_utf8_stdio()
     for raw in sys.stdin:
         raw = raw.strip()
         if not raw:
+            continue
+        if len(raw) > MAX_FRAME_CHARS:
+            _write_response(
+                _error(None, -32600, f"frame too large (> {MAX_FRAME_CHARS} chars); rejected")
+            )
             continue
         try:
             msg = json.loads(raw)

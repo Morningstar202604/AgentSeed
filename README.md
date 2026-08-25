@@ -104,7 +104,9 @@ python3 -m unittest discover -s server      # 90+ unit tests (also: `pytest` in 
 Gate a human PR with the same rules (CI mode):
 
 ```bash
-python3 server/guard_cli.py check . --ci    # plugin conformance, exit 1 on errors
+python3 server/guard_cli.py gate --root .    # composite hard gate: conformance
+                                             # + symbols + baseline scan, exit 1 on any failure
+python3 server/guard_cli.py check . --ci     # plugin conformance only, exit 1 on errors
 python3 server/guard_cli.py scan src/ --strict   # hallucination scan, blocking severities only
 ```
 
@@ -175,6 +177,7 @@ Clients honoring the full spec also set `${PLUGIN_DATA}`; AgentSeed reads
 | `extra_tokens` | `{group: string[]}` | extend the hallucination word pool at runtime |
 | `suppress_symbols` | `string[]` | names `verify_code` never flags (reported in `suppressed`) |
 | `sandbox_allowed_prefixes` | `string[]` | **allowlist of executables** `sandbox_run` may launch (absent = unrestricted). Entries without a path separator match the command's PATH-resolved basename (`python` also accepts `python.exe`); entries WITH a separator must equal or be a directory-prefix of the resolved absolute path (separator boundary enforced) |
+| `sandbox_env` | `"inherit"` \| `"scrub"` | child environment policy: `scrub` drops credential-looking variable names (TOKEN/SECRET/PASSWORD/API_KEY/…) before spawn — best-effort denylist, not a security boundary |
 
 Unknown keys are warned about on stderr — a typo'd key is never silently
 ignored.

@@ -41,6 +41,24 @@ Format based on [Keep a Changelog](https://keepachangelog.com); versioning follo
   undefined-name findings into its AST walk when pyflakes is installed (catches
   e.g. Del-context names the hand-rolled walk misses); previously the import
   existed but was never called. Zero-dep behavior unchanged when absent.
+- **Baseline scan mode** (`guard_cli scan <path> --baseline F [--update-baseline]`):
+  freezes a line-number-free fingerprint of known self-referential hits and
+  fails only on NEW signals — the repo now ships its own `baseline-scan.json`
+  (538 documented hits in tool descriptions/fixtures).
+- **Composite hard gate** (`guard_cli gate --root .`): conformance linter +
+  undefined-symbol sweep over all Python sources + baseline scan, one exit
+  code; wired into CI as the `gate` job (ubuntu/windows). This is the hard
+  enforcement layer behind the soft skill.
+- **Detection benchmark** (`scripts/bench_detection.py` + `docs/BENCHMARK.md`):
+  seeded synthetic corpus across five defect classes; current figures
+  precision=1.0 recall=1.0 (tp=100 fp=0 fn=0). Locked by a regression test.
+- **Sandbox tree-kill + env scrubbing**: timeouts and cancellations now
+  terminate the whole process tree (POSIX process group / Windows
+  `taskkill /F /T`); new config `sandbox_env: "scrub"` drops credential-like
+  environment variables before spawn (opt-in best-effort denylist).
+- **Input bounds**: MCP frames larger than 2 MB are rejected with -32600;
+  JSON-Schema patterns longer than 256 chars are refused by both validator
+  paths (defensive ReDoS bound).
 
 ### Fixed
 - Documentation truth sweep: CHANGELOG 0.1.1 claim scoped to the English README

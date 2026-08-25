@@ -114,6 +114,7 @@ python3 -m unittest discover -s server      # 90+ 個のユニットテスト（
 同じルールを人間の PR にも（CI モード）：
 
 ```bash
+python3 server/guard_cli.py gate --root .        # 複合ハードゲート：適合性+シンボル+ベースライン走査、失敗時 exit 1
 python3 server/guard_cli.py check . --ci         # プラグイン適合性、エラー時 exit 1
 python3 server/guard_cli.py scan src/ --strict   # 幻覚スキャン、ブロック重大度のみ
 ```
@@ -179,6 +180,7 @@ verified = メンテナーが実際に確認済み。検証したら PR でこ�
 | `extra_tokens` | `{group: string[]}` | 幻覚語彙プールを実行時に拡張 |
 | `suppress_symbols` | `string[]` | `verify_code` が決してフラグしない名前（`suppressed` に表示） |
 | `sandbox_allowed_prefixes` | `string[]` | `sandbox_run` が起動できる**実行ファイル許可リスト**（未設定 = 無制限）。パス区切りなしのエントリは PATH 解決後の basename と一致（`python` は `python.exe` も許容）；区切りありのエントリは解決後の絶対パスと一致またはそのディレクトリプレフィックス（区切り境界を強制） |
+| `sandbox_env` | `"inherit"` \| `"scrub"` | 子プロセス環境ポリシー：`scrub` は起動前に認証情報っぽい変数名（TOKEN/SECRET/PASSWORD/API_KEY/…）を落とす —— ベストエフォートの拒否リストであり、セキュリティ境界ではない |
 
 未知のキーは stderr に警告 —— タイプミスのキーが静黙に無視されることはありません。
 

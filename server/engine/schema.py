@@ -20,6 +20,25 @@ except ImportError:  # pragma: no cover - exercised via the bare CI job
     _HAS_JSONSCHEMA = False
 
 
+# Defensive ReDoS bound: schema-supplied regexes are compiled by whichever
+# validator runs; cap their length before compilation anywhere in the tree.
+_MAX_PATTERN_LENGTH = 256
+
+
+def _oversized_pattern(schema: dict) -> str | None:
+    stack = [schema]
+    while stack:
+        node = stack.pop()
+        if isinstance(node, dict):
+            pattern = node.get("pattern")
+            if isinstance(pattern, str) and len(pattern) > _MAX_PATTERN_LENGTH:
+                return pattern
+            stack.extend(node.values())
+        elif isinstance(node, list):
+            stack.extend(node)
+    return None
+
+
 def schema_validate(instance, schema: dict) -> dict:
     """Validate an instance against a JSON Schema.
 
@@ -34,8 +53,22 @@ def schema_validate(instance, schema: dict) -> dict:
          "validator": "jsonschema" | "builtin-subset"}
     """
     if not isinstance(schema, dict):
-        return {"valid": False, "errors": ["schema must be a JSON object"],
-                "validator": "builtin-subset" if not _HAS_JSONSCHEMA else "jsonschema"}
+        return {
+            "valid": False,
+            "errors": ["schema must be a JSON object"],
+            "validator": "builtin-subset" if not _HAS_JSONSCHEMA else "jsonschema",
+        }
+
+    bad_pattern = _oversized_pattern(schema)
+    if bad_pattern is not None:
+        return {
+            "valid": False,
+            "errors": [
+                f"schema pattern rejected: longer than {_MAX_PATTERN_LENGTH} "
+                "chars (defensive ReDoS bound)"
+            ],
+            "validator": "builtin-subset" if not _HAS_JSONSCHEMA else "jsonschema",
+        }
 
     if _HAS_JSONSCHEMA:
         try:
@@ -61,14 +94,18 @@ def schema_validate(instance, schema: dict) -> dict:
     try:
         _validate_subset(instance, schema, "$", errors)
     except Exception as exc:  # noqa: BLE001
-        return {"valid": False, "errors": [f"validation crashed: {exc}"],
-                "validator": "builtin-subset"}
+        return {
+            "valid": False,
+            "errors": [f"validation crashed: {exc}"],
+            "validator": "builtin-subset",
+        }
     return {"valid": len(errors) == 0, "errors": errors, "validator": "builtin-subset"}
 
 
 # ---------------------------------------------------------------------------
 # Zero-dependency fallback (subset)
 # ---------------------------------------------------------------------------
+
 
 def _json_equal(a, b) -> bool:
     """JSON-Schema equality: booleans never equal numbers (True != 1)."""

@@ -104,6 +104,7 @@ python3 -m unittest discover -s server      # 90+ 个单元测试（CI 中亦用
 用同一套规则给人类 PR 上闸门（CI 模式）：
 
 ```bash
+python3 server/guard_cli.py gate --root .        # 复合硬闸门：合规+符号+基线扫描，任一失败退出码 1
 python3 server/guard_cli.py check . --ci         # 插件合规检查，出错退出码 1
 python3 server/guard_cli.py scan src/ --strict   # 幻觉扫描，仅阻断级严重度
 ```
@@ -166,6 +167,7 @@ AgentSeed 适配宿主环境的实际能力，逐级降级——绝不静默跳�
 | `extra_tokens` | `{group: string[]}` | 运行时扩展幻觉词池 |
 | `suppress_symbols` | `string[]` | `verify_code` 永不标记的名字（在 `suppressed` 中可见） |
 | `sandbox_allowed_prefixes` | `string[]` | **可执行文件白名单**，`sandbox_run` 只允许启动清单内命令（缺省 = 不限制）。不带路径分隔符的条目按 PATH 解析后的 basename 匹配（`python` 也接受 `python.exe`）；带分隔符的条目必须与解析后的绝对路径相等或为其目录前缀（强制分隔符边界） |
+| `sandbox_env` | `"inherit"` \| `"scrub"` | 子进程环境策略：`scrub` 在启动前剔除形似凭据的变量名（TOKEN/SECRET/PASSWORD/API_KEY/…）——尽力而为的黑名单，不是安全边界 |
 
 未知键会在 stderr 上告警——拼错的键永远不会被静默忽略。
 

@@ -83,22 +83,85 @@ def _blocked(command_head, prefixes: list[str]) -> dict:
     }
 
 
-def _run_command(command: list[str], timeout: int, cwd: str | None, on_proc=None) -> dict:
+def kill_tree(proc) -> None:
+    """Best-effort process-TREE termination, children included.
+
+    Windows: ``taskkill /F /T`` walks the PID tree. POSIX: the child was
+    spawned in its own session (``start_new_session=True``), so SIGKILL on
+    the process group reaps the whole tree. Falls back to killing the leader
+    alone when either mechanism is unavailable."""
+    if proc.poll() is not None:
+        return
+    if os.name == "nt":
+        try:
+            subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+                capture_output=True,
+                timeout=15,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+            return
+        except Exception:  # noqa: BLE001 - fall through to leader kill
+            pass
+    else:
+        try:
+            import signal
+
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+            return
+        except Exception:  # noqa: BLE001 - fall through to leader kill
+            pass
+    try:
+        proc.kill()
+    except OSError:
+        pass
+
+
+# Environment scrubbing (opt-in via config ``sandbox_env: "scrub"``): drop
+# variables whose NAMES look credential-bearing. Best-effort denylist — a
+# courtesy leak-reduction measure, NOT a security boundary.
+_SECRET_MARKERS = (
+    "TOKEN",
+    "SECRET",
+    "PASSWD",
+    "PASSWORD",
+    "CREDENTIAL",
+    "API_KEY",
+    "ACCESS_KEY",
+    "PRIVATE_KEY",
+    "AUTH",
+)
+
+
+def build_env(env_mode: str | None):
+    if env_mode == "scrub":
+        return {
+            k: v
+            for k, v in os.environ.items()
+            if not any(marker in k.upper() for marker in _SECRET_MARKERS)
+        }
+    return None  # inherit
+
+
+def _run_command(command: list[str], timeout: int, cwd: str | None, on_proc=None, env=None) -> dict:
     """Spawn + wait + capture. Shared by sync and async callers.
 
     ``on_proc`` (optional callable taking the Popen) lets callers register the
     live process for cancellation. stdin is DEVNULL: sandbox commands never read
     interactive input, and inheriting a piped stdin can deadlock children at
-    startup on Windows (observed with MCP stdio servers).
+    startup on Windows (observed with MCP stdio servers). POSIX children get
+    their own session so ``kill_tree`` can signal the whole group.
     """
     try:
         proc = subprocess.Popen(
             command,
             cwd=cwd,
+            env=env,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            start_new_session=(os.name != "nt"),
             close_fds=True,
         )
     except FileNotFoundError as exc:
@@ -121,7 +184,7 @@ def _run_command(command: list[str], timeout: int, cwd: str | None, on_proc=None
             "timed_out": False,
         }
     except subprocess.TimeoutExpired:
-        proc.kill()
+        kill_tree(proc)
         out, errb = proc.communicate()
         return {
             "exit_code": -1,
@@ -139,6 +202,7 @@ def sandbox_run(
     cwd: str | None = None,
     allowed_prefixes: list[str] | None = None,
     on_proc=None,
+    env_mode: str | None = None,
 ) -> dict:
     """Run a command as a subprocess (no shell) with a timeout.
 
@@ -159,8 +223,14 @@ def sandbox_run(
     commands execute under their RESOLVED absolute path. None/empty =
     unrestricted (command is passed through verbatim).
 
+    ``env_mode`` (config: ``sandbox_env``): "inherit" (default) passes the
+    server environment through; "scrub" drops credential-looking variable
+    names before spawn (best-effort denylist, see ``build_env``).
+
     ``on_proc`` (advanced): invoked with the live Popen so async callers can
-    register it for cancellation.
+    register it for cancellation. Timeouts and cancellations kill the whole
+    process tree (POSIX process group / Windows taskkill /T), not just the
+    direct child.
 
     Returns:
         {"exit_code": int, "stdout": str, "stderr": str, "timed_out": bool}
@@ -180,4 +250,4 @@ def sandbox_run(
         argv = [resolved, *command[1:]]
     else:
         argv = list(command)
-    return _run_command(argv, timeout, cwd, on_proc=on_proc)
+    return _run_command(argv, timeout, cwd, on_proc=on_proc, env=build_env(env_mode))

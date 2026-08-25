@@ -182,18 +182,32 @@ Returns `ok`, `errors[]`, `warnings[]`.
 ## 8. Roadmap (moat)
 
 1. Extend `verify_code` to Go (TS/JS lexical pass already shipped in v0.1).
-2. Harden `sandbox_run` further — process-group teardown on timeout,
-   streamed output truncation, optional environment filtering.
+2. Harden `sandbox_run` further — streamed output truncation
+   (tree-kill on timeout and optional env scrubbing already shipped).
 3. Add `check_contract` — ingest the user's private spec as the contract.
 4. Wire the PROMPT-POOL into per-client configs (Cursor rules, CLAUDE.md,
    AGENTS.md) so the prompts apply outside plugin-aware clients.
 5. Ship the missing **registry** for 1.0.0 distribution.
 
-## 9. Risks
+## 9. Risks & explicit non-goals
+
+Risks:
 
 - Static scope analysis → false negatives on dynamic/attribute access.
 - Spec is young (Aug 2026); client adoption and schema may shift.
-- Enforcement depends on the client honoring the skill's gate instruction.
+- Enforcement depends on the client honoring the skill's gate instruction;
+  the hard layer is `guard_cli gate` in CI.
+
+Explicit non-goals (stated so nobody mistakes them for bugs):
+
+- **Semantic correctness**: code that runs but is logically wrong is out of
+  scope — no runtime oracle exists at plugin level.
+- **Attribute-call verification** (`obj.missing_method()`): requires type
+  inference across files; documented false-negative class.
+- **Cross-file symbol resolution**: analysis is single-file by design
+  (zero-dependency, O(source)).
+- **Full sandbox isolation**: `sandbox_run` is a deterministic execution
+  channel with tree-kill and optional env scrubbing, not a container.
 
 ## 10. Build & test
 

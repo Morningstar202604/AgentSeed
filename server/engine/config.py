@@ -18,7 +18,16 @@ KNOWN_CONFIG_KEYS = {
     "extra_tokens",
     "suppress_symbols",
     "sandbox_allowed_prefixes",
+    "sandbox_env",
 }
+
+SANDBOX_ENV_MODES = ("inherit", "scrub")
+
+
+def sandbox_env_mode(config: dict, default: str = "inherit") -> str:
+    """Validated sandbox_env mode from config ("inherit" | "scrub")."""
+    value = config.get("sandbox_env", default)
+    return value if value in SANDBOX_ENV_MODES else default
 
 
 def load_config(explicit_path: str | None = None) -> dict:
