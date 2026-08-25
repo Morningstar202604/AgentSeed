@@ -42,11 +42,14 @@ def check_consistency() -> list[str]:
     pkg = _load("package.json")
     server = _load("server.json")
 
+    # server.json may legitimately advertise zero registry packages while no
+    # npm artifact exists; any package it DOES list must agree on version.
     versions = {
         "plugin.json": plugin.get("version"),
         "package.json": pkg.get("version"),
-        "server.json packages[0]": (server.get("packages") or [{}])[0].get("version"),
     }
+    for i, entry in enumerate(server.get("packages") or []):
+        versions[f"server.json packages[{i}]"] = (entry or {}).get("version")
     unique = set(versions.values())
     if len(unique) != 1 or None in unique:
         errors.append(f"version drift across manifests: {versions}")
@@ -100,13 +103,20 @@ def build() -> tuple[str, str]:
             for base, dirs, names in os.walk(full):
                 # never ship caches or VCS metadata in the artifact
                 dirs[:] = [
-                    d for d in dirs
-                    if d not in ("__pycache__", ".git", ".pytest_cache",
-                                 ".mypy_cache", ".ruff_cache", ".idea", ".vscode")
+                    d
+                    for d in dirs
+                    if d
+                    not in (
+                        "__pycache__",
+                        ".git",
+                        ".pytest_cache",
+                        ".mypy_cache",
+                        ".ruff_cache",
+                        ".idea",
+                        ".vscode",
+                    )
                 ]
-                entries.extend(
-                    os.path.join(base, n) for n in names if not n.endswith(".pyc")
-                )
+                entries.extend(os.path.join(base, n) for n in names if not n.endswith(".pyc"))
         elif os.path.isfile(full):
             entries.append(full)
     # Deterministic archive: fixed timestamp + sorted order so the same
@@ -152,7 +162,9 @@ def main(argv: list[str]) -> int:
     print(f"sha256 {digest}")
     print("")
     print("publish steps (same artifact + same hash on ALL platforms):")
-    print(f"  GitHub : gh release create v{version} '{zip_path}' --title v{version} --notes-file <notes>")
+    print(
+        f"  GitHub : gh release create v{version} '{zip_path}' --title v{version} --notes-file <notes>"
+    )
     print("  GitCode: upload the SAME zip via web UI or API release endpoint")
     print(f"  npm    : npm publish   (bin/cli.js shim; package.json already at {version})")
     print("")

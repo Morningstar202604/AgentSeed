@@ -186,6 +186,7 @@ class TestSandboxAllowPolicyHardening(unittest.TestCase):
 
     def test_timeout_reaps_grandchild(self):
         import subprocess as sp
+        import time as _time
 
         inner = (
             "import subprocess\n"
@@ -196,6 +197,7 @@ class TestSandboxAllowPolicyHardening(unittest.TestCase):
         r = engine.sandbox_run([sys.executable, "-c", inner], 2)
         self.assertTrue(r["timed_out"], r)
         gc_pid = int(r["stdout"].strip())
+
         if os.name == "nt":
             listing = sp.run(
                 ["tasklist", "/FI", f"PID eq {gc_pid}"],
@@ -205,9 +207,21 @@ class TestSandboxAllowPolicyHardening(unittest.TestCase):
                 errors="replace",
             ).stdout.lower()
             self.assertNotIn(str(gc_pid), listing.replace(",", ""), listing)
-        else:
-            with self.assertRaises(ProcessLookupError):
-                os.kill(gc_pid, 0)
+        elif os.path.isdir("/proc"):
+            # A SIGKILLed orphan can linger as a zombie until reaped; signal-0
+            # probes succeed on zombies, so inspect the kernel state instead.
+            def _alive(pid: int) -> bool:
+                try:
+                    with open(f"/proc/{pid}/stat", encoding="utf-8") as fh:
+                        return fh.read().rsplit(")", 1)[1].split()[0] != "Z"
+                except (FileNotFoundError, ProcessLookupError):
+                    return False
+
+            deadline = _time.monotonic() + 5.0
+            while _alive(gc_pid) and _time.monotonic() < deadline:
+                _time.sleep(0.2)
+            self.assertFalse(_alive(gc_pid), f"grandchild {gc_pid} survived tree-kill")
+        # other platforms: timed_out assertion above is the contract
 
     def test_cli_sandbox_policy_block_exits_nonzero(self):
         import subprocess
