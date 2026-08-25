@@ -12,6 +12,8 @@
 
 **中文** · [English](./README.md) · [日本語](./README.ja.md)
 
+> 本仓库以**英文版为准则**（内容最全、更新最快）；中/日文为核心内容的对照版本。
+
 ⭐ **觉得有用？点个 star 支持一下——帮助更多开发者在上线幻觉代码之前装上护栏。**
 
 </div>
@@ -244,6 +246,28 @@ claude mcp add agentseed -- python /path/to/AgentSeed/server/guard_server.py
 3. **宣称完成前** —— 调用 `verify_code` + `scan_hallucination`；运行时声明用 `sandbox_run` 实证；结构用 `schema_validate` 校验。
 4. **语言审查** —— 完成报告附证据；夸大词汇禁用。
 5. 只有**全部检查通过**才能标记完成。
+
+## 强制规范（AI 是如何被约束的）
+
+技能不只是"建议"——每条规范都映射到一个可观测的门禁（完整表见
+[`DEFAULT-NORMS.md`](./skills/verify-before-code/references/DEFAULT-NORMS.md)，
+其来源综合自 AGENTS.md 开放标准、Anthropic Claude Code 官方最佳实践与
+FerroxLabs/agents-md 等社区纪律；区别在于：**那里是散文，这里每条都有执行工具或退出码**）：
+
+| 规范 | 执行者 |
+| --- | --- |
+| 先契约后写码 | Gate 1 |
+| 不编造 API / 未定义符号 | `verify_code` |
+| 只写真实现，无占位 | `scan_hallucination` |
+| 先验证后声称完成 | Gate 3 + `sandbox_run` |
+| 完成报告必须附证据 | Gate 4 + `record_verification` |
+
+## 与你的智能体配置文件共存
+
+AgentSeed 与团队已有的 AI 配置文件（`CLAUDE.md` / `AGENTS.md` / `.cursor/rules/` /
+`.github/copilot-instructions.md`）互补而非替代：那些文件承载**项目事实**
+（技术栈、命令、目录），是"软"的散文；AgentSeed 承载**行为契约与强制力**——
+幻觉检测、验证门禁、证据链，是无法被静默降权的硬工具与 CI 退出码。
 
 ## 对比
 

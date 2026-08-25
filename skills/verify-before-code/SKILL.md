@@ -26,16 +26,18 @@ Gate 3 as non-skippable.
 | Resource | Purpose |
 | --- | --- |
 | `references/SDD-CONTRACT.md` | the contract every coding task must satisfy |
+| `references/DEFAULT-NORMS.md` | the operating norms of a senior engineer, each bound to the gate that enforces it |
 | `references/PROMPT-POOL.md` | copy-paste guardrail prompts (completion claims, uncertainty, API verification, citation rules, etc.) |
 | `references/HALLUCINATION-PATTERNS.md` | catalog of hallucination failure modes with signals and countermeasures |
 | `references/VERIFICATION-CHECKLIST.md` | executable checklist for end-of-task verification |
 
 ## Gate 1 — Load the contract (BEFORE writing code)
 
-Read `references/SDD-CONTRACT.md` before producing any implementation. It
-defines the spec the code must satisfy. Do not write code against an unstated
-or assumed contract; if the contract is missing, ask the user to supply it
-first.
+Read `references/SDD-CONTRACT.md` and `references/DEFAULT-NORMS.md` before
+producing any implementation. The contract defines the spec the code must
+satisfy; the norms define how you operate while satisfying it. Do not write
+code against an unstated or assumed contract; if the contract is missing,
+ask the user to supply it first.
 
 - State the contract you are coding against in one sentence.
 - If the task cannot be expressed as a contract, stop and clarify.

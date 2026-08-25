@@ -48,6 +48,8 @@ Six MCP tools — zero *required* dependencies, enhanced by optional extras:
 | `schema_validate` | Invalid structured output | JSON Schema validation |
 | `record_verification` | No persistent evidence trail | Appends a JSONL audit entry under `PLUGIN_DATA` |
 
+Measured on a seeded synthetic corpus (5 defect classes): **precision 1.0, recall 1.0** (tp=100, fp=0, fn=0) with the regression test locking it in — methodology and honest scope in [docs/BENCHMARK.md](./docs/BENCHMARK.md).
+
 ## Live demo
 
 ```
@@ -259,6 +261,44 @@ See [CHANGELOG.md](./CHANGELOG.md).
 3. **Before "done"** — call `verify_code` + `scan_hallucination`; prove runtime claims with `sandbox_run`; validate structure with `schema_validate`.
 4. **Language audit** — completion reports attach evidence; overclaim vocabulary is banned.
 5. Only when **all checks pass** may the task be marked complete.
+
+## The enforced norms (how the AI is constrained)
+
+The skill does not just *suggest* behavior — each norm maps to a gate that
+observes compliance:
+
+| Norm | Enforced by |
+| --- | --- |
+| Contract before code (goal / interface / non-goals / verification) | Gate 1 of `verify-before-code` |
+| No invented APIs — never call an undefined symbol | `verify_code` suspects gate |
+| Real implementations only — no stubs/placeholders/fakes | `scan_hallucination` stub signals |
+| Verification before completion claims — run it, then say it | Gate 3 + `sandbox_run` exit codes |
+| Evidence-backed reports — file:line you read, output you saw | Gate 4 audit + `record_verification` JSONL |
+| Smallest diff, no drive-by refactors; surface ambiguity, ask once | contract non-goals + CI `guard_cli gate` |
+
+These synthesize what strong agent operators converged on publicly — the
+[AGENTS.md](https://agents.md) open standard, [Anthropic's Claude Code best
+practices](https://code.claude.com/docs/en/best-practices), and community
+disciplines like
+[FerroxLabs/agents-md](https://github.com/FerroxLabs/agents-md) (senior-
+engineer stance, anti-sycophancy, forced verification loops). The difference:
+**there they are prose; here every norm has an enforcing tool or exit code.**
+Full table with rationale:
+[`skills/verify-before-code/references/DEFAULT-NORMS.md`](./skills/verify-before-code/references/DEFAULT-NORMS.md).
+
+## Works alongside your agent config files
+
+AgentSeed complements — not replaces — the context files your team already
+maintains for AI coding agents (`CLAUDE.md`, `AGENTS.md`, `.cursor/rules/`,
+`.github/copilot-instructions.md`, `CONTRIBUTING.md` conventions):
+
+- **Those files carry project facts**: stack, commands, layout, style. They are
+  prose — persuasive but soft.
+- **AgentSeed carries the behavior contract and the enforcement**: hallucination
+  detection, verification gates, evidence trails — hard MCP tools plus CI exit
+  codes that cannot be quietly deprioritized.
+- Keep one source of truth per concern: point your `AGENTS.md` at this skill's
+  norms instead of copying them; the plugin updates and the norm stays binding.
 
 ## Why AgentSeed vs. alternatives
 

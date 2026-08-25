@@ -14,6 +14,8 @@
 
 **日本語** · [English](./README.md) · [中文](./README.zh.md)
 
+> 本リポジトリの**基準言語は英語**です（最も完全で最新）。日・中文版は主要内容の対訳です。
+
 ⭐ **役立つと思ったらスターをお願いします — 幻覚コードを出荷する前にガードレールを
 知る開発者を増やすことができます。**
 
@@ -261,6 +263,31 @@ claude mcp add agentseed -- python /path/to/AgentSeed/server/guard_server.py
    `sandbox_run` で実証；構造は `schema_validate` で検証。
 4. **言語監査** — 完了報告に証拠添付；誇大語彙は禁止。
 5. 全チェック通過時のみ完了とみなす。
+
+## 強制される規範（AI の制約方法）
+
+スキルは単なる「提案」ではありません —— 各規範は観測可能なゲートに対応します
+（完全な表は
+[`DEFAULT-NORMS.md`](./skills/verify-before-code/references/DEFAULT-NORMS.md)。
+出典は AGENTS.md オープン標準、Anthropic Claude Code 公式ベストプラクティス、
+FerroxLabs/agents-md 等のコミュニティ規律。違いはそこでは散文であり、ここでは
+各規範に実行ツールか終了コードが伴うこと）：
+
+| 規範 | 実行者 |
+| --- | --- |
+| 契約を先に、コードは後 | Gate 1 |
+| API の捏造・未定義シンボル禁止 | `verify_code` |
+| プレースホルダー禁止、実装のみ | `scan_hallucination` |
+| 主張の前に検証 | Gate 3 + `sandbox_run` |
+| 完了報告には証拠を添付 | Gate 4 + `record_verification` |
+
+## エージェント設定ファイルとの共存
+
+AgentSeed は既存の AI 設定ファイル（`CLAUDE.md` / `AGENTS.md` / `.cursor/rules/` /
+`.github/copilot-instructions.md`）を置き換えず補完します：それらは**プロジェクトの
+事実**（スタック・コマンド・構成）を担う「軟らかな」散文。AgentSeed は**行動契約と
+強制力** —— 幻覚検出・検証ゲート・証拠チェーンという、静かに無視できないハードな
+MCP ツールと CI 終了コードを担います。
 
 ## 比較
 

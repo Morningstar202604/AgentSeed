@@ -93,21 +93,21 @@
   },
   "README.md": {
    "fabricated|fabricated": 2,
-   "fabricated|invented": 3,
+   "fabricated|invented": 4,
    "oversold|all tests pass": 2,
    "oversold|production ready": 2,
    "oversold|trust me": 1,
    "stub_code|fake": 1,
    "stub_code|placeholder": 1,
-   "stub_code|stub": 2
+   "stub_code|stub": 3
   },
   "README.zh.md": {
-   "fabricated|编造": 4,
+   "fabricated|编造": 5,
    "fabricated|虚构": 2,
    "oversold|all tests pass": 2,
    "oversold|production ready": 2,
    "oversold|trust me": 1,
-   "stub_code|占位": 4
+   "stub_code|占位": 5
   },
   "scripts/bench_detection.py": {
    "fabricated|fabricated": 1,
@@ -290,6 +290,16 @@
    "stub_code|tbd": 1,
    "stub_code|todo": 1,
    "stub_code|占位": 1
+  },
+  "skills/verify-before-code/references/DEFAULT-NORMS.md": {
+   "fabricated|fabricated": 1,
+   "fabricated|invented": 3,
+   "stub_code|coming soon": 1,
+   "stub_code|dummy": 1,
+   "stub_code|fake": 2,
+   "stub_code|mock": 1,
+   "stub_code|placeholder": 2,
+   "stub_code|stub": 1
   },
   "skills/verify-before-code/references/HALLUCINATION-PATTERNS.ja.md": {
    "oversold|should work": 1
