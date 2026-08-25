@@ -1,33 +1,62 @@
 # AgentSeed installer - download the latest release and wire it into a client.
 #
 # Usage: .\install.ps1 [-Client claude|opencode|cursor|manual] [-Dir TARGET]
+#                      [-Sha256 HEX] [-Url ZIP_URL] [-Repo owner/name]
+#                      [-Forge github|gitcode]
 #
-# Layout after install:
-#   ~\.agentseed\AgentSeed\            full plugin (MCP server lives here)
-#   <client skill dir>\                flat skill copy (SKILL.md at top level)
-#
-# The installer prints the exact MCP registration step for your client.
+# -Url   : download a specific release zip directly (any host). Skips repo
+#          resolution entirely.
+# -Repo  : override the repository (default: weed33834/AgentSeed on GitHub,
+#          badhope/AgentSeed is the canonical GitCode home).
+# -Forge : which release API to query (default: github).
 param(
     [ValidateSet("auto", "claude", "opencode", "cursor", "manual")]
     [string]$Client = "auto",
-    [string]$Dir = ""
+    [string]$Dir = "",
+    [string]$Sha256 = "",
+    [string]$Url = "",
+    [ValidateSet("github", "gitcode")]
+    [string]$Forge = "github",
+    [string]$Repo = "weed33834/AgentSeed"
 )
 $ErrorActionPreference = "Stop"
 $repo = "weed33834/AgentSeed"
 
-Write-Host "==> resolving latest release of $repo"
-$rel = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/latest" `
-        -Headers @{ "User-Agent" = "agentseed-installer" }
-$asset = $rel.assets | Where-Object { $_.name -like "*.zip" } | Select-Object -First 1
-if (-not $asset) { throw "no .zip asset on the latest release" }
+if ($Url) {
+    $downloadUrl = $Url
+} elseif ($Forge -eq "gitcode") {
+    Write-Host "==> resolving latest GitCode release of $Repo"
+    # GitCode v5 API (Gitee-compatible); /releases/latest 400s when empty.
+    $rel = Invoke-RestMethod -Uri "https://api.gitcode.com/api/v5/repos/$Repo/releases?per_page=1" `
+            -Headers @{ "User-Agent" = "agentseed-installer" }
+    $asset = @($rel)[0].assets | Where-Object { $_.name -like "*.zip" } | Select-Object -First 1
+    if (-not $asset) { throw "no .zip asset on the latest GitCode release" }
+    $downloadUrl = $asset.browser_download_url
+} else {
+    Write-Host "==> resolving latest release of $Repo"
+    $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" `
+            -Headers @{ "User-Agent" = "agentseed-installer" }
+    $asset = $rel.assets | Where-Object { $_.name -like "*.zip" } | Select-Object -First 1
+    if (-not $asset) { throw "no .zip asset on the latest release" }
+    $downloadUrl = $asset.browser_download_url
+}
 
 $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("agentseed-" + [guid]::NewGuid())
 New-Item -ItemType Directory -Force -Path $tmp | Out-Null
 try {
-    Write-Host "==> downloading $($asset.browser_download_url)"
-    Invoke-WebRequest -Uri $asset.browser_download_url -OutFile "$tmp\agentseed.zip" `
+    Write-Host "==> downloading $downloadUrl"
+    Invoke-WebRequest -Uri $downloadUrl -OutFile "$tmp\agentseed.zip" `
         -Headers @{ "User-Agent" = "agentseed-installer" }
     Expand-Archive "$tmp\agentseed.zip" "$tmp\x" -Force
+    if ($Sha256) {
+        $got = (Get-FileHash -Algorithm SHA256 "$tmp\agentseed.zip").Hash.ToLower()
+        if ($got -ne $Sha256.ToLower()) {
+            throw "checksum mismatch: expected $Sha256, got $got"
+        }
+        Write-Host "==> checksum verified"
+    } else {
+        Write-Warning "no -Sha256 given; the archive is NOT integrity-checked. Pin a release checksum to protect against tampering."
+    }
     $src = Get-ChildItem "$tmp\x" -Recurse -Filter plugin.json |
         Select-Object -First 1 | ForEach-Object { $_.Directory.FullName }
     if (-not $src) { throw "plugin.json not found in archive" }

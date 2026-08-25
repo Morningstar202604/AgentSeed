@@ -7,6 +7,18 @@ import os
 
 CONFIG_FILENAME = "agentseed.config.json"
 _VALID_SEVERITIES = {"error", "warning", "info"}
+VALID_GROUPS = {"stub_code", "oversold", "fabricated"}
+
+# Every key load_config() understands; anything else is a likely typo and
+# callers should surface a warning (silently ignoring typos = silent no-op).
+KNOWN_CONFIG_KEYS = {
+    "allowlist",
+    "severities",
+    "timeout",
+    "extra_tokens",
+    "suppress_symbols",
+    "sandbox_allowed_prefixes",
+}
 
 
 def load_config(explicit_path: str | None = None) -> dict:
@@ -19,9 +31,13 @@ def load_config(explicit_path: str | None = None) -> dict:
       4. ``./agentseed.config.json`` in the current working directory.
 
     Recognized keys (all optional):
-      allowlist   : list[str] - scan exclusions (replaces DEFAULT_ALLOWLIST)
-      severities  : dict[str, str] - group -> error|warning|info
-      timeout     : int - default sandbox_run timeout in seconds
+      allowlist                : list[str] - scan exclusions (replaces DEFAULT_ALLOWLIST)
+      severities               : dict[str, str] - group -> error|warning|info
+      timeout                  : int - default sandbox_run timeout in seconds
+      extra_tokens             : dict[group, list[str]] - extra hallucination words
+      suppress_symbols         : list[str] - names verify_code never flags
+      sandbox_allowed_prefixes : list[str] - executable allowlist for sandbox_run
+                                                 (absent/empty = unrestricted)
 
     Returns {} when no config file exists or it cannot be parsed.
     """
@@ -73,3 +89,27 @@ def _parse_timeout(config: dict, default: int = 30) -> int:
         return int(config.get("timeout", default))
     except (TypeError, ValueError):
         return default
+
+
+def unknown_config_keys(config: dict) -> list[str]:
+    """Keys present in ``config`` that load_config() does not understand.
+
+    A typo'd key is silently ignored by every consumer — surfacing it turns
+    a silent no-op into an actionable warning.
+    """
+    if not isinstance(config, dict):
+        return []
+    return sorted(k for k in config if k not in KNOWN_CONFIG_KEYS)
+
+
+def _config_extra_tokens(config: dict) -> dict[str, list[str]] | None:
+    """Validate the extra_tokens mapping {group: [words]}, or None."""
+    value = config.get("extra_tokens")
+    if not isinstance(value, dict):
+        return None
+    out: dict[str, list[str]] = {}
+    for group, words in value.items():
+        if group in VALID_GROUPS and isinstance(words, list) and \
+                all(isinstance(w, str) and w for w in words) and words:
+            out[group] = words
+    return out or None

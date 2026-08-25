@@ -344,5 +344,50 @@ class TestConfig(unittest.TestCase):
             self.assertEqual(engine.load_config(bad), {})
 
 
+class TestSchemaDraft07Tuples(unittest.TestCase):
+    """draft-07 tuple 'items' must validate, not crash (regression)."""
+
+    def test_tuple_items_via_jsonschema_fallback(self):
+        from engine import schema as schema_mod
+        r = schema_mod.schema_validate(
+            [1, "a"], {"items": [{"type": "integer"}, {"type": "string"}]}
+        )
+        self.assertTrue(r["valid"], r)
+        self.assertNotIn("crashed", "".join(r["errors"]))
+
+    def test_bad_tuple_types_detected(self):
+        from engine import schema as schema_mod
+        r = schema_mod.schema_validate(
+            ["x", 1], {"items": [{"type": "integer"}, {"type": "string"}]}
+        )
+        self.assertFalse(r["valid"])
+        self.assertEqual(len(r["errors"]), 2)
+
+    def test_additional_items_false(self):
+        from engine import schema as schema_mod
+        r = schema_mod.schema_validate(
+            [1, "a", True],
+            {"items": [{"type": "integer"}, {"type": "string"}],
+             "additionalItems": False},
+        )
+        self.assertFalse(r["valid"])
+
+
+class TestMatchGuardsForOldPythons(unittest.TestCase):
+    """ast.Match* guards must keep 3.9 alive (no AttributeError)."""
+
+    def test_detection_runs_with_match_nodes_absent(self):
+        from engine import symbols as sym
+        saved = (sym._MATCH_AS, sym._MATCH_STAR, sym._MATCH_MAPPING)
+        sym._MATCH_AS = sym._MATCH_STAR = sym._MATCH_MAPPING = None
+        try:
+            r = sym.detect_undefined_symbols(
+                "match x:\n    case [a]:\n        f(a)\n"
+            )
+        finally:
+            sym._MATCH_AS, sym._MATCH_STAR, sym._MATCH_MAPPING = saved
+        self.assertIn("f", r["suspects"])  # no crash; real suspect still found
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

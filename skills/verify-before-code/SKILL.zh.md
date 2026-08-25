@@ -4,11 +4,11 @@ description: >-
   面向编程智能体的护栏。写码前加载 SDD 契约与提示池，随后调用 agentseed MCP
   服务器的 verify_code 与 scan_hallucination 工具；只有两者都通过且完成报告附
   带证据时，任务才可标记为完成。适用于智能体编写、修改或宣称完成代码的任何场景。
-license: MIT
+license: Apache-2.0
 compatibility: MCP 服务器要求 Python 3.9+。零必需依赖；可选增强（jsonschema、pyflakes、pyyaml），未安装自动回退。
 metadata:
   author: AgentSeed
-  version: "1.0.0"
+  version: "0.1.0"
   spec: agent-plugins-1.0.0
 ---
 

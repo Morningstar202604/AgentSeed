@@ -16,8 +16,8 @@ import re
 # than the hand-rolled AST walk. When unavailable, the zero-dep fallback applies.
 _HAS_PYFLAKES = False
 try:
-    from pyflakes.checker import Checker as _PyflakesChecker  # noqa: N811
-    from pyflakes.messages import UndefinedName as _UndefinedName
+    from pyflakes.checker import Checker as _PyflakesChecker  # noqa: N811, F401
+    from pyflakes.messages import UndefinedName as _UndefinedName  # noqa: F401
     _HAS_PYFLAKES = True
 except ImportError:  # pragma: no cover
     pass
@@ -142,17 +142,34 @@ def _detect_ts_undefined(source: str) -> tuple[list[str], str]:
     return _deduplicate(suspects), note
 
 
-def detect_undefined_symbols(source: str, language: str = "python") -> dict:
+# Match-statement node types exist only on Python 3.10+; resolve once so
+# older interpreters skip these branches instead of raising AttributeError.
+_MATCH_AS = getattr(ast, "MatchAs", None)
+_MATCH_STAR = getattr(ast, "MatchStar", None)
+_MATCH_MAPPING = getattr(ast, "MatchMapping", None)
+
+
+def detect_undefined_symbols(
+    source: str, language: str = "python", suppress: list[str] | None = None
+) -> dict:
     """Parse source and return symbols that look hallucinated
     (used/called but never defined or imported).
 
     Supports: python (AST), typescript/javascript (lexical regex pass).
+    ``suppress`` removes exact symbol names from the findings (config:
+    ``suppress_symbols``); suppressed names are reported separately so the
+    omission stays visible.
+
     Returns:
-        {"language": ..., "suspects": ["foo", "Bar"], "note": "..."}
+        {"language": ..., "suspects": ["foo", "Bar"],
+         "suspects_detail": [{"name": "foo", "line": 12}, ...],
+         "suppressed": ["bar"], "note": "..."}
     """
     if language in ("typescript", "ts", "javascript", "js"):
         suspects, note = _detect_ts_undefined(source)
-        return {"language": language, "suspects": suspects, "note": note}
+        return _apply_suppress(
+            {"language": language, "suspects": suspects, "note": note}, suppress
+        )
     if language != "python":
         return {
             "language": language,
@@ -192,6 +209,12 @@ def detect_undefined_symbols(source: str, language: str = "python") -> dict:
             defined.update(node.names)
         elif isinstance(node, ast.ExceptHandler) and node.name:
             defined.add(node.name)
+        elif _MATCH_AS is not None and isinstance(node, _MATCH_AS) and node.name:
+            defined.add(node.name)  # case pattern capture, py3.10+
+        elif _MATCH_STAR is not None and isinstance(node, _MATCH_STAR) and node.name:
+            defined.add(node.name)
+        elif _MATCH_MAPPING is not None and isinstance(node, _MATCH_MAPPING) and node.rest:
+            defined.add(node.rest)
 
     for node in ast.walk(tree):
         if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
@@ -199,18 +222,43 @@ def detect_undefined_symbols(source: str, language: str = "python") -> dict:
 
     defined |= imported
 
+    seen: set[str] = set()
     suspects: list[str] = []
+    detail: list[dict] = []
     for node in ast.walk(tree):
+        name = None
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
-            if node.func.id not in defined:
-                suspects.append(node.func.id)
+            name = node.func.id
         elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
-            if node.id not in defined:
-                suspects.append(node.id)
+            name = node.id
+        if name is not None and name not in defined and name not in seen:
+            seen.add(name)
+            suspects.append(name)
+            detail.append({"name": name, "line": getattr(node, "lineno", 0)})
 
-    return {
-        "language": "python",
-        "suspects": _deduplicate(suspects),
-        "note": "Static scope analysis only; no runtime; attribute calls "
-        "(foo.bar) are not expanded and may cause false negatives.",
-    }
+    return _apply_suppress(
+        {
+            "language": "python",
+            "suspects": suspects,
+            "suspects_detail": detail,
+            "note": "Static scope analysis only; no runtime; attribute calls "
+            "(foo.bar) are not expanded and may cause false negatives.",
+        },
+        suppress,
+    )
+
+
+def _apply_suppress(result: dict, suppress: list[str] | None) -> dict:
+    """Filter suppressed symbol names out of a detection result (visible)."""
+    if not suppress:
+        result.setdefault("suppressed", [])
+        return result
+    drop = {s for s in suppress if isinstance(s, str)}
+    kept = [s for s in result["suspects"] if s not in drop]
+    removed = [s for s in result["suspects"] if s in drop]
+    out = dict(result)
+    out["suspects"] = kept
+    out["suppressed"] = removed
+    if "suspects_detail" in out:
+        out["suspects_detail"] = [d for d in out["suspects_detail"] if d["name"] not in drop]
+    return out

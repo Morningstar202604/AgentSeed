@@ -1,0 +1,7 @@
+# AgentSeed lint baseline — error-class checks only, py3.9 compatible.
+line-length = 100
+target-version = "py39"
+extend-exclude = ["dist", "examples"]
+
+[lint]
+select = ["E4", "E7", "E9", "F", "W6"]

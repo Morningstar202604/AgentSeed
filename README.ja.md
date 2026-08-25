@@ -8,9 +8,8 @@
 （Skill + MCP サーバー）。仕様駆動開発を強制し、**コードが「完了」とマークされる前に
 検証**します — "Done, all tests pass" を主張ではなく観測事実にします。
 
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.3.0-blue)](https://gitcode.com/badhope/AgentSeed/releases)
-[![Agent Plugins](https://img.shields.io/badge/Agent%20Plugins-1.0.0-purple)](https://agent-plugins.org)
+[![License](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
+[![Version](https://img.shields.io/badge/version-0.1.0-blue)](https://gitcode.com/badhope/AgentSeed/releases)
 [![CI](https://gitcode.com/badhope/AgentSeed/actions/workflows/ci.yml/badge.svg)](https://gitcode.com/badhope/AgentSeed/actions)
 [![Platforms](https://img.shields.io/badge/platform-Cursor%20%7C%20VS%20Code%20%7C%20Claude%20Code%20%7C%20Copilot-blue)](https://agent-plugins.org)
 
@@ -46,7 +45,7 @@ LLM は幻覚します — コードでは**存在しない API、未定義の�
 
 ## 機能
 
-ゼロ依存の MCP ツール 5 つ：
+ゼロ依存の MCP ツール 6 つ：
 
 | ツール | ブロックするもの | 技術 |
 | --- | --- | --- |
@@ -55,6 +54,7 @@ LLM は幻覚します — コードでは**存在しない API、未定義の�
 | `check_plugin` | 不適合なプラグイン | 厳格 1.0.0 linter |
 | `sandbox_run` | 実行せずに「テスト合格」 | 決定的実行チャネル |
 | `schema_validate` | 不正な構造化出力 | JSON Schema 検証 |
+| `record_verification` | 証跡の永続化欠如 | `PLUGIN_DATA` 配下の JSONL に監査エントリを追記 |
 
 ## ライブデモ
 
@@ -96,8 +96,8 @@ git clone https://gitcode.com/badhope/AgentSeed.git
 スタンドアロンでの自己チェック：
 
 ```bash
-python3 server/guard_engine.py              # 適合性 + デモ
-python3 -m unittest discover -s server      # 50+ 個のユニットテスト
+python3 server/guard_engine.py              # 自己チェック: verify_code + scan_hallucination のデモ
+python3 -m unittest discover -s server      # 90+ 個のユニットテスト（CI は pytest も併用）
 ```
 
 > **Windows の注意：** `mcp.json` は `python3` でサーバーを起動します。多くの Windows
@@ -116,13 +116,16 @@ python3 -m unittest discover -s server      # 50+ 個のユニットテスト
 ### 1.2.0（要約）
 - **重要度レベル:** 各ヒットに `error`/`warning`/`info` を付与。既定では oversold/fabricated のみブロックし、TODO 系は warning へ。設定で再マップ可能。
 - **永続設定:** 仕様 §9.1 に従い `${PLUGIN_DATA}/agentseed.config.json` から allowlist・重要度マップ・サンドボックスタイムアウトを読み込み。
+- **拡張可能な語彙:** `extra_tokens` で幻覚トークン池を実行時に拡張（EN/CJ 組み込み）。未知の設定キーは stderr で警告され、決して黙視されない。
+- **シンボル抑制と行番号:** `verify_code` は `suspects_detail` の行番号を返し、`suppress_symbols` で既知の誤検知を除外（`suppressed` に表示）。
+- **実行ホワイトリスト:** `sandbox_allowed_prefixes` で `sandbox_run` の起動可能な実行ファイルを制限（未設定＝無制限）。⚠️ このツールは現在のユーザー権限で実際のプロセスを実行するため、クライアント側でのユーザー承認が必須。
 - **CLI:** `server/guard_cli.py` が `verify`/`scan`/`check --ci`/`sandbox` を提供。終了コードで人間の PR もゲート可能。
 - **Linter:** §7.2.1/§9.1 準拠 — サーバーエントリのクローズドバリアント検証、予約 env キー、リモート URL ルール。
 
 ## クライアント設定（正確なスニペット）
 
 AgentSeed は二つの要素で構成され、完全なゲートには両方が必要です：**スキル**（ワークフロー）と
-**MCP サーバー**（5 ツール）。インストーラーはスキルを配置し、MCP 登録手順を表示します。
+**MCP サーバー**（6 ツール）。インストーラーはスキルを配置し、MCP 登録手順を表示します。
 各クライアントの正確な設定は
 [README.md · Client setup](./README.md#client-setup--exact-configuration) を参照。
 
@@ -150,13 +153,13 @@ AgentSeed は二つの要素で構成され、完全なゲートには両方が�
 | | Anti-Hallucinate（mcpmarket） | superpowers | **AgentSeed** |
 | --- | --- | --- | --- |
 | コードに触れる | ❌ チャットのみ | プロンプトのみ | ✅ AST 解析 |
-| ツール実行 | ❌ | ❌ | ✅ MCP ツール 5 種 |
+| ツール実行 | ❌ | ❌ | ✅ MCP ツール 6 種 |
 | 強制 | 弱い | 弱い | **ハードゲート** |
 | 1.0.0 linter | ❌ | ❌ | ✅ 初 |
 
 ## ロードマップ
 
-- [x] ハイブリッド Skill + MCP、5 ツール — 初の厳格 1.0.0 linter
+- [x] ハイブリッド Skill + MCP、6 ツール — 初の厳格 1.0.0 linter
 - [x] プロンプトプール + パターンライブラリ + グループ信号 + ベンダー技術
 - [x] `verify_code` を TypeScript / JavaScript に拡張（ゼロ依存語彙パス）
 - [ ] `verify_code` を Go に拡張
@@ -180,7 +183,7 @@ Issue・PR・アイデア歓迎。方向性は[ロードマップ](#ロードマ
 
 ## ライセンス
 
-MIT © AgentSeed。[LICENSE](./LICENSE) を参照。
+Apache-2.0 © AgentSeed。[LICENSE](./LICENSE) を参照。
 
 ---
 

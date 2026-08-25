@@ -14,7 +14,7 @@
 const { spawn } = require("child_process");
 const path = require("path");
 
-const py = process.env.PYTHON || "python3";
+const py = process.env.PYTHON || (process.platform === "win32" ? "python" : "python3");
 const server = path.join(__dirname, "..", "server", "guard_server.py");
 
 const child = spawn(py, [server], { stdio: "inherit" });

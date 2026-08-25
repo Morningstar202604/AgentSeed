@@ -6,9 +6,8 @@
 
 基于 [Agent Plugins 1.0.0](https://agent-plugins.org) 规范的混合插件（Skill + MCP 服务器）：强制规范驱动开发，**在代码被标记为"完成"之前先验证**——让 "Done, all tests pass" 变成可观测的事实，而不是一句空话。
 
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.3.0-blue)](https://gitcode.com/badhope/AgentSeed/releases)
-[![Agent Plugins](https://img.shields.io/badge/Agent%20Plugins-1.0.0-purple)](https://agent-plugins.org)
+[![License](https://img.shields.io/badge/license-Apache_2.0-green)](LICENSE)
+[![Version](https://img.shields.io/badge/version-0.1.0-blue)](https://gitcode.com/badhope/AgentSeed/releases)
 [![CI](https://gitcode.com/badhope/AgentSeed/actions/workflows/ci.yml/badge.svg)](https://gitcode.com/badhope/AgentSeed/actions)
 [![Platforms](https://img.shields.io/badge/platform-Cursor%20%7C%20VS%20Code%20%7C%20Claude%20Code%20%7C%20Copilot-blue)](https://agent-plugins.org)
 
@@ -39,7 +38,7 @@
 
 ## 它能做什么
 
-五个 MCP 工具——零*必需*依赖，可选增强：
+六个 MCP 工具——零*必需*依赖，可选增强：
 
 | 工具 | 拦截什么 | 技术 |
 | --- | --- | --- |
@@ -48,6 +47,7 @@
 | `check_plugin` | 不合规的插件打包 | 严格 1.0.0 linter |
 | `sandbox_run` | 什么都没跑就说"测试通过" | 确定性执行通道 |
 | `schema_validate` | 不合法的结构化输出 | JSON Schema 校验 |
+| `record_verification` | 没有持久化证据链 | 向 `PLUGIN_DATA` 下的 JSONL 追加一条审计记录 |
 
 ## 实机演示
 
@@ -69,7 +69,7 @@ $ scan_hallucination(source="The feature is production ready, all tests pass. Tr
 }
 
 $ check_plugin(path="/path/to/AgentSeed")
-{ "ok": true, "errors": [], "warnings": [] }   # ← 严格 1.0.0 合规
+{ "ok": true, "errors": [], "warnings": [] }   # ← 严格合规
 ```
 
 ## 快速开始
@@ -79,15 +79,15 @@ git clone https://gitcode.com/badhope/AgentSeed.git
 # 或：https://gitcode.com/badhope/AgentSeed · https://gitee.com/badhope/AgentSeed
 ```
 
-1. 把 `AgentSeed/` 目录丢进任何支持 Agent Plugins 1.0.0 的客户端（Cursor、VS Code、Claude Code、Copilot……）。无需构建、无需安装；核心零依赖（可选增强见下文）。
+1. 把 `AgentSeed/` 目录丢进任何支持 Agent Plugins 的客户端（Cursor、VS Code、Claude Code、Copilot……）。无需构建、无需安装；核心零依赖（可选增强见下文）。
 2. 客户端从 `plugin.json` + `mcp.json` 自动发现 `verify-before-code` 技能和 `agentseed` MCP 服务器。
 3. **完事。** 技能从此给每个编程任务上锁：契约 → 实现 → 验证 → 证据。
 
 想独立自测：
 
 ```bash
-python3 server/guard_engine.py              # 一致性 + 演示
-python3 -m unittest discover -s server      # 50+ 个单元测试
+python3 server/guard_engine.py              # 自检：演示 verify_code + scan_hallucination
+python3 -m unittest discover -s server      # 90+ 个单元测试（CI 中亦用 pytest）
 ```
 
 > **Windows 提示：** `mcp.json` 通过 `python3` 启动服务器。很多 Windows 环境下该别名是
@@ -105,12 +105,15 @@ python3 -m unittest discover -s server      # 50+ 个单元测试
 ### 1.2.0（摘要）
 - **扫描分级**：命中带 `error`/`warning`/`info` 严重级别，默认只有 oversold/fabricated 阻断，TODO 类降为 warning；可通过配置重映射。
 - **持久配置**：按规范 §9.1 从 `${PLUGIN_DATA}/agentseed.config.json` 读取 allowlist、严重级别映射与沙箱超时。
+- **可扩展词库**：`extra_tokens` 运行时扩充幻觉词池（内置中英双语 token）；未知配置键会在 stderr 告警，绝不静默忽略。
+- **符号抑制与定位**：`verify_code` 输出 `suspects_detail` 行号；`suppress_symbols` 可排除已知误报（仍回显在 `suppressed`）。
+- **执行白名单**：`sandbox_allowed_prefixes` 限定 `sandbox_run` 可启动的可执行文件（缺省不限）。⚠️ 该工具以当前用户权限执行真实进程，客户端必须经用户批准后调用。
 - **CLI**：`server/guard_cli.py` 提供 `verify`/`scan`/`check --ci`/`sandbox`，退出码可直接卡人类 PR。
 - **Linter 对齐 §7.2.1/§9.1**：服务端条目封闭变体校验、保留 env 键、远程 URL 规则。
 
 ## 客户端配置（确切片段）
 
-AgentSeed 有两半，完整闸门两者都要装：**技能**（工作流）+ **MCP 服务器**（5 个工具）。
+AgentSeed 有两半，完整闸门两者都要装：**技能**（工作流）+ **MCP 服务器**（6 个工具）。
 安装器会装好技能并打印你所用客户端的 MCP 注册命令；各客户端的确切配置片段见
 [README.md · Client setup](./README.md#client-setup--exact-configuration)。
 
@@ -137,13 +140,13 @@ AgentSeed 有两半，完整闸门两者都要装：**技能**（工作流）+ *
 | | Anti-Hallucinate（mcpmarket） | superpowers | **AgentSeed** |
 | --- | --- | --- | --- |
 | 碰代码 | ❌ 仅聊天 | 仅 prompt | ✅ AST 分析 |
-| 跑工具 | ❌ | ❌ | ✅ 5 个 MCP 工具 |
+| 跑工具 | ❌ | ❌ | ✅ 6 个 MCP 工具 |
 | 强制 | 软 | 软 | **硬闸门** |
 | 1.0.0 linter | ❌ | ❌ | ✅ 首个 |
 
 ## 路线图
 
-- [x] 混合 Skill + MCP 护栏，5 个工具 —— 首个严格 1.0.0 linter
+- [x] 混合 Skill + MCP 护栏，6 个工具 —— 首个严格 1.0.0 linter
 - [x] 提示池 + 模式库 + 分组信号 + 厂商技术引进
 - [x] `verify_code` 支持 TypeScript / JavaScript（零依赖词法分析）
 - [ ] `verify_code` 支持 Go
@@ -156,7 +159,7 @@ AgentSeed 有两半，完整闸门两者都要装：**技能**（工作流）+ *
 
 **零依赖？** 核心零依赖——不装任何包也能完整运行。可选安装 `server/requirements.txt`（jsonschema / pyflakes / pyyaml）后，`schema_validate` 升级为完整 Draft 2020-12 校验、`verify_code` 获得 pyflakes 分析、frontmatter 解析支持完整 YAML；未安装时自动回退到内置实现。
 
-**符合规范吗？** `check_plugin` 按 1.0.0 §5/§6/§7 校验插件——而 AgentSeed 通过了它自己的 linter（`ok: true`）。
+**符合规范吗？** `check_plugin` 按规范 §5/§6/§7 校验插件——而 AgentSeed 通过了它自己的 linter（`ok: true`）。
 
 ## 贡献
 
@@ -164,7 +167,7 @@ AgentSeed 有两半，完整闸门两者都要装：**技能**（工作流）+ *
 
 ## 许可证
 
-MIT © AgentSeed。见 [LICENSE](./LICENSE)。
+Apache-2.0 © AgentSeed。见 [LICENSE](./LICENSE)。
 
 ---
 

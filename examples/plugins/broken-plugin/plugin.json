@@ -1,0 +1,8 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "Broken-Demo",
+  "version": "1.0.0",
+  "description": "Intentionally NON-conformant fixture (bad name + unknown field).",
+  "license": "Apache-2.0",
+  "privateExtra": "not allowed by the closed schema"
+}

@@ -8,8 +8,15 @@ import unittest
 
 SERVER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "guard_server.py")
 
+# plugin.json is the single source of truth for the server version
+# (guard_server reads it via engine.plugin_version at startup).
+with open(os.path.join(os.path.dirname(SERVER), "..", "plugin.json"), encoding="utf-8") as _fh:
+    EXPECTED_VERSION = json.load(_fh)["version"]
+
 
 class TestServerProtocol(unittest.TestCase):
+    proc: subprocess.Popen
+
     @classmethod
     def setUpClass(cls):
         cls.proc = subprocess.Popen(
@@ -22,9 +29,22 @@ class TestServerProtocol(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        if cls.proc.poll() is None:
-            cls.proc.stdin.close()
-            cls.proc.wait(timeout=10)
+        proc = cls.proc
+        if proc.poll() is None:
+            # close stdin first so the server's line-read loop hits EOF and exits
+            try:
+                proc.stdin.close()
+            except OSError:
+                pass
+            try:
+                proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+        # always release the pipe handles; otherwise ResourceWarning fires on GC
+        for _pipe in (proc.stdin, proc.stdout, proc.stderr):
+            if _pipe is not None and not _pipe.closed:
+                _pipe.close()
 
     def _rpc(self, payload: dict) -> dict:
         self.proc.stdin.write(json.dumps(payload) + "\n")
@@ -34,9 +54,37 @@ class TestServerProtocol(unittest.TestCase):
         return json.loads(line)
 
     def test_initialize_reports_version(self):
-        r = self._rpc({"jsonrpc": "2.0", "id": 1, "method": "initialize",
-                       "params": {"protocolVersion": "2024-11-05", "capabilities": {}}})
-        self.assertEqual(r["result"]["serverInfo"]["version"], "1.3.3")
+        r = self._rpc(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {"protocolVersion": "2024-11-05", "capabilities": {}},
+            }
+        )
+        self.assertEqual(r["result"]["serverInfo"]["version"], EXPECTED_VERSION)
+
+    def test_initialize_echoes_supported_protocol(self):
+        r = self._rpc(
+            {
+                "jsonrpc": "2.0",
+                "id": 6,
+                "method": "initialize",
+                "params": {"protocolVersion": "2025-06-18"},
+            }
+        )
+        self.assertEqual(r["result"]["protocolVersion"], "2025-06-18")
+
+    def test_initialize_falls_back_on_unknown_protocol(self):
+        r = self._rpc(
+            {
+                "jsonrpc": "2.0",
+                "id": 7,
+                "method": "initialize",
+                "params": {"protocolVersion": "1999-01-01"},
+            }
+        )
+        self.assertEqual(r["result"]["protocolVersion"], "2024-11-05")
 
     def test_ping_returns_empty_result(self):
         r = self._rpc({"jsonrpc": "2.0", "id": 2, "method": "ping"})
@@ -50,13 +98,114 @@ class TestServerProtocol(unittest.TestCase):
     def test_tools_list_and_call(self):
         r = self._rpc({"jsonrpc": "2.0", "id": 4, "method": "tools/list"})
         names = {t["name"] for t in r["result"]["tools"]}
-        self.assertEqual(names, {"verify_code", "scan_hallucination",
-                                 "check_plugin", "sandbox_run", "schema_validate"})
-        r = self._rpc({"jsonrpc": "2.0", "id": 5, "method": "tools/call",
-                       "params": {"name": "scan_hallucination",
-                                  "arguments": {"source": "from unittest.mock import Mock\n"}}})
+        self.assertEqual(
+            names,
+            {
+                "verify_code",
+                "scan_hallucination",
+                "check_plugin",
+                "sandbox_run",
+                "schema_validate",
+                "record_verification",
+            },
+        )
+        r = self._rpc(
+            {
+                "jsonrpc": "2.0",
+                "id": 5,
+                "method": "tools/call",
+                "params": {
+                    "name": "scan_hallucination",
+                    "arguments": {"source": "from unittest.mock import Mock\n"},
+                },
+            }
+        )
         result = json.loads(r["result"]["content"][0]["text"])
         self.assertTrue(result["clean"])
+
+    def test_record_verification_via_protocol(self):
+        r = self._rpc(
+            {
+                "jsonrpc": "2.0",
+                "id": 12,
+                "method": "tools/call",
+                "params": {
+                    "name": "record_verification",
+                    "arguments": {
+                        "task": "protocol test",
+                        "checks": [{"tool": "manual", "status": "pass"}],
+                    },
+                },
+            }
+        )
+        result = json.loads(r["result"]["content"][0]["text"])
+        # server writes into its own PLUGIN_DATA; ok flag is what matters
+        self.assertTrue(result["ok"], result)
+
+    def test_async_sandbox_completes_normally(self):
+        # Regression guard for the Windows stdin-inheritance deadlock:
+        # spawned children must complete, never stall to their timeout.
+        r = self._rpc(
+            {
+                "jsonrpc": "2.0",
+                "id": 20,
+                "method": "tools/call",
+                "params": {
+                    "name": "sandbox_run",
+                    "arguments": {
+                        "command": [sys.executable, "-c", "print('async-ok')"],
+                        "timeout": 15,
+                    },
+                },
+            }
+        )
+        result = json.loads(r["result"]["content"][0]["text"])
+        self.assertEqual(result["exit_code"], 0, result)
+        self.assertFalse(result["timed_out"])
+        self.assertIn("async-ok", result["stdout"])
+
+    def test_sandbox_run_is_cancellable(self):
+        # start a long sleep, cancel it, verify: no result frame for id 9,
+        # and the session stays alive afterwards.
+        self.proc.stdin.write(
+            json.dumps(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 9,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "sandbox_run",
+                        "arguments": {
+                            "command": [sys.executable, "-c", "import time; time.sleep(20)"],
+                            "timeout": 30,
+                        },
+                    },
+                }
+            )
+            + "\n"
+        )
+        self.proc.stdin.flush()
+        import time as _t
+
+        _t.sleep(0.6)  # let the child actually spawn
+        self.proc.stdin.write(
+            json.dumps(
+                {"jsonrpc": "2.0", "method": "notifications/cancelled", "params": {"requestId": 9}}
+            )
+            + "\n"
+        )
+        self.proc.stdin.flush()
+        # FIFO discipline: if the worker wrongly emitted a result for the
+        # cancelled id 9, it MUST appear before this ping's reply.
+        r = self._rpc({"jsonrpc": "2.0", "id": 10, "method": "ping"})
+        self.assertEqual(r["id"], 10)
+        import time as _t
+
+        _t.sleep(1.0)
+        r = self._rpc({"jsonrpc": "2.0", "id": 11, "method": "ping"})
+        self.assertEqual(
+            r["id"], 11, "unexpected late frame for cancelled request leaked into the stream"
+        )
 
 
 if __name__ == "__main__":

@@ -6,11 +6,11 @@ description: >-
   scan_hallucination tools; a task may only be marked complete when both pass
   and the completion report attaches evidence. Use whenever the agent writes,
   edits, or claims completion of code.
-license: MIT
+license: Apache-2.0
 compatibility: Requires Python 3.9+ for the MCP server. Zero required dependencies; optional extras (jsonschema, pyflakes, pyyaml) upgrade analysis engines with automatic fallback.
 metadata:
   author: AgentSeed
-  version: "1.0.0"
+  version: "0.1.0"
   spec: agent-plugins-1.0.0
 ---
 

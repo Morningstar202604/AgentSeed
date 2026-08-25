@@ -1,0 +1,9 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "good-demo",
+  "version": "1.0.0",
+  "description": "Conformant example plugin used as a check_plugin fixture.",
+  "author": { "name": "AgentSeed" },
+  "license": "Apache-2.0",
+  "keywords": ["example", "fixture"]
+}

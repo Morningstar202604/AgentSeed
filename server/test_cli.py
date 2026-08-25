@@ -62,6 +62,23 @@ class TestCli(unittest.TestCase):
         r = run_cli("sandbox", "--", PY, "-c", "raise SystemExit(3)")
         self.assertEqual(r.returncode, 3)
 
+    def test_sandbox_missing_command_is_failure_not_pass(self):
+        r = run_cli("sandbox", "--", "definitely-not-a-real-cmd-xyz")
+        self.assertEqual(r.returncode, 1, r.stdout)
+
+    def test_verify_directory_gives_clean_error(self):
+        r = run_cli("verify", PLUGIN_ROOT)  # a directory
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("directory", r.stderr)
+
+    def test_scan_string_allowlist_does_not_suppress_all(self):
+        sys.path.insert(0, HERE)
+        from guard_engine import scan_hallucination_words  # type: ignore
+        # "tx": per-character iteration (the old bug) would see 't' and
+        # suppress the hit; the coerced whole-string "tx" must not.
+        r = scan_hallucination_words("x = todo()", allowlist="tx")
+        self.assertEqual(len(r["hits"]), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

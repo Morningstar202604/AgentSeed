@@ -1,13 +1,13 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "agentseed",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Guardrails for coding agents: a hybrid Agent Plugin (Skill + MCP Server) that forces spec-driven development and blocks hallucinated code before it is marked done. Built to the Agent Plugins 1.0.0 spec.",
   "author": {
     "name": "AgentSeed",
     "url": "https://gitcode.com/badhope/AgentSeed"
   },
-  "license": "MIT",
+  "license": "Apache-2.0",
   "keywords": [
     "guardrail",
     "anti-hallucination",

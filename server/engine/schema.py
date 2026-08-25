@@ -49,9 +49,13 @@ def schema_validate(instance, schema: dict) -> dict:
             }
         except _ValidationError as exc:
             return {"valid": False, "errors": [exc.message], "validator": "jsonschema"}
-        except Exception as exc:  # noqa: BLE001
-            return {"valid": False, "errors": [f"validation crashed: {exc}"],
-                    "validator": "jsonschema"}
+        except Exception:  # noqa: BLE001
+            # Draft 2020-12 rejects some valid draft-07 schemas (e.g. tuple
+            # "items" arrays) — sometimes as SchemaError, sometimes as raw
+            # AttributeErrors mid-walk depending on library version. Degrade
+            # to the builtin subset (which understands those keywords) instead
+            # of reporting an opaque crash.
+            pass
 
     errors: list[str] = []
     try:
@@ -119,7 +123,22 @@ def _validate_subset(instance, schema: dict, path: str, errors: list[str]) -> No
             errors.append(f"{path}: fewer than minItems {schema['minItems']}")
         if "maxItems" in schema and len(instance) > schema["maxItems"]:
             errors.append(f"{path}: more than maxItems {schema['maxItems']}")
-        if "items" in schema:
+        items = schema.get("items")
+        if isinstance(items, list):
+            # draft-07 tuple form: positional schemas; extras governed by
+            # additionalItems (default: allowed).
+            for idx, sub in enumerate(items):
+                if idx < len(instance):
+                    _validate_subset(instance[idx], sub, f"{path}[{idx}]", errors)
+            extra = len(instance) - len(items)
+            if extra > 0:
+                addl = schema.get("additionalItems")
+                if addl is False:
+                    errors.append(f"{path}: {extra} additional item(s) not allowed")
+                elif isinstance(addl, dict):
+                    for j in range(len(items), len(instance)):
+                        _validate_subset(instance[j], addl, f"{path}[{j}]", errors)
+        elif "items" in schema:
             for idx, item in enumerate(instance):
                 _validate_subset(item, schema["items"], f"{path}[{idx}]", errors)
     if isinstance(instance, dict):
@@ -130,7 +149,8 @@ def _validate_subset(instance, schema: dict, path: str, errors: list[str]) -> No
         for req in schema.get("required", []):
             if req not in instance:
                 errors.append(f"{path}: missing required property '{req}'")
-        if schema.get("additionalProperties") is False and "properties" in schema:
+        if schema.get("additionalProperties") is False:
+            allowed = schema.get("properties", {})
             for key in instance:
-                if key not in schema["properties"]:
+                if key not in allowed:
                     errors.append(f"{path}: unexpected property '{key}'")

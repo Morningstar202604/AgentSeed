@@ -4,11 +4,10 @@
 
 **Anti-hallucination guardrails for AI coding agents.**
 
-A hybrid [Agent Plugins 1.0.0](https://agent-plugins.org) plugin (Skill + MCP Server) that forces spec-driven development and **verifies code before it is marked done** — so "Done, all tests pass" becomes an observed fact, not a claim.
+A hybrid [Agent Plugins](https://agent-plugins.org) plugin (Skill + MCP Server) that forces spec-driven development and **verifies code before it is marked done** — so "Done, all tests pass" becomes an observed fact, not a claim.
 
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.3.0-blue)](https://gitcode.com/badhope/AgentSeed/releases)
-[![Agent Plugins](https://img.shields.io/badge/Agent%20Plugins-1.0.0-purple)](https://agent-plugins.org)
+[![License](https://img.shields.io/badge/license-Apache_2.0-green)](LICENSE)
+[![Version](https://img.shields.io/badge/version-0.1.0-blue)](https://gitcode.com/badhope/AgentSeed/releases)
 [![CI](https://gitcode.com/badhope/AgentSeed/actions/workflows/ci.yml/badge.svg)](https://gitcode.com/badhope/AgentSeed/actions)
 [![Platforms](https://img.shields.io/badge/platform-Cursor%20%7C%20VS%20Code%20%7C%20Claude%20Code%20%7C%20Copilot-blue)](https://agent-plugins.org)
 
@@ -39,7 +38,7 @@ It also fills two gaps the 1.0.0 spec deliberately leaves open:
 
 ## What it does
 
-Five MCP tools — zero *required* dependencies, enhanced by optional extras:
+Six MCP tools — zero *required* dependencies, enhanced by optional extras:
 
 | Tool | Catches | Technique |
 | --- | --- | --- |
@@ -48,6 +47,7 @@ Five MCP tools — zero *required* dependencies, enhanced by optional extras:
 | `check_plugin` | Non-conformant plugin packaging | Strict 1.0.0 linter |
 | `sandbox_run` | "Tests pass" without running anything | Deterministic execution channel |
 | `schema_validate` | Invalid structured output | JSON Schema validation |
+| `record_verification` | No persistent evidence trail | Appends a JSONL audit entry under `PLUGIN_DATA` |
 
 ## Live demo
 
@@ -91,15 +91,15 @@ git clone https://gitcode.com/badhope/AgentSeed.git
 # or: https://gitcode.com/badhope/AgentSeed · https://gitee.com/badhope/AgentSeed
 ```
 
-1. **Drop** the `AgentSeed/` directory into any client that supports Agent Plugins 1.0.0 (Cursor, VS Code, Claude Code, Copilot…). No build, no install; zero required dependencies (optional extras below).
+1. **Drop** the `AgentSeed/` directory into any client that supports Agent Plugins (Cursor, VS Code, Claude Code, Copilot…). No build, no install; zero required dependencies (optional extras below).
 2. The client auto-discovers the `verify-before-code` skill and the `agentseed` MCP server from `plugin.json` + `mcp.json`.
 3. **That's it.** The skill now gates every coding task: contract → implement → verify → evidence.
 
 Run it standalone for a self-check:
 
 ```bash
-python3 server/guard_engine.py              # conformance + demos
-python3 -m unittest discover -s server      # 50+ unit tests
+python3 server/guard_engine.py              # self-check: demo verify_code + scan_hallucination
+python3 -m unittest discover -s server      # 90+ unit tests (also: `pytest` in CI)
 ```
 
 Gate a human PR with the same rules (CI mode):
@@ -140,8 +140,8 @@ AgentSeed adapts to whatever the host supports, degrading one level at a time
 
 | Host capability | What you get | Setup |
 | --- | --- | --- |
-| Full Agent Plugins 1.0.0 | drop-in: skill + MCP auto-discovered, `${PLUGIN_DATA}` config honored | copy the plugin directory |
-| MCP-capable client | all 5 tools via registration | exact snippets above |
+| Full Agent Plugins | drop-in: skill + MCP auto-discovered, `${PLUGIN_DATA}` config honored | copy the plugin directory |
+| MCP-capable client | all 6 tools via registration | exact snippets above |
 | Skills-only client | skill workflow; **verification degrades to `guard_cli.py` via shell** (the skill contains the fallback instructions) | copy `skills/verify-before-code` flat |
 | Plain terminal / CI / no agent at all | CLI gates with exit codes | `python server/guard_cli.py check . --ci` |
 
@@ -164,14 +164,40 @@ have not run AgentSeed in these clients ourselves. Verified = actually exercised
 by the maintainers. If you verify one, open a PR updating this table.
 
 Clients honoring the full spec also set `${PLUGIN_DATA}`; AgentSeed reads
-`agentseed.config.json` from there (allowlist, severity map, sandbox timeout).
+`agentseed.config.json` from there.
+
+### Configuration reference (`agentseed.config.json`)
+
+| Key | Type | Effect |
+| --- | --- | --- |
+| `allowlist` | `string[]` | scan exclusions (replaces built-in test-idiom list) |
+| `severities` | `{group: error\|warning\|info}` | per-group severity override |
+| `timeout` | `int` | default `sandbox_run` timeout, seconds (clamped 1–120) |
+| `extra_tokens` | `{group: string[]}` | extend the hallucination word pool at runtime |
+| `suppress_symbols` | `string[]` | names `verify_code` never flags (reported in `suppressed`) |
+| `sandbox_allowed_prefixes` | `string[]` | **allowlist of executables** `sandbox_run` may launch (absent = unrestricted) |
+
+Unknown keys are warned about on stderr — a typo'd key is never silently
+ignored.
+
+### Language coverage (honest scope)
+
+| Language | `verify_code` analysis |
+| --- | --- |
+| Python | full AST scope walk (+ pyflakes when installed), line numbers |
+| TypeScript / JavaScript | lexical regex pass (documented false-positive classes) |
+| Go / Java / Rust / C/C++ / others | **not analyzed yet** — returns an empty result |
+
+> ⚠️ **Security note**: `sandbox_run` executes real processes with your user's
+> permissions. Clients must gate it behind user approval; set
+> `sandbox_allowed_prefixes` in shared/CI environments.
 
 ## Client setup — exact configuration
 
 AgentSeed has two halves; both are needed for the full gate:
 
 1. **Skill** (`skills/verify-before-code/`) — teaches the agent the workflow.
-2. **MCP server** (`server/guard_server.py`) — provides the 5 tools.
+2. **MCP server** (`server/guard_server.py`) — provides the 6 tools.
 
 The installers wire step 1 and print step 2 for your client. Manual setup:
 
@@ -233,13 +259,13 @@ See [CHANGELOG.md](./CHANGELOG.md).
 | | Anti-Hallucinate (mcpmarket) | superpowers | **AgentSeed** |
 | --- | --- | --- | --- |
 | Touches code | ❌ chat-only | prompt-only | ✅ AST analysis |
-| Runs tools | ❌ | ❌ | ✅ 5 MCP tools |
+| Runs tools | ❌ | ❌ | ✅ 6 MCP tools |
 | Enforcement | soft | soft | **hard gate** |
 | 1.0.0 conformance linter | ❌ | ❌ | ✅ first |
 
 ## Roadmap
 
-- [x] Hybrid Skill + MCP guardrail, 5 tools — first strict 1.0.0 linter
+- [x] Hybrid Skill + MCP guardrail, 6 tools — first strict 1.0.0 linter
 - [x] Prompt pool + pattern library + grouped signals + vendor techniques
 - [x] `verify_code` for TypeScript / JavaScript (zero-dependency lexical pass)
 - [ ] `verify_code` for Go
@@ -252,7 +278,7 @@ See [CHANGELOG.md](./CHANGELOG.md).
 
 **Zero dependencies?** Yes. The entire MCP server is pure Python standard library.
 
-**Conformant?** `check_plugin` validates the plugin against 1.0.0 §5/§6/§7 — and AgentSeed passes its own linter (`ok: true`).
+**Conformant?** `check_plugin` validates the plugin against the spec (§5/§6/§7) — and AgentSeed passes its own linter (`ok: true`).
 
 ## Contributing
 
@@ -260,7 +286,7 @@ Issues, PRs and ideas welcome. See the [roadmap](#roadmap) for directions — or
 
 ## License
 
-MIT © AgentSeed. See [LICENSE](./LICENSE).
+Apache-2.0 © AgentSeed. See [LICENSE](./LICENSE).
 
 ---
 

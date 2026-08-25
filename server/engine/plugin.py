@@ -10,7 +10,6 @@ import ipaddress
 import json
 import os
 import re
-from urllib.parse import urlsplit
 
 # ---------------------------------------------------------------------------
 # Agent Plugins 1.0.0 conformance constants
@@ -35,8 +34,8 @@ def _check_plugin_name(name: str) -> list[str]:
         errs.append(f"plugin.json 'name' length {len(name)} not in 1..64")
     if not _PLUGIN_NAME_RE.match(name):
         errs.append(
-            "plugin.json 'name' must be lowercase alphanumeric with - and . "
-            "only, start and end alphanumeric, no '--' or '..'"
+            f"plugin.json 'name' ({name!r}) must be lowercase alphanumeric "
+            "with - and . only, start and end alphanumeric, no '--' or '..'"
         )
     if "--" in name:
         errs.append("plugin.json 'name' must not contain consecutive hyphens '--'")
@@ -123,6 +122,7 @@ def _check_skill_dir(skill_root: str, entry: str) -> list[str]:
     errs: list[str] = []
     skill_md = os.path.join(skill_root, entry, "SKILL.md")
     if not os.path.isfile(skill_md):
+        errs.append(f"skills/{entry}/ missing required SKILL.md")
         return errs
     fm = _parse_frontmatter(skill_md)
     name = fm.get("name", "")
@@ -192,7 +192,8 @@ def _check_mcp_servers(m: dict, errors: list[str]) -> None:
                 errors.append(f"mcp.json server '{sname}' (stdio) missing required 'command'")
             elif not isinstance(command, str):
                 errors.append(f"mcp.json server '{sname}' 'command' must be a string")
-            elif not ("./" in command.split("/")[0:1] or re.fullmatch(r"[A-Za-z0-9._\-]+", command)):
+            elif not (command.startswith("./")
+                      or re.fullmatch(r"[A-Za-z0-9._\-]+", command)):
                 errors.append(
                     f"mcp.json server '{sname}' 'command' must be a single "
                     "executable token or a plugin-relative './...' path"
