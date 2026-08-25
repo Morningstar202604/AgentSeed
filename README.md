@@ -153,7 +153,7 @@ apply the same blocking rules to exit codes.
 | Client | Agent Plugins 1.0.0 | Status | Notes |
 | --- | --- | --- | --- |
 | Claude Code | skills + MCP config | verified | skills via `~/.claude/skills`, server via `claude mcp add` |
-| opencode | skills + MCP config | verified | `~/.config/opencode/opencode.json`, see docs |
+| opencode | skills + MCP config | verified | `~/.config/opencode/opencode.json` — exact snippet below |
 | Cursor | skills + mcp.json | untested* | copy into project; no stable plugin dir yet |
 | VS Code (+Copilot) | MCP support rolling out | untested* | use mcp.json fields as-is |
 | Cline / Windsurf | MCP config compatible | untested* | stdio server entry maps directly |
@@ -174,7 +174,7 @@ Clients honoring the full spec also set `${PLUGIN_DATA}`; AgentSeed reads
 | `timeout` | `int` | default `sandbox_run` timeout, seconds (clamped 1–120) |
 | `extra_tokens` | `{group: string[]}` | extend the hallucination word pool at runtime |
 | `suppress_symbols` | `string[]` | names `verify_code` never flags (reported in `suppressed`) |
-| `sandbox_allowed_prefixes` | `string[]` | **allowlist of executables** `sandbox_run` may launch (absent = unrestricted) |
+| `sandbox_allowed_prefixes` | `string[]` | **allowlist of executables** `sandbox_run` may launch (absent = unrestricted). Entries without a path separator match the command's PATH-resolved basename (`python` also accepts `python.exe`); entries WITH a separator must equal or be a directory-prefix of the resolved absolute path (separator boundary enforced) |
 
 Unknown keys are warned about on stderr — a typo'd key is never silently
 ignored.
@@ -189,7 +189,11 @@ ignored.
 
 > ⚠️ **Security note**: `sandbox_run` executes real processes with your user's
 > permissions. Clients must gate it behind user approval; set
-> `sandbox_allowed_prefixes` in shared/CI environments.
+> `sandbox_allowed_prefixes` in shared/CI environments. When an allowlist is
+> configured, commands resolve through `PATH` to their absolute path before
+> execution — a hostile working directory cannot shadow an allowlisted
+> basename with a planted executable, and unmatched/unresolvable commands are
+> refused (exit -10) without running.
 
 ## Client setup — exact configuration
 
@@ -255,12 +259,13 @@ See [CHANGELOG.md](./CHANGELOG.md).
 
 ## Why AgentSeed vs. alternatives
 
-| | Anti-Hallucinate (mcpmarket) | superpowers | **AgentSeed** |
+| | Prompt-only guardrail skills (e.g. superpowers) | Static import linters (MCP) | **AgentSeed** |
 | --- | --- | --- | --- |
-| Touches code | ❌ chat-only | prompt-only | ✅ AST analysis |
-| Runs tools | ❌ | ❌ | ✅ 6 MCP tools |
-| Enforcement | soft | soft | **hard gate** |
-| 1.0.0 conformance linter | ❌ | ❌ | ✅ first |
+| Touches code | ❌ prompt only | ✅ import-graph analysis | ✅ AST + lexical analysis |
+| Runs verification tools | ❌ | lint gates | ✅ 6 MCP tools incl. sandboxed execution |
+| Hallucination-language scan | ❌ | ❌ | ✅ stub / oversold / fabricated signals (EN + CJK) |
+| Enforcement | soft (skill text) | CI gate | **hard gate**: skill + MCP + CLI exit codes |
+| Agent Plugins 1.0.0 conformance linter | ❌ | ❌ | ✅ first |
 
 ## Roadmap
 

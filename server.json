@@ -7,16 +7,7 @@
   "repository": {
     "url": "https://gitcode.com/badhope/AgentSeed"
   },
-  "packages": [
-    {
-      "registryType": "npm",
-      "identifier": "agentseed-mcp",
-      "version": "0.1.1",
-      "transport": {
-        "type": "stdio"
-      }
-    }
-  ],
+  "packages": [],
   "keywords": [
     "guardrails",
     "anti-hallucination",

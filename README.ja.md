@@ -80,6 +80,18 @@ $ check_plugin(path="/path/to/AgentSeed")
 
 ## クイックスタート
 
+**方法 A — リリースをダウンロード（git 不要）：**
+
+```bash
+# https://gitcode.com/badhope/AgentSeed/releases から最新アセットを取得、
+# またはインストーラーで任意のクライアントへ配置：
+bash install.sh --client auto        # macOS / Linux
+./install.ps1 -Client auto           # Windows PowerShell
+# --client: claude | opencode | cursor | manual
+```
+
+**方法 B — クローン：**
+
 ```bash
 git clone https://gitcode.com/badhope/AgentSeed.git
 # または：https://gitcode.com/badhope/AgentSeed · https://gitee.com/badhope/AgentSeed
@@ -99,10 +111,91 @@ python3 server/guard_engine.py              # 自己チェック: verify_code + 
 python3 -m unittest discover -s server      # 90+ 個のユニットテスト（CI は pytest も併用）
 ```
 
+同じルールを人間の PR にも（CI モード）：
+
+```bash
+python3 server/guard_cli.py check . --ci         # プラグイン適合性、エラー時 exit 1
+python3 server/guard_cli.py scan src/ --strict   # 幻覚スキャン、ブロック重大度のみ
+```
+
 > **Windows の注意：** `mcp.json` は `python3` でサーバーを起動します。多くの Windows
 > 環境ではこの別名が Microsoft Store のスタブです。サーバーが起動しない場合は
 > `command` を `["python", "server/guard_server.py"]` またはインタープリターの絶対パスに
 > 変更してください。
+
+## オプション依存
+
+AgentSeed は Python 標準ライブラリだけで動きます。以下をインストールすると、2 つの
+ツールが業界標準エンジンにアップグレードされます（自動検出、未インストールでも
+グレースフルフォールバック）：
+
+```bash
+pip install -r server/requirements.txt
+```
+
+| 拡張 | アップグレード先 | 未インストール時 |
+| --- | --- | --- |
+| `jsonschema` | `schema_validate` → Draft 2020-12 フル検証 | 内蔵サブセット検証 |
+| `pyflakes` | `verify_code` → pyflakes F821 未定義名解析をマージ | 内蔵 AST ウォーク |
+| `pyyaml` | SKILL.md frontmatter 解析 → フル YAML | 内蔵ライトパーサー |
+
+> `guard_server.py` は絶対パスで指定してください。サーバーは自身の位置から残りを解決する
+> ので、特別な cwd は不要です。
+
+## 互換性とグレースフルデグラデーション
+
+ホストの能力に応じて一段ずつ降級します——検証の静默スキップはしません：
+
+| ホスト能力 | 得られるもの | セットアップ |
+| --- | --- | --- |
+| フル Agent Plugins | 置くだけ：skill + MCP 自動検出、`${PLUGIN_DATA}` 設定有効 | プラグインディレクトリをコピー |
+| MCP 対応クライアント | 全 6 ツール（登録必要） | 下記の正確なスニペット |
+| スキルのみのクライアント | skill ワークフロー；**検証は shell 経由の `guard_cli.py` に降級**（skill 内にフォールバック手順あり） | `skills/verify-before-code` をフラットコピー |
+| 端末のみ / CI / エージェントなし | CLI ゲート + 終了コード | `python server/guard_cli.py check . --ci` |
+
+## プラットフォーム対応
+
+| クライアント | Agent Plugins 1.0.0 | 状態 | 備考 |
+| --- | --- | --- | --- |
+| Claude Code | skills + MCP config | verified | skills は `~/.claude/skills`、サーバーは `claude mcp add` |
+| opencode | skills + MCP config | verified | `~/.config/opencode/opencode.json`、スニペットは下記 |
+| Cursor | skills + mcp.json | untested* | プロジェクトにコピー；安定したプラグインディレクトリはまだ無し |
+| VS Code (+Copilot) | MCP サポート展開中 | untested* | mcp.json フィールドをそのまま使用 |
+| Cline / Windsurf | MCP config 互換 | untested* | stdio サーバーエントリがそのまま対応 |
+
+\* 正直なステータス：形式は仕様互換で動作見込みですが、開発者自身では未検証です。
+verified = メンテナーが実際に確認済み。検証したら PR でこの表を更新してください。
+
+フルスペックのクライアントは `${PLUGIN_DATA}` も設定します。AgentSeed はそこから
+`agentseed.config.json` を読みます。
+
+### 設定リファレンス（`agentseed.config.json`）
+
+| キー | 型 | 効果 |
+| --- | --- | --- |
+| `allowlist` | `string[]` | スキャン除外（内蔵テストイディオム一覧を置き換え） |
+| `severities` | `{group: error\|warning\|info}` | グループ別重大度オーバーライド |
+| `timeout` | `int` | `sandbox_run` の既定タイムアウト秒（1–120 にクランプ） |
+| `extra_tokens` | `{group: string[]}` | 幻覚語彙プールを実行時に拡張 |
+| `suppress_symbols` | `string[]` | `verify_code` が決してフラグしない名前（`suppressed` に表示） |
+| `sandbox_allowed_prefixes` | `string[]` | `sandbox_run` が起動できる**実行ファイル許可リスト**（未設定 = 無制限）。パス区切りなしのエントリは PATH 解決後の basename と一致（`python` は `python.exe` も許容）；区切りありのエントリは解決後の絶対パスと一致またはそのディレクトリプレフィックス（区切り境界を強制） |
+
+未知のキーは stderr に警告 —— タイプミスのキーが静黙に無視されることはありません。
+
+### 言語カバレッジ（正直な範囲）
+
+| 言語 | `verify_code` 解析 |
+| --- | --- |
+| Python | フル AST スコープウォーク（pyflakes インストール時はマージ）、行番号付き |
+| TypeScript / JavaScript | 語彙正規表現パス（誤検出クラスを明記） |
+| Go / Java / Rust / C/C++ / その他 | **未対応** —— 空結果を返す |
+
+> ⚠️ **セキュリティ注記**：`sandbox_run` はあなたのユーザー権限で実際のプロセスを実行します。
+> クライアントは必ずユーザー承認のゲートを置いてください；共有/CI 環境では
+> `sandbox_allowed_prefixes` を設定してください。許可リスト設定時、コマンドは実行前に
+> `PATH` 経由で絶対パスへ解決されます —— 悪意ある作業ディレクトリが同名の実行ファイルを
+> 置いて許可リスト項目になりすますことはできず、不一致・未解決のコマンドは実行せず拒否
+> （exit -10）されます。
 
 ## 変更履歴
 
@@ -110,10 +203,43 @@ python3 -m unittest discover -s server      # 90+ 個のユニットテスト（
 
 ## クライアント設定（正確なスニペット）
 
-AgentSeed は二つの要素で構成され、完全なゲートには両方が必要です：**スキル**（ワークフロー）と
-**MCP サーバー**（6 ツール）。インストーラーはスキルを配置し、MCP 登録手順を表示します。
-各クライアントの正確な設定は
-[README.md · Client setup](./README.md#client-setup--exact-configuration) を参照。
+AgentSeed は二つの要素で構成され、完全なゲートには両方が必要です：
+
+1. **スキル**（`skills/verify-before-code/`）— エージェントにワークフローを教える。
+2. **MCP サーバー**（`server/guard_server.py`）— 6 ツールを提供。
+
+インストーラーが 1 を配置し、2 の登録手順を表示します。手動設定：
+
+**Claude Code**
+
+```bash
+# スキル：フラットにコピー（SKILL.md が直接フォルダ直下に）
+cp -R skills/verify-before-code ~/.claude/skills/verify-before-code
+# MCP サーバー：
+claude mcp add agentseed -- python /path/to/AgentSeed/server/guard_server.py
+```
+
+**opencode** — `skills/verify-before-code/` を
+`~/.config/opencode/skill/verify-before-code` にコピーし、`opencode.json` に追加：
+
+```json
+{
+  "mcp": {
+    "agentseed": {
+      "type": "local",
+      "command": ["python", "/path/to/AgentSeed/server/guard_server.py"],
+      "enabled": true
+    }
+  }
+}
+```
+
+**Cursor / その他の MCP クライアント** — stdio サーバーを登録：
+`command: python`、`args: ["/path/to/AgentSeed/server/guard_server.py"]`、
+スキルフォルダは各クライアントの技能場所へフラットコピー。
+
+> `guard_server.py` は絶対パスで指定してください。サーバーは自身の位置から残りを解決する
+> ので、特別な cwd は不要です。
 
 ## 内蔵ガードレールライブラリ（日本語 / EN / 中文）
 
@@ -136,11 +262,12 @@ AgentSeed は二つの要素で構成され、完全なゲートには両方が�
 
 ## 比較
 
-| | Anti-Hallucinate（mcpmarket） | superpowers | **AgentSeed** |
+| | プロンプト専用 skill（superpowers…） | 静的 import linter | **AgentSeed** |
 | --- | --- | --- | --- |
-| コードに触れる | ❌ チャットのみ | プロンプトのみ | ✅ AST 解析 |
-| ツール実行 | ❌ | ❌ | ✅ MCP ツール 6 種 |
-| 強制 | 弱い | 弱い | **ハードゲート** |
+| コードに触れる | ❌ プロンプトのみ | ✅ import グラフ解析 | ✅ AST + 語彙解析 |
+| 検証ツール実行 | ❌ | lint ゲート | ✅ sandbox 込み 6 種 MCP ツール |
+| 幻覚言語スキャン | ❌ | ❌ | ✅ stub / 誇大 / 捏造信号（EN + CJK） |
+| 強制 | 弱い（skill 文章） | CI ゲート | **ハードゲート**：skill + MCP + CLI 終了コード |
 | 1.0.0 linter | ❌ | ❌ | ✅ 初 |
 
 ## ロードマップ
@@ -157,7 +284,7 @@ AgentSeed は二つの要素で構成され、完全なゲートには両方が�
 **特定の LLM が必要ですか？** いいえ — クライアント・モデル非依存。ゲートはスキル +
 MCP サーバーが強制し、モデルには依存しません。
 
-**ゼロ依存？** コアは依存ゼロです — 何もインストールせずに完全動作します。server/requirements.txt（jsonschema / pyflakes / pyyaml）を入れると schema_validate が Draft 2020-12 フル検証に、erify_code が pyflakes 分析に、frontmatter 解析がフル YAML にアップグレードされます（未インストール時は内蔵実装へ自動フォールバック）。
+**ゼロ依存？** コアは依存ゼロです — 何もインストールせずに完全動作します。server/requirements.txt（jsonschema / pyflakes / pyyaml）を入れると schema_validate が Draft 2020-12 フル検証に、verify_code が pyflakes F821 分析のマージに、frontmatter 解析がフル YAML にアップグレードされます（未インストール時は内蔵実装へ自動フォールバック）。
 
 **適合していますか？** `check_plugin` が 1.0.0 §5/§6/§7 に照らして検証 — AgentSeed は
 自身の linter を通過します（`ok: true`）。

@@ -40,7 +40,7 @@ def _warn_unknown_config(config: dict) -> None:
 def cmd_verify(args: argparse.Namespace) -> int:
     config = engine.load_config(args.config)
     _warn_unknown_config(config)
-    suppress = args.suppress or engine._config_str_list(config, "suppress_symbols")
+    suppress = args.suppress or engine.config_str_list(config, "suppress_symbols")
     source = _read_source(args.source)
     result = engine.detect_undefined_symbols(source, args.language, suppress=suppress)
     print(json.dumps(result, ensure_ascii=False, indent=2))
@@ -55,15 +55,15 @@ def cmd_scan(args: argparse.Namespace) -> int:
     _warn_unknown_config(config)
     allowlist = [] if args.strict else (
         args.allowlist
-        or engine._config_str_list(config, "allowlist")
+        or engine.config_str_list(config, "allowlist")
         or engine.DEFAULT_ALLOWLIST
     )
     severities = {"stub_code": "error"} if (args.strict and not args.stub_ok) else \
-        engine._config_severities(config)
+        engine.config_severities(config)
     source = _read_source(args.source)
     result = engine.scan_hallucination_words(
         source, allowlist, severities,
-        extra_tokens=engine._config_extra_tokens(config),
+        extra_tokens=engine.config_extra_tokens(config),
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 1 if result["blocking"] else 0
@@ -83,10 +83,10 @@ def cmd_check(args: argparse.Namespace) -> int:
 def cmd_sandbox(args: argparse.Namespace) -> int:
     config = engine.load_config()
     _warn_unknown_config(config)
-    timeout = args.timeout if args.timeout is not None else engine._parse_timeout(config)
+    timeout = args.timeout if args.timeout is not None else engine.parse_timeout(config)
     result = engine.sandbox_run(
         args.command, timeout, args.cwd,
-        allowed_prefixes=engine._config_str_list(config, "sandbox_allowed_prefixes"),
+        allowed_prefixes=engine.config_str_list(config, "sandbox_allowed_prefixes"),
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
     if result["timed_out"]:

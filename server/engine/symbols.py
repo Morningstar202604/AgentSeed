@@ -12,15 +12,36 @@ import builtins
 import re
 
 # Optional: pyflakes for more accurate Python undefined-name detection (F821).
-# When available, its AST analysis catches hallucinated symbols more reliably
-# than the hand-rolled AST walk. When unavailable, the zero-dep fallback applies.
+# When available its scope-aware analysis is merged in (e.g. ``del x`` on an
+# undefined name, which the hand-rolled walk's Store/Load contexts miss).
+# When unavailable, the zero-dep fallback applies unchanged.
 _HAS_PYFLAKES = False
 try:
-    from pyflakes.checker import Checker as _PyflakesChecker  # noqa: N811, F401
-    from pyflakes.messages import UndefinedName as _UndefinedName  # noqa: F401
+    from pyflakes.checker import Checker as _PyflakesChecker
+    from pyflakes.messages import UndefinedName as _PyflakesUndefinedName
+
     _HAS_PYFLAKES = True
 except ImportError:  # pragma: no cover
-    pass
+    _PyflakesChecker = None
+    _PyflakesUndefinedName = None
+
+
+def _pyflakes_undefined(source: str) -> list[tuple[str, int]] | None:
+    """Undefined-name findings via optional pyflakes, or None when pyflakes
+    is unavailable or the source cannot be compiled (caller already handled
+    SyntaxError separately). Returns (name, lineno) pairs."""
+    if not _HAS_PYFLAKES:
+        return None
+    try:
+        tree = compile(source, "<agentseed>", "exec", ast.PyCF_ONLY_AST)
+        checker = _PyflakesChecker(tree, "<agentseed>")
+    except (SyntaxError, ValueError, TypeError, RecursionError):
+        return None
+    out: list[tuple[str, int]] = []
+    for msg in checker.messages:
+        if isinstance(msg, _PyflakesUndefinedName) and msg.message_args:
+            out.append((str(msg.message_args[0]), getattr(msg, "lineno", 0)))
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -28,21 +49,94 @@ except ImportError:  # pragma: no cover
 # ---------------------------------------------------------------------------
 
 TS_GLOBALS = {
-    "console", "Math", "JSON", "Object", "Array", "String", "Number", "Boolean",
-    "Date", "Promise", "RegExp", "Error", "Set", "Map", "Symbol", "BigInt",
-    "process", "global", "window", "document", "module", "exports", "require",
-    "fetch", "setTimeout", "setInterval", "clearTimeout", "clearInterval",
-    "parseInt", "parseFloat", "isNaN", "isFinite", "encodeURIComponent",
-    "decodeURIComponent", "undefined", "NaN", "Infinity",
+    "console",
+    "Math",
+    "JSON",
+    "Object",
+    "Array",
+    "String",
+    "Number",
+    "Boolean",
+    "Date",
+    "Promise",
+    "RegExp",
+    "Error",
+    "Set",
+    "Map",
+    "Symbol",
+    "BigInt",
+    "process",
+    "global",
+    "window",
+    "document",
+    "module",
+    "exports",
+    "require",
+    "fetch",
+    "setTimeout",
+    "setInterval",
+    "clearTimeout",
+    "clearInterval",
+    "parseInt",
+    "parseFloat",
+    "isNaN",
+    "isFinite",
+    "encodeURIComponent",
+    "decodeURIComponent",
+    "undefined",
+    "NaN",
+    "Infinity",
 }
 
 TS_KEYWORDS = {
-    "if", "for", "while", "switch", "catch", "return", "typeof", "instanceof",
-    "function", "class", "interface", "import", "export", "const", "let", "var",
-    "new", "delete", "in", "of", "await", "yield", "throw", "try", "do", "case",
-    "default", "else", "this", "super", "void", "break", "continue", "as",
-    "from", "type", "extends", "implements", "public", "private", "protected",
-    "readonly", "static", "async", "keyof", "never", "unknown", "any",
+    "if",
+    "for",
+    "while",
+    "switch",
+    "catch",
+    "return",
+    "typeof",
+    "instanceof",
+    "function",
+    "class",
+    "interface",
+    "import",
+    "export",
+    "const",
+    "let",
+    "var",
+    "new",
+    "delete",
+    "in",
+    "of",
+    "await",
+    "yield",
+    "throw",
+    "try",
+    "do",
+    "case",
+    "default",
+    "else",
+    "this",
+    "super",
+    "void",
+    "break",
+    "continue",
+    "as",
+    "from",
+    "type",
+    "extends",
+    "implements",
+    "public",
+    "private",
+    "protected",
+    "readonly",
+    "static",
+    "async",
+    "keyof",
+    "never",
+    "unknown",
+    "any",
 }
 
 _TS_IDENT = r"[A-Za-z_$][A-Za-z0-9_$]*"
@@ -74,7 +168,9 @@ def _ts_defined_symbols(source: str) -> set[str]:
     for m in re.finditer(r"\bimport\s+(?:\*\s+as\s+)?(" + _TS_IDENT + r")\s*(?:from|=)", source):
         defined.add(m.group(1))
     # const { a, b: c } = require(...) / import(...) / destructuring
-    for m in re.finditer(r"\b(?:const|let|var)\s*\{([^}]*)\}\s*=\s*(?:require|import)\s*\(", source):
+    for m in re.finditer(
+        r"\b(?:const|let|var)\s*\{([^}]*)\}\s*=\s*(?:require|import)\s*\(", source
+    ):
         for part in m.group(1).split(","):
             p = part.strip()
             if not p:
@@ -88,9 +184,7 @@ def _ts_defined_symbols(source: str) -> set[str]:
     ):
         defined.add(m.group(1))
     # const/let/var declarations
-    for m in re.finditer(
-        r"\b(?:const|let|var)\s+([^;\n]+)", source
-    ):
+    for m in re.finditer(r"\b(?:const|let|var)\s+([^;\n]+)", source):
         for part in m.group(1).split(","):
             decl = re.match(r"\s*(" + _TS_IDENT + r")(?:\s*[:=]|\s*$)", part)
             if decl:
@@ -167,9 +261,7 @@ def detect_undefined_symbols(
     """
     if language in ("typescript", "ts", "javascript", "js"):
         suspects, note = _detect_ts_undefined(source)
-        return _apply_suppress(
-            {"language": language, "suspects": suspects, "note": note}, suppress
-        )
+        return _apply_suppress({"language": language, "suspects": suspects, "note": note}, suppress)
     if language != "python":
         return {
             "language": language,
@@ -189,8 +281,15 @@ def detect_undefined_symbols(
 
     defined: set[str] = set(dir(builtins))
     defined |= {
-        "__file__", "__doc__", "__package__", "__spec__", "__loader__",
-        "__main__", "__dict__", "__builtins__", "__cached__",
+        "__file__",
+        "__doc__",
+        "__package__",
+        "__spec__",
+        "__loader__",
+        "__main__",
+        "__dict__",
+        "__builtins__",
+        "__cached__",
     }
     imported: set[str] = set()
 
@@ -236,13 +335,26 @@ def detect_undefined_symbols(
             suspects.append(name)
             detail.append({"name": name, "line": getattr(node, "lineno", 0)})
 
+    pyfindings = _pyflakes_undefined(source)
+    note = (
+        "Static scope analysis only; no runtime; attribute calls "
+        "(foo.bar) are not expanded and may cause false negatives."
+    )
+    if pyfindings is not None:
+        for name, line in pyfindings:
+            if name in defined or name in seen:
+                continue
+            seen.add(name)
+            suspects.append(name)
+            detail.append({"name": name, "line": line})
+        note += " Merged with pyflakes F821 scope analysis."
+
     return _apply_suppress(
         {
             "language": "python",
             "suspects": suspects,
             "suspects_detail": detail,
-            "note": "Static scope analysis only; no runtime; attribute calls "
-            "(foo.bar) are not expanded and may cause false negatives.",
+            "note": note,
         },
         suppress,
     )

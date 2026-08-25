@@ -3,6 +3,50 @@
 All notable changes to AgentSeed are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com); versioning follows [SemVer](https://semver.org).
 
+## [Unreleased]
+
+### Security
+- **`sandbox_allowed_prefixes` bypass fixed (High)**: the old matcher compared
+  basenames and raw path prefixes, so on Windows a hostile `cwd` could plant
+  `python.exe` to impersonate an allowlisted basename, and prefix `C:\tools\safe`
+  matched `C:\tools\safe-evil\app.exe` (no separator boundary). Commands now
+  resolve through `PATH`/`abspath` BEFORE execution; bare-name entries match the
+  resolved basename (with `.exe` tolerance), path entries require a separator
+  boundary, unmatched/unresolvable commands are refused with exit -10 without
+  spawning, and allowed commands execute under their resolved absolute path.
+  Regression tests cover boundary matching, `.exe` tolerance and cwd-shadowing.
+
+### Changed
+- **All `tools/call` requests now run in a worker thread** (previously only
+  `sandbox_run`): a slow `verify_code`/`check_plugin` can no longer stall the
+  stdio read loop. Cancellation semantics extend to every tool; responses stay
+  single-writer serialized.
+- **Engine public API cleanup**: config helpers renamed to public names
+  (`config_str_list`, `config_severities`, `parse_timeout`,
+  `config_extra_tokens`); private internals (`_decode`, `_run_command`,
+  `_prefix_allowed`, `_GROUP_LABELS`, `_config_*`) are no longer re-exported
+  from the `engine` package.
+- **server.json honesty**: the npm registry package entry was removed until
+  `agentseed-mcp` is actually published (the manifest previously advertised a
+  package that does not exist in the registry). The manifest-drift test now
+  accepts zero listed packages while enforcing version agreement for any that
+  appear.
+- **Comparison table rewritten**: the "Anti-Hallucinate (mcpmarket)" competitor
+  could not be verified to exist; tables across READMEs/DESIGNs now compare
+  against verifiable categories (prompt-only guardrail skills such as
+  superpowers; static import linters).
+
+### Added
+- **pyflakes enhancement is real**: `verify_code` now merges pyflakes F821
+  undefined-name findings into its AST walk when pyflakes is installed (catches
+  e.g. Del-context names the hand-rolled walk misses); previously the import
+  existed but was never called. Zero-dep behavior unchanged when absent.
+
+### Fixed
+- Documentation truth sweep: CHANGELOG 0.1.1 claim scoped to the English README
+  only (zh/ja sync tracked below); CONTRIBUTING test count corrected;
+  `README.md` platform-table dead link replaced with a concrete pointer.
+
 ## [0.1.1] — 2026-08-25
 
 ### Fixed
@@ -20,7 +64,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com); versioning follo
 - **Performance baseline** (`scripts/bench.py` + 1 MB <30 s regression gate): measured ~2.3 s total for verify+scan on a synthetic megabyte module.
 - **Example fixtures** (`examples/plugins/good-plugin|broken-plugin`) exercised by tests as check_plugin conformance samples.
 - **Hardened Dockerfile**: runs as unprivileged user `seed` (uid 10001) with an import-based HEALTHCHECK.
-- READMEs (en/zh/ja): honest language-coverage table, full configuration reference, explicit sandbox_run security warning.
+- README (en): honest language-coverage table, full configuration reference, explicit sandbox_run security warning. (zh/ja equivalents land in Unreleased.)
 
 ### Changed
 - **De-duplicated the sandbox execution core** (reduces reinventing the wheel): the entire spawn→communicate→timeout→error→truncate logic lived in two places (`engine.sandbox_run` and the async `_run_sandbox_async` worker), which is also how the Windows stdin deadlock shipped silently in one path only. It now lives once in `engine._run_command`; both callers delegate, and the async path registers the live process via a new `on_proc` callback for cancellation. The duplicate `_plugin_version()` (guard_server vs `engine/audit.py`) is now a single `engine.plugin_version()` shared module. `record_verification` also gained a `checks` default so the CLI is callable.

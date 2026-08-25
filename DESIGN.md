@@ -27,8 +27,9 @@ Cursor, Microsoft, OpenAI, and Vercel**. Two corrections to the hype:
 
 | Existing | What it does | What it misses |
 | --- | --- | --- |
-| mcpmarket `Anti-Hallucinate` | Behavioral guardrail, only keeps chat honest (don't invent citations/dates) | No code, no tooling |
+| Chat-honesty guardrails (behavioral MCP servers) | Keep chat answers honest (don't invent citations/dates) | No code, no tooling |
 | `obra/superpowers` | Prompt-only coding workflow | No hard verification |
+| Static import linters (e.g. Rigour-style MCP) | Detect hallucinated imports per language gate | No behavioral scan, no skill workflow |
 | Typical MCP servers | Expose an API to the model | None *verify the model's own emitted code* |
 
 AgentSeed fills: **code-level + real tooling + Skill/MCP closed-loop enforcement.**
@@ -171,18 +172,18 @@ Returns `ok`, `errors[]`, `warnings[]`.
 
 ## 7. Competitive comparison
 
-| | Anti-Hallucinate | superpowers | **AgentSeed** |
+| | Prompt-only skills (superpowers…) | Static import linters | **AgentSeed** |
 | --- | --- | --- | --- |
-| Touches code | ❌ | prompt only | ✅ AST |
-| Runs tools | ❌ | ❌ | ✅ MCP |
-| Enforcement | soft | soft | **hard gate** |
+| Touches code | ❌ | ✅ import graphs | ✅ AST + lexical |
+| Runs tools | ❌ | lint gates | ✅ 6 MCP tools incl. sandbox |
+| Enforcement | soft | CI gate | **hard gate** |
 | 1.0.0 linter | ❌ | ❌ | ✅ |
 
 ## 8. Roadmap (moat)
 
 1. Extend `verify_code` to Go (TS/JS lexical pass already shipped in v0.1).
-2. Add `sandbox_run` — actually execute tests/commands in a sandbox
-   (implements CDV Channel A deterministic floor).
+2. Harden `sandbox_run` further — process-group teardown on timeout,
+   streamed output truncation, optional environment filtering.
 3. Add `check_contract` — ingest the user's private spec as the contract.
 4. Wire the PROMPT-POOL into per-client configs (Cursor rules, CLAUDE.md,
    AGENTS.md) so the prompts apply outside plugin-aware clients.

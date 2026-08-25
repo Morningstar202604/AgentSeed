@@ -24,8 +24,9 @@ Agent Plugins **1.0.0** 是 2026 年 8 月发布的真实开放规范，技术�
 
 | 现有方案 | 做什么 | 缺什么 |
 | --- | --- | --- |
-| mcpmarket `Anti-Hallucinate` | 行为护栏，只让聊天诚实（别编引用/日期） | 不碰代码、不跑工具 |
+| 聊天诚实护栏（行为类 MCP 服务器） | 让聊天回答诚实（别编引用/日期） | 不碰代码、不跑工具 |
 | `obra/superpowers` | 纯 prompt 编码工作流 | 无硬核校验 |
+| 静态 import 检查器（Rigour 类 MCP） | 按语言检出幻觉 import | 无行为语言扫描、无 skill 工作流 |
 | 典型 MCP 服务器 | 给模型暴露一个 API | 没有"校验模型自己产出的代码" |
 
 AgentSeed 填补：**代码级 + 真跑工具 + Skill/MCP 闭环强制**。`check_plugin` 是
@@ -125,17 +126,17 @@ AgentSeed 填补：**代码级 + 真跑工具 + Skill/MCP 闭环强制**。`chec
 
 ## 7. 竞品对比
 
-| | Anti-Hallucinate | superpowers | **AgentSeed** |
+| | 纯 prompt 技能（superpowers…） | 静态 import 检查器 | **AgentSeed** |
 | --- | --- | --- | --- |
-| 碰代码 | ❌ | 仅 prompt | ✅ AST |
-| 跑工具 | ❌ | ❌ | ✅ MCP |
-| 强制 | 软 | 软 | **硬闸门** |
+| 碰代码 | ❌ | ✅ import 图 | ✅ AST + 词法 |
+| 跑工具 | ❌ | lint 门禁 | ✅ 6 个 MCP 工具含沙箱 |
+| 强制 | 软 | CI 门禁 | **硬闸门** |
 | 1.0.0 linter | ❌ | ❌ | ✅ |
 
 ## 8. 路线图（护城河）
 
 1. `verify_code` 扩展到 Go（TS/JS 词法分析已随 v0.1 提供）。
-2. 加 `sandbox_run` —— 在沙箱里真实执行测试/命令（实现 CDV 通道 A 的确定性下限）。
+2. 进一步加固 `sandbox_run` —— 超时进程组回收、输出流式截断、可选环境变量过滤。
 3. 加 `check_contract` —— 把用户的私有规范作为契约摄入。
 4. 把 PROMPT-POOL 接入各客户端配置（Cursor rules、CLAUDE.md、AGENTS.md），
    让提示在"非插件感知"的客户端也生效。

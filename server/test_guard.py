@@ -433,5 +433,19 @@ class TestMatchGuardsForOldPythons(unittest.TestCase):
             self.assertEqual(r["suspects"], [])
 
 
+class TestPyflakesMerge(unittest.TestCase):
+    """Optional pyflakes enhancement must genuinely add findings
+    (Del-context undefined names, which the Store/Load walk misses)."""
+
+    def test_del_undefined_name_caught_when_available(self):
+        from engine import symbols as sym
+
+        r = sym.detect_undefined_symbols("def f():\n    del ghost_var\n")
+        if sym._HAS_PYFLAKES:
+            self.assertIn("ghost_var", r["suspects"], r)
+            self.assertIn("pyflakes", r["note"])
+        # zero-dep fallback legitimately misses Del-context names here
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

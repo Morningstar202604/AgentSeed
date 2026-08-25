@@ -73,12 +73,24 @@ $ check_plugin(path="/path/to/AgentSeed")
 
 ## 快速开始
 
+**方式一 —— 下载 release（无需 git）：**
+
+```bash
+# 从 https://gitcode.com/badhope/AgentSeed/releases 获取最新资产，
+# 或用安装器直接装入你选择的客户端：
+bash install.sh --client auto        # macOS / Linux
+./install.ps1 -Client auto           # Windows PowerShell
+# --client: claude | opencode | cursor | manual
+```
+
+**方式二 —— 克隆：**
+
 ```bash
 git clone https://gitcode.com/badhope/AgentSeed.git
 # 或：https://gitcode.com/badhope/AgentSeed · https://gitee.com/badhope/AgentSeed
 ```
 
-1. 把 `AgentSeed/` 目录丢进任何支持 Agent Plugins 的客户端（Cursor、VS Code、Claude Code、Copilot……）。无需构建、无需安装；核心零依赖（可选增强见下文）。
+1. **把** `AgentSeed/` 目录丢进任何支持 Agent Plugins 的客户端（Cursor、VS Code、Claude Code、Copilot……）。无需构建、无需安装；核心零依赖（可选增强见下文）。
 2. 客户端从 `plugin.json` + `mcp.json` 自动发现 `verify-before-code` 技能和 `agentseed` MCP 服务器。
 3. **完事。** 技能从此给每个编程任务上锁：契约 → 实现 → 验证 → 证据。
 
@@ -89,9 +101,86 @@ python3 server/guard_engine.py              # 自检：演示 verify_code + scan
 python3 -m unittest discover -s server      # 90+ 个单元测试（CI 中亦用 pytest）
 ```
 
+用同一套规则给人类 PR 上闸门（CI 模式）：
+
+```bash
+python3 server/guard_cli.py check . --ci         # 插件合规检查，出错退出码 1
+python3 server/guard_cli.py scan src/ --strict   # 幻觉扫描，仅阻断级严重度
+```
+
 > **Windows 提示：** `mcp.json` 通过 `python3` 启动服务器。很多 Windows 环境下该别名是
 > Microsoft Store 占位符；若服务器无法启动，请把 `command` 改为
 > `["python", "server/guard_server.py"]` 或解释器的绝对路径。
+
+## 可选依赖
+
+AgentSeed 仅靠 Python 标准库即可运行。安装以下增强后，两个工具会升级为工业级引擎
+（自动探测，未安装则优雅回退，反之亦然）：
+
+```bash
+pip install -r server/requirements.txt
+```
+
+| 增强包 | 升级效果 | 未安装时 |
+| --- | --- | --- |
+| `jsonschema` | `schema_validate` → 完整 Draft 2020-12 校验 | 内置子集校验器 |
+| `pyflakes` | `verify_code` → 合并 pyflakes F821 未定义名分析 | 内置 AST 遍历 |
+| `pyyaml` | SKILL.md frontmatter 解析 → 完整 YAML | 内置轻量解析器 |
+
+> 请使用 `guard_server.py` 的绝对路径；服务器会从自身位置解析其余文件，无需特殊 cwd。
+
+## 兼容性与优雅降级
+
+AgentSeed 适配宿主环境的实际能力，逐级降级——绝不静默跳过验证：
+
+| 宿主能力 | 你得到什么 | 安装方式 |
+| --- | --- | --- |
+| 完整 Agent Plugins | 即插即用：skill + MCP 自动发现，`${PLUGIN_DATA}` 配置生效 | 拷贝插件目录 |
+| 支持 MCP 的客户端 | 全部 6 个工具（需注册） | 见下方确切片段 |
+| 仅技能的客户端 | skill 工作流；**验证降级为 shell 调用 `guard_cli.py`**（技能内含回退指引） | 平铺拷贝 `skills/verify-before-code` |
+| 纯终端 / CI / 无智能体 | CLI 闸门 + 退出码 | `python server/guard_cli.py check . --ci` |
+
+## 平台支持
+
+| 客户端 | Agent Plugins 1.0.0 | 状态 | 说明 |
+| --- | --- | --- | --- |
+| Claude Code | skills + MCP config | verified | skills 放 `~/.claude/skills`，服务器走 `claude mcp add` |
+| opencode | skills + MCP config | verified | `~/.config/opencode/opencode.json`，确切片段见下 |
+| Cursor | skills + mcp.json | untested* | 拷入项目即可；暂无稳定插件目录 |
+| VS Code (+Copilot) | MCP 支持逐步推出 | untested* | 直接使用 mcp.json 字段 |
+| Cline / Windsurf | MCP config 兼容 | untested* | stdio 服务器条目可直接映射 |
+
+\* 诚实标注：格式兼容、预期可用，但我们没有亲自在这些客户端里跑过。verified = 维护者
+实际验证过。你验证了一个？请提 PR 更新此表。
+
+支持完整规范的客户端还会设置 `${PLUGIN_DATA}`；AgentSeed 从那里读取
+`agentseed.config.json`。
+
+### 配置参考（`agentseed.config.json`）
+
+| 键 | 类型 | 作用 |
+| --- | --- | --- |
+| `allowlist` | `string[]` | 扫描排除项（替换内置测试惯用语列表） |
+| `severities` | `{group: error\|warning\|info}` | 按组覆盖严重度 |
+| `timeout` | `int` | `sandbox_run` 默认超时秒数（钳制 1–120） |
+| `extra_tokens` | `{group: string[]}` | 运行时扩展幻觉词池 |
+| `suppress_symbols` | `string[]` | `verify_code` 永不标记的名字（在 `suppressed` 中可见） |
+| `sandbox_allowed_prefixes` | `string[]` | **可执行文件白名单**，`sandbox_run` 只允许启动清单内命令（缺省 = 不限制）。不带路径分隔符的条目按 PATH 解析后的 basename 匹配（`python` 也接受 `python.exe`）；带分隔符的条目必须与解析后的绝对路径相等或为其目录前缀（强制分隔符边界） |
+
+未知键会在 stderr 上告警——拼错的键永远不会被静默忽略。
+
+### 语言覆盖（诚实范围）
+
+| 语言 | `verify_code` 分析 |
+| --- | --- |
+| Python | 完整 AST 作用域遍历（装了 pyflakes 则合并其结果），带行号 |
+| TypeScript / JavaScript | 词法正则扫描（有明确记录的误报类别） |
+| Go / Java / Rust / C/C++ / 其他 | **尚未支持** —— 返回空结果 |
+
+> ⚠️ **安全提示**：`sandbox_run` 以你的用户权限执行真实进程。客户端必须将其置于用户
+> 批准之后；共享/CI 环境请设置 `sandbox_allowed_prefixes`。配置白名单后，命令会先经
+> `PATH` 解析为绝对路径再执行——恶意工作目录无法用植入的同名可执行文件冒充白名单条目，
+> 未匹配/无法解析的命令会被拒绝（退出码 -10），不会运行。
 
 ## 更新日志
 
@@ -99,9 +188,42 @@ python3 -m unittest discover -s server      # 90+ 个单元测试（CI 中亦用
 
 ## 客户端配置（确切片段）
 
-AgentSeed 有两半，完整闸门两者都要装：**技能**（工作流）+ **MCP 服务器**（6 个工具）。
-安装器会装好技能并打印你所用客户端的 MCP 注册命令；各客户端的确切配置片段见
-[README.md · Client setup](./README.md#client-setup--exact-configuration)。
+AgentSeed 有两半，完整闸门两者都要装：
+
+1. **技能**（`skills/verify-before-code/`）—— 教会智能体工作流。
+2. **MCP 服务器**（`server/guard_server.py`）—— 提供 6 个工具。
+
+安装器负责第 1 步并为你所用客户端打印第 2 步。手动配置：
+
+**Claude Code**
+
+```bash
+# 技能：平铺拷贝，SKILL.md 直接位于目录下
+cp -R skills/verify-before-code ~/.claude/skills/verify-before-code
+# MCP 服务器：
+claude mcp add agentseed -- python /path/to/AgentSeed/server/guard_server.py
+```
+
+**opencode** —— 把 `skills/verify-before-code/` 拷到
+`~/.config/opencode/skill/verify-before-code`，然后在 `opencode.json` 加入：
+
+```json
+{
+  "mcp": {
+    "agentseed": {
+      "type": "local",
+      "command": ["python", "/path/to/AgentSeed/server/guard_server.py"],
+      "enabled": true
+    }
+  }
+}
+```
+
+**Cursor / 其他 MCP 客户端** —— 注册 stdio 服务器：
+`command: python`、`args: ["/path/to/AgentSeed/server/guard_server.py"]`，
+并按你客户端的技能目录平铺拷贝技能文件夹。
+
+> 请使用 `guard_server.py` 的绝对路径；服务器会从自身位置解析其余文件，无需特殊 cwd。
 
 ## 内置护栏库（中 / EN / 日本語）
 
@@ -123,11 +245,12 @@ AgentSeed 有两半，完整闸门两者都要装：**技能**（工作流）+ *
 
 ## 对比
 
-| | Anti-Hallucinate（mcpmarket） | superpowers | **AgentSeed** |
+| | 纯 prompt 技能（superpowers…） | 静态 import 检查器 | **AgentSeed** |
 | --- | --- | --- | --- |
-| 碰代码 | ❌ 仅聊天 | 仅 prompt | ✅ AST 分析 |
-| 跑工具 | ❌ | ❌ | ✅ 6 个 MCP 工具 |
-| 强制 | 软 | 软 | **硬闸门** |
+| 碰代码 | ❌ 仅 prompt | ✅ import 图分析 | ✅ AST + 词法分析 |
+| 跑验证工具 | ❌ | lint 门禁 | ✅ 含沙箱共 6 个 MCP 工具 |
+| 幻觉语言扫描 | ❌ | ❌ | ✅ 占位/夸大/编造信号（中英日） |
+| 强制 | 软（skill 文本） | CI 门禁 | **硬闸门**：skill + MCP + CLI 退出码 |
 | 1.0.0 linter | ❌ | ❌ | ✅ 首个 |
 
 ## 路线图

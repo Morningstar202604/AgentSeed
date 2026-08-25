@@ -26,8 +26,9 @@ Agent Plugins **1.0.0** は 2026 年 8 月に公開された本物のオープ�
 
 | 既存 | 機能 | 欠けている点 |
 | --- | --- | --- |
-| mcpmarket `Anti-Hallucinate` | 行動ガードレール、チャットの誠実さのみ | コード・ツールに非対応 |
+| チャット誠実さガードレール（行動系 MCP サーバー） | チャット回答を誠実に保つ（引用/日付の捏造防止） | コード・ツールに非対応 |
 | `obra/superpowers` | プロンプトのみのコーディングワークフロー | ハード検証なし |
+| 静的 import linter（Rigour 系 MCP） | 言語別の幻覚 import 検出 | 行動言語スキャンなし、skill ワークフローなし |
 | 一般的な MCP サーバー | モデルへ API を公開 | モデル自身が書いたコードを検証しない |
 
 AgentSeed は「**コードレベル + 実ツール実行 + Skill/MCP クローズドループ強制**」を
@@ -86,7 +87,8 @@ AgentSeed は「**コードレベル + 実ツール実行 + Skill/MCP クロー�
 
 - **`detect_undefined_symbols`** — `ast` 解析で定義済み集合（builtins、インポート、
   def/class、引数）を収集し、外れの `Name`/`Call` を検出。静的スコープのみ、実行
-  なし、属性呼び出しは非展開（誤検出の可能性）。MVP は Python のみ。
+  なし、属性呼び出しは非展開（誤検出の可能性）。Python（AST + pyflakes 併用、
+  インストール時）と TypeScript/JavaScript（語彙スキャン）に対応。
 - **`scan_hallucination_words`** — 28+ シグナルのグループ化ワード境界スキャン。
   出典：SFD Lab 5 ステップチェックリスト、CDV（"'done, all tests pass' は主張であり
   証拠ではない"）、reze83 先検証ルール。
@@ -114,17 +116,18 @@ AgentSeed は「**コードレベル + 実ツール実行 + Skill/MCP クロー�
 
 ## 7. 競合比較
 
-| | Anti-Hallucinate | superpowers | **AgentSeed** |
+| | プロンプト専用 skill（superpowers…） | 静的 import linter | **AgentSeed** |
 | --- | --- | --- | --- |
-| コードに触れる | ❌ | プロンプトのみ | ✅ AST |
-| ツール実行 | ❌ | ❌ | ✅ MCP（実行+検証） |
-| 強制 | 弱い | 弱い | **ハードゲート** |
+| コードに触れる | ❌ | ✅ import グラフ | ✅ AST + 語彙解析 |
+| ツール実行 | ❌ | lint ゲート | ✅ sandbox 含む 6 MCP ツール |
+| 強制 | 弱い | CI ゲート | **ハードゲート** |
 | 1.0.0 linter | ❌ | ❌ | ✅ |
 
 ## 8. ロードマップ（堀）
 
-1. `verify_code` を TypeScript（tree-sitter）/Go に拡張。
-2. `sandbox_run` の隔離強化（メモリ/ネットワーク/FS 上限、Docker/gVisor）。
+1. `verify_code` を Go に拡張（TS/JS 語彙スキャンは v0.1 で提供済み）。
+2. `sandbox_run` の隔離強化（タイムアウト時プロセスグループ回収、ストリーミング
+   出力トランケート、任意の環境変数フィルタ）。
 3. `check_contract` — ユーザーのプライベート仕様を契約として取り込む。
 4. PROMPT-POOL を Cursor rules / CLAUDE.md / AGENTS.md に展開。
 5. 1.0.0 に欠ける**レジストリ**配布機構を実装。

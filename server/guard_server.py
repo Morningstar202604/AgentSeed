@@ -41,12 +41,12 @@ _stdout_lock = threading.Lock()
 # Loaded once at startup: AGENTSEED_CONFIG env, ${PLUGIN_DATA}/
 # agentseed.config.json (Agent Plugins v1.0.0 §9.1), or ./agentseed.config.json.
 CONFIG = engine.load_config()
-CONFIG_ALLOWLIST = engine._config_str_list(CONFIG, "allowlist")
-CONFIG_SEVERITIES = engine._config_severities(CONFIG)
-CONFIG_TIMEOUT = engine._parse_timeout(CONFIG)
-CONFIG_EXTRA_TOKENS = engine._config_extra_tokens(CONFIG)
-CONFIG_SUPPRESS = engine._config_str_list(CONFIG, "suppress_symbols")
-CONFIG_SANDBOX_ALLOW = engine._config_str_list(CONFIG, "sandbox_allowed_prefixes")
+CONFIG_ALLOWLIST = engine.config_str_list(CONFIG, "allowlist")
+CONFIG_SEVERITIES = engine.config_severities(CONFIG)
+CONFIG_TIMEOUT = engine.parse_timeout(CONFIG)
+CONFIG_EXTRA_TOKENS = engine.config_extra_tokens(CONFIG)
+CONFIG_SUPPRESS = engine.config_str_list(CONFIG, "suppress_symbols")
+CONFIG_SANDBOX_ALLOW = engine.config_str_list(CONFIG, "sandbox_allowed_prefixes")
 
 for _warn_key in engine.unknown_config_keys(CONFIG):
     print(
@@ -211,46 +211,90 @@ def _write_response(frame: dict) -> None:
             pass  # client disconnected; nothing to write to
 
 
-def _run_sandbox_async(
-    msg_id, command: list, timeout, cwd, allowed_prefixes: list[str] | None = None
-) -> threading.Thread:
-    """Run sandbox_run in a daemon thread so the session stays responsive
-    and notifications/cancelled can abort a long-running command."""
+def _execute(name: str, args: dict) -> dict:
+    """Run one tool call synchronously; returns the tool's result payload."""
+    if name == "verify_code":
+        return engine.detect_undefined_symbols(
+            args.get("source", ""),
+            args.get("language", "python"),
+            suppress=CONFIG_SUPPRESS,
+        )
+    if name == "scan_hallucination":
+        # explicit tool arguments win over config-file values
+        allowlist = args.get("allowlist")
+        if allowlist is None:
+            allowlist = CONFIG_ALLOWLIST
+        return engine.scan_hallucination_words(
+            args.get("source", ""),
+            allowlist,
+            CONFIG_SEVERITIES,
+            extra_tokens=CONFIG_EXTRA_TOKENS,
+        )
+    if name == "check_plugin":
+        return engine.check_plugin_conformance(args.get("path", ""))
+    if name == "schema_validate":
+        return engine.schema_validate(args.get("instance"), args.get("schema", {}))
+    if name == "record_verification":
+        return engine.record_verification(
+            args.get("task", ""),
+            args.get("checks") or [],
+            summary=args.get("summary"),
+        )
+    return {"isError": True, "content": [{"type": "text", "text": f"Unknown tool: {name}"}]}
+
+
+def _run_call_async(msg_id, name: str, args: dict) -> threading.Thread:
+    """Run ANY tools/call request in a daemon thread so a long-running tool
+    never blocks the stdio read loop, keeping the session responsive and
+    (for sandbox_run) cancellable via notifications/cancelled."""
     entry: dict = {"proc": None, "cancelled": False}
     with _pending_lock:
         _pending[msg_id] = entry
 
-    def work() -> None:
-        # Delegate to the shared engine core; register the live process so
-        # notifications/cancelled can abort it via _handle_cancellation.
-        # A missing timeout defaulted here (latent crash avoided).
-        timeout_val = int(timeout) if timeout is not None else CONFIG_TIMEOUT
-        result = engine.sandbox_run(
-            command,
-            timeout_val,
-            cwd,
-            allowed_prefixes=allowed_prefixes,
-            on_proc=lambda proc: entry.__setitem__("proc", proc),
-        )
+    def finish(payload) -> None:
         with _pending_lock:
             was_cancelled = entry["cancelled"]
             _pending.pop(msg_id, None)
-        if not was_cancelled:
-            # A cancelled request gets no response (MCP cancellation).
-            _write_response(
-                {
-                    "jsonrpc": "2.0",
-                    "id": msg_id,
-                    "result": {
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": json.dumps(result, ensure_ascii=False, indent=2),
-                            }
-                        ]
-                    },
-                }
-            )
+        if was_cancelled:
+            return  # cancelled request gets no response (MCP cancellation)
+        _write_response({"jsonrpc": "2.0", "id": msg_id, "result": payload})
+
+    def work() -> None:
+        try:
+            if name == "sandbox_run":
+                # register the live process so notifications/cancelled can abort it
+                timeout = args.get("timeout")
+                result = engine.sandbox_run(
+                    args.get("command", []),
+                    int(timeout) if timeout is not None else CONFIG_TIMEOUT,
+                    args.get("cwd"),
+                    allowed_prefixes=CONFIG_SANDBOX_ALLOW,
+                    on_proc=lambda proc: entry.__setitem__("proc", proc),
+                )
+            else:
+                result = _execute(name, args)
+        except Exception as exc:  # noqa: BLE001 - never kill the session
+            finish_error = {
+                "jsonrpc": "2.0",
+                "id": msg_id,
+                "error": {"code": -32603, "message": f"Internal error: {exc}"},
+            }
+            with _pending_lock:
+                was_cancelled = entry["cancelled"]
+                _pending.pop(msg_id, None)
+            if not was_cancelled:
+                _write_response(finish_error)
+            return
+        finish(
+            {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": json.dumps(result, ensure_ascii=False, indent=2),
+                    }
+                ]
+            }
+        )
 
     t = threading.Thread(target=work, daemon=True)
     t.start()
@@ -275,54 +319,6 @@ def _handle_cancellation(params: dict) -> None:
 def _dispatch(method: str, params: dict) -> dict:
     if method == "tools/list":
         return {"tools": TOOLS}
-    if method == "tools/call":
-        name = params.get("name", "")
-        args = params.get("arguments", {}) or {}
-        if name == "verify_code":
-            result = engine.detect_undefined_symbols(
-                args.get("source", ""),
-                args.get("language", "python"),
-                suppress=CONFIG_SUPPRESS,
-            )
-        elif name == "scan_hallucination":
-            # explicit tool arguments win over config-file values
-            allowlist = args.get("allowlist")
-            if allowlist is None:
-                allowlist = CONFIG_ALLOWLIST
-            result = engine.scan_hallucination_words(
-                args.get("source", ""),
-                allowlist,
-                CONFIG_SEVERITIES,
-                extra_tokens=CONFIG_EXTRA_TOKENS,
-            )
-        elif name == "check_plugin":
-            result = engine.check_plugin_conformance(args.get("path", ""))
-        elif name == "sandbox_run":
-            timeout = args.get("timeout")
-            result = engine.sandbox_run(
-                args.get("command", []),
-                int(timeout) if timeout is not None else CONFIG_TIMEOUT,
-                args.get("cwd"),
-                allowed_prefixes=CONFIG_SANDBOX_ALLOW,
-            )
-        elif name == "schema_validate":
-            result = engine.schema_validate(args.get("instance"), args.get("schema", {}))
-        elif name == "record_verification":
-            result = engine.record_verification(
-                args.get("task", ""),
-                args.get("checks") or [],
-                summary=args.get("summary"),
-            )
-        else:
-            return {"isError": True, "content": [{"type": "text", "text": f"Unknown tool: {name}"}]}
-        return {
-            "content": [
-                {
-                    "type": "text",
-                    "text": json.dumps(result, ensure_ascii=False, indent=2),
-                }
-            ]
-        }
     return {"isError": True, "content": [{"type": "text", "text": f"Unsupported method: {method}"}]}
 
 
@@ -381,16 +377,13 @@ def main() -> None:
                 resp = {"jsonrpc": "2.0", "id": msg_id, "result": {}}
             elif method.startswith("tools/") and not is_notification:
                 params = msg.get("params", {}) or {}
-                name = params.get("name", "")
-                args = params.get("arguments", {}) or {}
-                if method == "tools/call" and name == "sandbox_run":
-                    # async: keep the session responsive + cancellable
-                    _run_sandbox_async(
+                if method == "tools/call":
+                    # every tools/call runs in a worker thread: a long tool
+                    # never blocks the read loop; sandbox stays cancellable
+                    _run_call_async(
                         msg_id,
-                        args.get("command", []),
-                        args.get("timeout"),
-                        args.get("cwd"),
-                        allowed_prefixes=CONFIG_SANDBOX_ALLOW,
+                        params.get("name", ""),
+                        dict(params.get("arguments", {}) or {}),
                     )
                     continue
                 payload = _dispatch(method, params)

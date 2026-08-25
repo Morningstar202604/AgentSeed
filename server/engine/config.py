@@ -64,7 +64,7 @@ def load_config(explicit_path: str | None = None) -> dict:
     return {}
 
 
-def _config_str_list(config: dict, key: str) -> list[str] | None:
+def config_str_list(config: dict, key: str) -> list[str] | None:
     """Extract a validated string-list value from config, or None."""
     value = config.get(key)
     if isinstance(value, list) and all(isinstance(v, str) for v in value):
@@ -72,7 +72,7 @@ def _config_str_list(config: dict, key: str) -> list[str] | None:
     return None
 
 
-def _config_severities(config: dict) -> dict[str, str] | None:
+def config_severities(config: dict) -> dict[str, str] | None:
     """Extract a validated severities map from config, or None."""
     value = config.get("severities")
     if isinstance(value, dict) and all(
@@ -83,7 +83,7 @@ def _config_severities(config: dict) -> dict[str, str] | None:
     return None
 
 
-def _parse_timeout(config: dict, default: int = 30) -> int:
+def parse_timeout(config: dict, default: int = 30) -> int:
     """Extract and validate timeout from config dict."""
     try:
         return int(config.get("timeout", default))
@@ -102,14 +102,18 @@ def unknown_config_keys(config: dict) -> list[str]:
     return sorted(k for k in config if k not in KNOWN_CONFIG_KEYS)
 
 
-def _config_extra_tokens(config: dict) -> dict[str, list[str]] | None:
+def config_extra_tokens(config: dict) -> dict[str, list[str]] | None:
     """Validate the extra_tokens mapping {group: [words]}, or None."""
     value = config.get("extra_tokens")
     if not isinstance(value, dict):
         return None
     out: dict[str, list[str]] = {}
     for group, words in value.items():
-        if group in VALID_GROUPS and isinstance(words, list) and \
-                all(isinstance(w, str) and w for w in words) and words:
+        if (
+            group in VALID_GROUPS
+            and isinstance(words, list)
+            and all(isinstance(w, str) and w for w in words)
+            and words
+        ):
             out[group] = words
     return out or None

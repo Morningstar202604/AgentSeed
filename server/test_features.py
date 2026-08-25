@@ -96,6 +96,78 @@ class TestSandboxAllowPolicy(unittest.TestCase):
         r = engine.sandbox_run([sys.executable, "-c", "print('ok')"], allowed_prefixes=None)
         self.assertEqual(r["exit_code"], 0)
 
+
+class TestSandboxAllowPolicyHardening(unittest.TestCase):
+    """Regressions for the allowlist-bypass fixes: separator-boundary
+    prefix matching and PATH-resolved execution (no cwd shadowing)."""
+
+    def test_prefix_requires_separator_boundary(self):
+        from engine import sandbox as sb
+
+        with tempfile.TemporaryDirectory() as d:
+            allowed_dir = os.path.join(d, "safe")
+            sibling = os.path.join(d, "safe-x")
+            self.assertTrue(
+                sb._matches_allowlist(os.path.join(allowed_dir, "tool.exe"), [allowed_dir])
+            )
+            # Without the boundary fix, prefix "d/safe" would match "d/safe-x/app.exe".
+            self.assertFalse(sb._matches_allowlist(os.path.join(sibling, "app.exe"), [allowed_dir]))
+
+    def test_bare_entry_tolerates_exe_suffix(self):
+        from engine import sandbox as sb
+
+        base = os.path.basename(sys.executable)
+        stem = base[:-4] if base.lower().endswith(".exe") else base
+        self.assertTrue(sb._matches_allowlist(sys.executable, [stem]))
+
+    def test_path_qualified_sibling_entry_never_basename_matches(self):
+        from engine import sandbox as sb
+
+        with tempfile.TemporaryDirectory() as d:
+            # An entry that LOOKS like a directory must not match via basename.
+            entry = os.path.join(d, "tools")
+            self.assertFalse(sb._matches_allowlist(os.path.join(d, "tools", "x"), ["tools"]))
+            self.assertTrue(sb._matches_allowlist(os.path.join(d, "tools", "x"), [entry]))
+
+    def test_unresolvable_allowlisted_name_is_refused_not_spawned(self):
+        r = engine.sandbox_run(
+            ["definitely-not-a-real-bin-xyz"],
+            5,
+            allowed_prefixes=["definitely-not-a-real-bin-xyz"],
+        )
+        self.assertEqual(r["exit_code"], -10)
+
+    def test_cwd_planted_executable_cannot_shadow_allowlisted_basename(self):
+        exe_name = os.path.basename(sys.executable)
+        with tempfile.TemporaryDirectory() as d:
+            with open(os.path.join(d, exe_name), "w", encoding="utf-8") as fh:
+                fh.write("print('HIJACKED')\n")
+            r = engine.sandbox_run(
+                [exe_name, "-c", "print('clean')"],
+                20,
+                cwd=d,
+                allowed_prefixes=[exe_name],
+            )
+            self.assertEqual(r["exit_code"], 0, r)
+            self.assertNotIn("HIJACKED", r["stdout"])
+            self.assertIn("clean", r["stdout"])
+
+    def test_relative_command_resolves_against_cwd_not_server(self):
+        # Policy-checked path must BE the executed path: a relative command
+        # resolves against the run cwd, so a planted binary in the caller
+        # cwd is judged where it actually lives, not where the server sits.
+        from engine import sandbox as sb
+
+        with tempfile.TemporaryDirectory() as d:
+            real = os.path.join(d, "real")
+            planted = os.path.join(d, "planted")
+            os.makedirs(real)
+            os.makedirs(planted)
+            r = sb.sandbox_run(["./prog.exe"], 5, cwd=planted, allowed_prefixes=[real])
+            self.assertEqual(r["exit_code"], -10, r)  # outside the allowed dir
+            r2 = sb.sandbox_run(["./prog.exe"], 5, cwd=real, allowed_prefixes=[real])
+            self.assertNotEqual(r2["exit_code"], -10, r2)  # policy passed (file absent -> -2)
+
     def test_cli_sandbox_policy_block_exits_nonzero(self):
         import subprocess
 
@@ -129,10 +201,10 @@ class TestConfigUnknownKeysAndExtras(unittest.TestCase):
         self.assertEqual(engine.unknown_config_keys({}), [])
 
     def test_extra_tokens_validator(self):
-        out = engine._config_extra_tokens({"extra_tokens": {"stub_code": ["待办"], "bogus": ["x"]}})
+        out = engine.config_extra_tokens({"extra_tokens": {"stub_code": ["待办"], "bogus": ["x"]}})
         self.assertEqual(out, {"stub_code": ["待办"]})
-        self.assertIsNone(engine._config_extra_tokens({"extra_tokens": "x"}))
-        self.assertIsNone(engine._config_extra_tokens({}))
+        self.assertIsNone(engine.config_extra_tokens({"extra_tokens": "x"}))
+        self.assertIsNone(engine.config_extra_tokens({}))
 
 
 class TestAuditTrail(unittest.TestCase):
