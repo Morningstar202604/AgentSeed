@@ -75,8 +75,9 @@ class TestCjkTokens(unittest.TestCase):
 
 class TestSandboxAllowPolicy(unittest.TestCase):
     def test_unlisted_binary_blocked_without_running(self):
+        # Never spawned: the policy gate refuses BEFORE execution (-10).
         r = engine.sandbox_run(
-            ["cmd", "/c", "echo hi"],
+            ["some-unlisted-tool", "--flag"],
             allowed_prefixes=["python", "pytest"],
         )
         self.assertEqual(r["exit_code"], -10)
@@ -91,7 +92,8 @@ class TestSandboxAllowPolicy(unittest.TestCase):
         self.assertIn("7", r["stdout"])
 
     def test_none_means_unrestricted(self):
-        r = engine.sandbox_run(["cmd", "/c", "echo ok"], allowed_prefixes=None)
+        # Cross-platform: actually runs on Linux/macOS too.
+        r = engine.sandbox_run([sys.executable, "-c", "print('ok')"], allowed_prefixes=None)
         self.assertEqual(r["exit_code"], 0)
 
     def test_cli_sandbox_policy_block_exits_nonzero(self):
@@ -105,9 +107,11 @@ class TestSandboxAllowPolicy(unittest.TestCase):
                 json.dump({"sandbox_allowed_prefixes": ["definitely-not-a-bin"]}, fh)
             env = dict(os.environ, AGENTSEED_CONFIG=cfg)
             proc = subprocess.run(
-                [sys.executable, cli, "sandbox", "--", "cmd", "/c", "echo hi"],
+                [sys.executable, cli, "sandbox", "--", "other-unlisted-tool", "--flag"],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 env=env,
                 timeout=60,
                 cwd=here,
@@ -208,6 +212,8 @@ class TestCliRecordAndAsyncPolicy(unittest.TestCase):
             [sys.executable, os.path.join(self.HERE, "guard_cli.py"), *args],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=60,
             cwd=self.HERE,
             env=env,
@@ -255,7 +261,7 @@ class TestCliRecordAndAsyncPolicy(unittest.TestCase):
                     "method": "tools/call",
                     "params": {
                         "name": "sandbox_run",
-                        "arguments": {"command": ["cmd", "/c", "echo hi"]},
+                        "arguments": {"command": ["another-unlisted-bin", "x"]},
                     },
                 }
                 proc.stdin.write((json.dumps(req) + "\n").encode())

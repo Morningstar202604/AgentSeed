@@ -126,7 +126,9 @@ class TestHallucinationScan(unittest.TestCase):
         self.assertTrue(r["clean"], r["hits"])
 
     def test_dotted_path_not_flagged(self):
-        r = engine.scan_hallucination_words("import unittest.mock\nresult = unittest.mock.call(x)\n")
+        r = engine.scan_hallucination_words(
+            "import unittest.mock\nresult = unittest.mock.call(x)\n"
+        )
         self.assertTrue(r["clean"], r["hits"])
 
     def test_real_stub_still_flagged(self):
@@ -172,6 +174,7 @@ class TestConformance(unittest.TestCase):
 
     def test_frontmatter_with_dashes_in_body(self):
         import tempfile
+
         with tempfile.TemporaryDirectory() as d:
             skill_dir = os.path.join(d, "skills", "demo-skill")
             os.makedirs(skill_dir)
@@ -179,16 +182,17 @@ class TestConformance(unittest.TestCase):
                 fh.write("---\nname: demo-skill\ndescription: ok\n---\n\n---\nnot frontmatter\n")
             # body containing a '---' line must not corrupt the parse
             r = engine.check_plugin_conformance(d)
-            self.assertEqual(
-                [e for e in r["errors"] if "demo-skill" in e], [], r["errors"]
-            )
+            self.assertEqual([e for e in r["errors"] if "demo-skill" in e], [], r["errors"])
 
     def test_rejects_bad_repository_type(self):
         import tempfile
+
         with tempfile.TemporaryDirectory() as d:
             with open(os.path.join(d, "plugin.json"), "w", encoding="utf-8") as fh:
-                fh.write('{"$schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",'
-                         '"name":"badplugin","repository":{"type":"git","url":"x"}}')
+                fh.write(
+                    '{"$schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",'
+                    '"name":"badplugin","repository":{"type":"git","url":"x"}}'
+                )
             r = engine.check_plugin_conformance(d)
             self.assertFalse(r["ok"])
             self.assertTrue(any("repository" in e for e in r["errors"]))
@@ -200,41 +204,53 @@ class TestConformance(unittest.TestCase):
         with open(os.path.join(tmp, "mcp.json"), "w", encoding="utf-8") as fh:
             fh.write(mcp_json)
 
-    PJ = ('{"$schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",'
-          '"name":"t"}')
-    MJ = ('{"$schema":"https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",'
-          '"mcpServers":{"s":%s}}')
+    PJ = '{"$schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json","name":"t"}'
+    MJ = (
+        '{"$schema":"https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",'
+        '"mcpServers":{"s":%s}}'
+    )
 
     def test_mcp_unknown_field_in_variant(self):
         import tempfile
+
         with tempfile.TemporaryDirectory() as d:
             # 'url' belongs to the http variants, not stdio
-            self._write_plugin(d, self.PJ, self.MJ % '{"type":"stdio","command":"srv","url":"https://x"}')
+            self._write_plugin(
+                d, self.PJ, self.MJ % '{"type":"stdio","command":"srv","url":"https://x"}'
+            )
             r = engine.check_plugin_conformance(d)
             self.assertFalse(r["ok"])
             self.assertTrue(any("unknown field 'url'" in e for e in r["errors"]))
 
     def test_mcp_reserved_env_keys(self):
         import tempfile
+
         with tempfile.TemporaryDirectory() as d:
-            self._write_plugin(d, self.PJ,
-                               self.MJ % '{"type":"stdio","command":"srv","env":{"PLUGIN_DATA":"/x"}}')
+            self._write_plugin(
+                d, self.PJ, self.MJ % '{"type":"stdio","command":"srv","env":{"PLUGIN_DATA":"/x"}}'
+            )
             r = engine.check_plugin_conformance(d)
             self.assertFalse(r["ok"])
             self.assertTrue(any("reserved" in e for e in r["errors"]))
 
     def test_mcp_http_non_loopback_rejected(self):
         import tempfile
+
         with tempfile.TemporaryDirectory() as d:
-            self._write_plugin(d, self.PJ, self.MJ % '{"type":"streamable-http","url":"http://example.com/mcp"}')
+            self._write_plugin(
+                d, self.PJ, self.MJ % '{"type":"streamable-http","url":"http://example.com/mcp"}'
+            )
             r = engine.check_plugin_conformance(d)
             self.assertFalse(r["ok"])
             self.assertTrue(any("HTTPS" in e for e in r["errors"]))
 
     def test_mcp_loopback_http_allowed_and_fragment_rejected(self):
         import tempfile
+
         with tempfile.TemporaryDirectory() as d:
-            self._write_plugin(d, self.PJ, self.MJ % '{"type":"sse","url":"http://localhost:3000/sse#frag"}')
+            self._write_plugin(
+                d, self.PJ, self.MJ % '{"type":"sse","url":"http://localhost:3000/sse#frag"}'
+            )
             r = engine.check_plugin_conformance(d)
             self.assertFalse(r["ok"])
             self.assertFalse(any("HTTPS" in e for e in r["errors"]))
@@ -242,11 +258,14 @@ class TestConformance(unittest.TestCase):
 
     def test_mcp_valid_remote_entry_passes(self):
         import tempfile
+
         with tempfile.TemporaryDirectory() as d:
             self._write_plugin(
-                d, self.PJ,
+                d,
+                self.PJ,
                 self.MJ % '{"type":"streamable-http","url":"https://api.example.com/mcp",'
-                          '"headers":{"X-Tenant":"public"}}')
+                '"headers":{"X-Tenant":"public"}}',
+            )
             r = engine.check_plugin_conformance(d)
             self.assertEqual([e for e in r["errors"] if "mcp.json" in e], [], r["errors"])
 
@@ -264,14 +283,20 @@ class TestSandboxRun(unittest.TestCase):
 
 class TestSchemaValidate(unittest.TestCase):
     def test_valid(self):
-        schema = {"type": "object", "required": ["name"],
-                  "properties": {"name": {"type": "string"}}}
+        schema = {
+            "type": "object",
+            "required": ["name"],
+            "properties": {"name": {"type": "string"}},
+        }
         r = engine.schema_validate({"name": "agentseed"}, schema)
         self.assertTrue(r["valid"])
 
     def test_invalid(self):
-        schema = {"type": "object", "required": ["name"],
-                  "properties": {"name": {"type": "string"}}}
+        schema = {
+            "type": "object",
+            "required": ["name"],
+            "properties": {"name": {"type": "string"}},
+        }
         r = engine.schema_validate({"name": 123}, schema)
         self.assertFalse(r["valid"])
         self.assertTrue(any("type" in e for e in r["errors"]))
@@ -308,6 +333,7 @@ class TestSchemaValidate(unittest.TestCase):
 class TestConfig(unittest.TestCase):
     def test_load_config_missing_returns_empty(self):
         import tempfile
+
         with tempfile.TemporaryDirectory() as d:
             old = os.getcwd()
             os.chdir(d)
@@ -318,25 +344,35 @@ class TestConfig(unittest.TestCase):
 
     def test_load_config_plugin_data(self):
         import tempfile
+
         with tempfile.TemporaryDirectory() as d:
             cfg = os.path.join(d, engine.CONFIG_FILENAME)
             with open(cfg, "w", encoding="utf-8") as fh:
                 fh.write('{"severities": {"stub_code": "info"}, "timeout": 15}')
-            env = {k: v for k, v in os.environ.items()
-                   if k not in ("AGENTSEED_CONFIG",)}
+            env = {k: v for k, v in os.environ.items() if k not in ("AGENTSEED_CONFIG",)}
             env["PLUGIN_DATA"] = d
             import subprocess
+
             out = subprocess.run(
-                [sys.executable, "-c",
-                 "import json, sys; sys.path.insert(0, r'%s');"
-                 "import guard_engine as e; print(json.dumps(e.load_config()))" %
-                 os.path.dirname(os.path.abspath(__file__))],
-                capture_output=True, text=True, env=env, check=True,
+                [
+                    sys.executable,
+                    "-c",
+                    "import json, sys; sys.path.insert(0, r'%s');"
+                    "import guard_engine as e; print(json.dumps(e.load_config()))"
+                    % os.path.dirname(os.path.abspath(__file__)),
+                ],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                env=env,
+                check=True,
             )
             self.assertEqual(json.loads(out.stdout)["timeout"], 15)
 
     def test_load_config_invalid_json_ignored(self):
         import tempfile
+
         with tempfile.TemporaryDirectory() as d:
             bad = os.path.join(d, "bad.json")
             with open(bad, "w", encoding="utf-8") as fh:
@@ -349,6 +385,7 @@ class TestSchemaDraft07Tuples(unittest.TestCase):
 
     def test_tuple_items_via_jsonschema_fallback(self):
         from engine import schema as schema_mod
+
         r = schema_mod.schema_validate(
             [1, "a"], {"items": [{"type": "integer"}, {"type": "string"}]}
         )
@@ -357,6 +394,7 @@ class TestSchemaDraft07Tuples(unittest.TestCase):
 
     def test_bad_tuple_types_detected(self):
         from engine import schema as schema_mod
+
         r = schema_mod.schema_validate(
             ["x", 1], {"items": [{"type": "integer"}, {"type": "string"}]}
         )
@@ -365,10 +403,10 @@ class TestSchemaDraft07Tuples(unittest.TestCase):
 
     def test_additional_items_false(self):
         from engine import schema as schema_mod
+
         r = schema_mod.schema_validate(
             [1, "a", True],
-            {"items": [{"type": "integer"}, {"type": "string"}],
-             "additionalItems": False},
+            {"items": [{"type": "integer"}, {"type": "string"}], "additionalItems": False},
         )
         self.assertFalse(r["valid"])
 
@@ -378,15 +416,21 @@ class TestMatchGuardsForOldPythons(unittest.TestCase):
 
     def test_detection_runs_with_match_nodes_absent(self):
         from engine import symbols as sym
+
         saved = (sym._MATCH_AS, sym._MATCH_STAR, sym._MATCH_MAPPING)
         sym._MATCH_AS = sym._MATCH_STAR = sym._MATCH_MAPPING = None
         try:
-            r = sym.detect_undefined_symbols(
-                "match x:\n    case [a]:\n        f(a)\n"
-            )
+            r = sym.detect_undefined_symbols("match x:\n    case [a]:\n        f(a)\n")
         finally:
             sym._MATCH_AS, sym._MATCH_STAR, sym._MATCH_MAPPING = saved
-        self.assertIn("f", r["suspects"])  # no crash; real suspect still found
+        if sys.version_info >= (3, 10):
+            # Nodes exist but were disabled: parse succeeds, guard degrades
+            # gracefully and the real suspect is still reported.
+            self.assertIn("f", r["suspects"])
+        else:
+            # Real pre-3.9 parser: match syntax is a SyntaxError; the engine
+            # must degrade to an empty (non-crashing) result.
+            self.assertEqual(r["suspects"], [])
 
 
 if __name__ == "__main__":

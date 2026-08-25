@@ -13,7 +13,12 @@ PY = sys.executable
 
 def run_cli(*args: str) -> subprocess.CompletedProcess:
     return subprocess.run(
-        [PY, CLI, *args], capture_output=True, text=True, timeout=60,
+        [PY, CLI, *args],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=60,
         cwd=PLUGIN_ROOT,
     )
 
@@ -49,6 +54,7 @@ class TestCli(unittest.TestCase):
 
     def test_check_bad_plugin_fails(self):
         import tempfile
+
         with tempfile.TemporaryDirectory() as d:
             r = run_cli("check", d, "--ci")  # missing plugin.json
             self.assertEqual(r.returncode, 1)
@@ -74,6 +80,7 @@ class TestCli(unittest.TestCase):
     def test_scan_string_allowlist_does_not_suppress_all(self):
         sys.path.insert(0, HERE)
         from guard_engine import scan_hallucination_words  # type: ignore
+
         # "tx": per-character iteration (the old bug) would see 't' and
         # suppress the hit; the coerced whole-string "tx" must not.
         r = scan_hallucination_words("x = todo()", allowlist="tx")

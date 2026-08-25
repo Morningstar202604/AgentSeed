@@ -25,6 +25,8 @@ class TestServerProtocol(unittest.TestCase):
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             text=True,
+            encoding="utf-8",
+            errors="replace",
         )
 
     @classmethod
