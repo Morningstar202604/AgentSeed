@@ -7,7 +7,7 @@
 基于 [Agent Plugins 1.0.0](https://agent-plugins.org) 规范的混合插件（Skill + MCP 服务器）：强制规范驱动开发，**在代码被标记为"完成"之前先验证**——让 "Done, all tests pass" 变成可观测的事实，而不是一句空话。
 
 [![License](https://img.shields.io/badge/license-Apache_2.0-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.1.1-blue)](https://gitcode.com/badhope/AgentSeed/releases)
+[![Version](https://img.shields.io/badge/version-0.2.0-blue)](https://gitcode.com/badhope/AgentSeed/releases)
 [![CI](https://github.com/Morningstar202604/AgentSeed/actions/workflows/ci.yml/badge.svg)](https://github.com/Morningstar202604/AgentSeed/actions/workflows/ci.yml)
 [![Platforms](https://img.shields.io/badge/platform-Cursor%20%7C%20VS%20Code%20%7C%20Claude%20Code%20%7C%20Copilot-blue)](https://agent-plugins.org)
 
@@ -84,6 +84,7 @@ $ check_plugin(path="/path/to/AgentSeed")
 bash install.sh --client auto        # macOS / Linux
 ./install.ps1 -Client auto           # Windows PowerShell
 # --client: claude | opencode | cursor | manual
+# 追加 --hooks / -Hooks 可同时注册 Claude Code 强制钩子
 ```
 
 **方式二 —— 克隆：**
@@ -115,6 +116,44 @@ python3 server/guard_cli.py scan src/ --strict   # 幻觉扫描，仅阻断级�
 > **Windows 提示：** `mcp.json` 通过 `python3` 启动服务器。很多 Windows 环境下该别名是
 > Microsoft Store 占位符；若服务器无法启动，请把 `command` 改为
 > `["python", "server/guard_server.py"]` 或解释器的绝对路径。
+
+## 客户端强制钩子（Claude Code）
+
+技能负责说服；钩子在客户端边界上强制执行。把 AgentSeed 注册为 Claude Code 钩子后，
+每次 `Write`/`Edit`/`MultiEdit` 工具调用都会被自动扫描——任何提示词都无法绕过：
+
+```bash
+python3 server/guard_hook.py register --client claude   # 合并写入 ~/.claude/settings.json，幂等可重跑
+python3 server/guard_hook.py --file path/to/source.py   # 直接扫描任意文件
+```
+
+- **PreToolUse** 在内容落盘*之前*检查传入的 `content`/`new_string`；出现阻断级命中即以退出码 `2`
+  结束，Claude 会通过 stderr 收到原因，必须先修复被标记的行，文件才写得进去。
+- **PostToolUse** 对没有内联内容的写路径，落盘后再复查一次。
+- **失败策略（如实说明）：** 基础设施问题——stdin 格式非法、文件不可读、未知工具结构——绝不阻塞
+  编辑（fail-open）；只有真实扫描命中才会阻断。warning 级信号会报告但不阻断。
+- 严重度 / 白名单 / 抑制符号调优与插件其他部分共用同一份 `agentseed.config.json`。
+
+不想跑 register 命令的话，也可以手工往 settings.json 里加：
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Write|Edit|MultiEdit",
+        "hooks": [ { "type": "command",
+                     "command": "python /path/to/AgentSeed/server/guard_hook.py" } ] }
+    ],
+    "PostToolUse": [
+      { "matcher": "Write|Edit|MultiEdit",
+        "hooks": [ { "type": "command",
+                     "command": "python /path/to/AgentSeed/server/guard_hook.py" } ] }
+    ]
+  }
+}
+```
+
+安装器加 `--hooks`（bash）/ `-Hooks`（PowerShell）即可自动完成上述注册。
 
 ## 可选依赖
 
@@ -148,7 +187,7 @@ AgentSeed 适配宿主环境的实际能力，逐级降级——绝不静默跳�
 
 | 客户端 | Agent Plugins 1.0.0 | 状态 | 说明 |
 | --- | --- | --- | --- |
-| Claude Code | skills + MCP config | verified | skills 放 `~/.claude/skills`，服务器走 `claude mcp add` |
+| Claude Code | skills + MCP config | verified | skills 放 `~/.claude/skills`，服务器走 `claude mcp add`；可选强制钩子用 `guard_hook.py register --client claude` |
 | opencode | skills + MCP config | verified | `~/.config/opencode/opencode.json`，确切片段见下 |
 | Cursor | skills + mcp.json | untested* | 拷入项目即可；暂无稳定插件目录 |
 | VS Code (+Copilot) | MCP 支持逐步推出 | untested* | 直接使用 mcp.json 字段 |

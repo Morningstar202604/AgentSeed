@@ -117,6 +117,9 @@
    "stub_code|placeholder": 1,
    "stub_code|todo": 1
   },
+  "scripts/token_coverage.py": {
+   "fabricated|fabricated": 1
+  },
   "server/engine/config.py": {
    "fabricated|fabricated": 1
   },
@@ -229,6 +232,12 @@
    "stub_code|mock": 2,
    "stub_code|stub": 1,
    "stub_code|todo": 4
+  },
+  "server/test_hook.py": {
+   "oversold|all tests pass": 1,
+   "oversold|guaranteed": 1,
+   "oversold|production ready": 1,
+   "stub_code|todo": 1
   },
   "server/test_server.py": {
    "stub_code|mock": 1

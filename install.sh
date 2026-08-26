@@ -2,7 +2,7 @@
 # AgentSeed installer - download the latest release and wire it into a client.
 #
 # Usage: ./install.sh [--client claude|opencode|cursor|manual] [--dir TARGET]
-#                     [--sha256 HEX] [--url ZIP_URL]
+#                     [--sha256 HEX] [--url ZIP_URL] [--hooks]
 #                     [--repo owner/name] [--forge github|gitcode]
 #
 # --url   : download a specific release zip directly (any host). Skips repo
@@ -10,6 +10,8 @@
 # --repo  : override the repository (default: badhope/AgentSeed, the canonical
 #           GitCode home; weed33834/* on GitHub is a deprecated mirror).
 # --forge : which release API to query (default: gitcode).
+# --hooks : additionally register the client-enforcement hook (Claude Code:
+#           merges into ~/.claude/settings.json, idempotent).
 set -e
 repo="badhope/AgentSeed"
 forge="gitcode"
@@ -17,6 +19,7 @@ client="auto"
 dir=""
 want_sha=""
 direct_url=""
+want_hooks=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --client) client="$2"; shift 2 ;;
@@ -25,6 +28,7 @@ while [ $# -gt 0 ]; do
     --url) direct_url="$2"; shift 2 ;;
     --repo) repo="$2"; shift 2 ;;
     --forge) forge="$2"; shift 2 ;;
+    --hooks) want_hooks=1; shift ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
 done
@@ -90,12 +94,19 @@ install_skill() {
 case "$client" in
   claude)
     install_skill "$HOME/.claude/skills/verify-before-code"
+    if [ "$want_hooks" = "1" ]; then
+      "${PYTHON:-python3}" "$plugin_home/server/guard_hook.py" register --client claude ||
+        echo "WARNING: hook registration failed; run: python \"$plugin_home/server/guard_hook.py\" register --client claude" >&2
+    fi
     echo ""
     echo "==> final step - register the MCP server:"
     echo "    claude mcp add agentseed -- python \"$plugin_home/server/guard_server.py\""
     ;;
   opencode)
     install_skill "$HOME/.config/opencode/skill/verify-before-code"
+    if [ "$want_hooks" = "1" ]; then
+      "${PYTHON:-python3}" "$plugin_home/server/guard_hook.py" register --client opencode || true
+    fi
     echo ""
     echo "==> final step - add to ~/.config/opencode/opencode.json:"
     cat <<EOF
@@ -109,6 +120,9 @@ case "$client" in
 EOF
     ;;
   cursor)
+    if [ "$want_hooks" = "1" ]; then
+      "${PYTHON:-python3}" "$plugin_home/server/guard_hook.py" register --client cursor || true
+    fi
     echo "==> Cursor has no stable Agent Plugins directory yet."
     echo "    Plugin kept at: $plugin_home"
     echo "    Register the MCP server in Cursor settings:"

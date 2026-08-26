@@ -3,7 +3,7 @@
   "name": "io.gitcode.badhope/agentseed",
   "title": "AgentSeed",
   "description": "Anti-hallucination guardrails for AI coding agents: hybrid Skill + MCP server that forces spec-driven development and verifies code (AST analysis, hallucination scan, sandboxed execution, schema validation) before it is marked done.",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "repository": {
     "url": "https://gitcode.com/badhope/AgentSeed"
   },

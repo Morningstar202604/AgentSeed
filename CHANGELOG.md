@@ -3,7 +3,7 @@
 All notable changes to AgentSeed are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com); versioning follows [SemVer](https://semver.org).
 
-## [Unreleased]
+## [0.2.0] — 2026-08-26
 
 ### Security
 - **`sandbox_allowed_prefixes` bypass fixed (High)**: the old matcher compared
@@ -37,6 +37,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com); versioning follo
   superpowers; static import linters).
 
 ### Added
+- **Client-enforcement hook** (`server/guard_hook.py`, installers `--hooks` /
+  `-Hooks`): registers as a Claude Code PreToolUse/PostToolUse hook so every
+  `Write`/`Edit`/`MultiEdit` is scanned at the client boundary — PreToolUse
+  checks the incoming `content`/`new_string` before anything lands on disk,
+  and error-severity findings return as exit code 2 with the reason on stderr
+  (the channel Claude Code feeds back to the model). Registration merges into
+  `~/.claude/settings.json` idempotently (stale agentseed entries replaced,
+  unrelated hooks preserved). Fail-open policy: infrastructure errors never
+  block edits; only positive scan findings do. Honored config keys:
+  `allowlist`, `severities`, `suppress_symbols`, `extra_tokens`. Covered by
+  17 subprocess tests wired into both CI test jobs.
 - **pyflakes enhancement is real**: `verify_code` now merges pyflakes F821
   undefined-name findings into its AST walk when pyflakes is installed (catches
   e.g. Del-context names the hand-rolled walk misses); previously the import

@@ -28,7 +28,7 @@ jobs:
           jsonschema pyflakes pyyaml
       - name: Test suite (with coverage of the engine package)
         run: |
-          python -m coverage run --source=engine -m pytest test_guard.py test_features.py test_cli.py test_server.py test_manifests.py -q
+          python -m coverage run --source=engine -m pytest test_guard.py test_features.py test_cli.py test_server.py test_manifests.py test_hook.py -q
           python -m coverage report -m
 
   # Degradation contract: everything must pass with ZERO third-party
@@ -51,7 +51,7 @@ jobs:
         run: |
           python -c "import importlib.util as u; missing=[m for m in ('jsonschema','pyflakes','yaml') if u.find_spec(m) is None]; assert len(missing)==3, missing"
       - run: python -m pip install pytest
-      - run: python -m pytest test_guard.py test_features.py test_cli.py test_server.py test_manifests.py -q
+      - run: python -m pytest test_guard.py test_features.py test_cli.py test_server.py test_manifests.py test_hook.py -q
 
   lint:
     runs-on: ubuntu-latest

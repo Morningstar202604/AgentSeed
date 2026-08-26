@@ -7,7 +7,7 @@
 A hybrid [Agent Plugins](https://agent-plugins.org) plugin (Skill + MCP Server) that forces spec-driven development and **verifies code before it is marked done** — so "Done, all tests pass" becomes an observed fact, not a claim.
 
 [![License](https://img.shields.io/badge/license-Apache_2.0-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.1.1-blue)](https://gitcode.com/badhope/AgentSeed/releases)
+[![Version](https://img.shields.io/badge/version-0.2.0-blue)](https://gitcode.com/badhope/AgentSeed/releases)
 [![CI](https://github.com/Morningstar202604/AgentSeed/actions/workflows/ci.yml/badge.svg)](https://github.com/Morningstar202604/AgentSeed/actions/workflows/ci.yml)
 [![Platforms](https://img.shields.io/badge/platform-Cursor%20%7C%20VS%20Code%20%7C%20Claude%20Code%20%7C%20Copilot-blue)](https://agent-plugins.org)
 
@@ -84,6 +84,7 @@ $ check_plugin(path="/path/to/AgentSeed")
 bash install.sh --client auto        # macOS / Linux
 ./install.ps1 -Client auto           # Windows PowerShell
 # --client: claude | opencode | cursor | manual
+# add --hooks / -Hooks to also register the Claude Code enforcement hook
 ```
 
 **Option B — clone:**
@@ -117,6 +118,51 @@ python3 server/guard_cli.py scan src/ --strict   # hallucination scan, blocking 
 > Windows installs that alias is a Microsoft Store stub; if the server fails
 > to start, change `command` to `["python", "server/guard_server.py"]` or
 > point it at your interpreter's absolute path.
+
+## Client-enforced hook mode (Claude Code)
+
+Skills persuade; hooks enforce at the client boundary. Register AgentSeed as
+a Claude Code hook and every `Write`/`Edit`/`MultiEdit` tool call is scanned
+automatically — no prompt can skip it:
+
+```bash
+python3 server/guard_hook.py register --client claude   # merges into ~/.claude/settings.json, idempotent
+python3 server/guard_hook.py --file path/to/source.py   # scan any file directly
+```
+
+- **PreToolUse** inspects the incoming `content`/`new_string` *before* it
+  lands on disk; a blocking finding exits `2`, so Claude receives the reason
+  on stderr and must fix the flagged lines instead of writing the file.
+- **PostToolUse** re-checks the saved file for write paths without inline
+  content.
+- **Failure policy (honest scope):** infrastructure problems — malformed
+  stdin, unreadable files, unknown tool shapes — never block work
+  (fail-open); only positive scan findings block. Warning-severity signals
+  are reported but do not block.
+- Severity/allowlist/suppression tuning uses the same `agentseed.config.json`
+  keys as the rest of the plugin.
+
+Manual settings.json entry, if you prefer not to run the register command:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Write|Edit|MultiEdit",
+        "hooks": [ { "type": "command",
+                     "command": "python /path/to/AgentSeed/server/guard_hook.py" } ] }
+    ],
+    "PostToolUse": [
+      { "matcher": "Write|Edit|MultiEdit",
+        "hooks": [ { "type": "command",
+                     "command": "python /path/to/AgentSeed/server/guard_hook.py" } ] }
+    ]
+  }
+}
+```
+
+The installers wire this for you with `--hooks` (bash) / `-Hooks`
+(PowerShell).
 
 ## Optional dependencies
 
@@ -157,7 +203,7 @@ apply the same blocking rules to exit codes.
 
 | Client | Agent Plugins 1.0.0 | Status | Notes |
 | --- | --- | --- | --- |
-| Claude Code | skills + MCP config | verified | skills via `~/.claude/skills`, server via `claude mcp add` |
+| Claude Code | skills + MCP config | verified | skills via `~/.claude/skills`, server via `claude mcp add`; optional enforcement hook via `guard_hook.py register --client claude` |
 | opencode | skills + MCP config | verified | `~/.config/opencode/opencode.json` — exact snippet below |
 | Cursor | skills + mcp.json | untested* | copy into project; no stable plugin dir yet |
 | VS Code (+Copilot) | MCP support rolling out | untested* | use mcp.json fields as-is |

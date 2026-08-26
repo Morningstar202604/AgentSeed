@@ -9,7 +9,7 @@
 検証**します — "Done, all tests pass" を主張ではなく観測事実にします。
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.1.1-blue)](https://gitcode.com/badhope/AgentSeed/releases)
+[![Version](https://img.shields.io/badge/version-0.2.0-blue)](https://gitcode.com/badhope/AgentSeed/releases)
 [![CI](https://github.com/Morningstar202604/AgentSeed/actions/workflows/ci.yml/badge.svg)](https://github.com/Morningstar202604/AgentSeed/actions/workflows/ci.yml)
 [![Platforms](https://img.shields.io/badge/platform-Cursor%20%7C%20VS%20Code%20%7C%20Claude%20Code%20%7C%20Copilot-blue)](https://agent-plugins.org)
 
@@ -91,6 +91,7 @@ $ check_plugin(path="/path/to/AgentSeed")
 bash install.sh --client auto        # macOS / Linux
 ./install.ps1 -Client auto           # Windows PowerShell
 # --client: claude | opencode | cursor | manual
+# --hooks / -Hooks を追記すると Claude Code 強制フックも同時登録
 ```
 
 **方法 B — クローン：**
@@ -127,6 +128,48 @@ python3 server/guard_cli.py scan src/ --strict   # 幻覚スキャン、ブロ�
 > `command` を `["python", "server/guard_server.py"]` またはインタープリターの絶対パスに
 > 変更してください。
 
+## クライアント強制フック（Claude Code）
+
+スキルは説得し、フックはクライアント境界で強制します。AgentSeed を Claude Code の
+フックとして登録すると、すべての `Write`/`Edit`/`MultiEdit` ツール呼び出しが自動で
+スキャンされます——プロンプトでは回避できません：
+
+```bash
+python3 server/guard_hook.py register --client claude   # ~/.claude/settings.json へ冪等マージ
+python3 server/guard_hook.py --file path/to/source.py   # 任意ファイルを直接スキャン
+```
+
+- **PreToolUse** は書き込みがディスクに乗る*前*に `content`/`new_string` を検査します。
+  ブロック級の検出で exit `2` になり、Claude は stderr 経由で理由を受け取り、
+  指摘行を修正するまでファイルを書き込めません。
+- **PostToolUse** はインライン内容を持たない書き込みパス向けに、保存後のファイルを再チェックします。
+- **失敗ポリシー（正直な範囲）：** stdin 不正・読み取り不可・未知のツール形状といった
+  インフラ問題は編集をブロックしません（fail-open）。実際の検出ヒットのみがブロックします。
+  warning レベルは報告のみでブロックしません。
+- 重大度 / 許可リスト / 抑制シンボルの調整は、プラグイン他部と同じ `agentseed.config.json`
+  のキーを使います。
+
+register コマンドを使いたくない場合は、settings.json に手動で追記できます：
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Write|Edit|MultiEdit",
+        "hooks": [ { "type": "command",
+                     "command": "python /path/to/AgentSeed/server/guard_hook.py" } ] }
+    ],
+    "PostToolUse": [
+      { "matcher": "Write|Edit|MultiEdit",
+        "hooks": [ { "type": "command",
+                     "command": "python /path/to/AgentSeed/server/guard_hook.py" } ] }
+    ]
+  }
+}
+```
+
+インストーラーは `--hooks`（bash）/ `-Hooks`（PowerShell）でこの登録まで自動で行います。
+
 ## オプション依存
 
 AgentSeed は Python 標準ライブラリだけで動きます。以下をインストールすると、2 つの
@@ -161,7 +204,7 @@ pip install -r server/requirements.txt
 
 | クライアント | Agent Plugins 1.0.0 | 状態 | 備考 |
 | --- | --- | --- | --- |
-| Claude Code | skills + MCP config | verified | skills は `~/.claude/skills`、サーバーは `claude mcp add` |
+| Claude Code | skills + MCP config | verified | skills は `~/.claude/skills`、サーバーは `claude mcp add`、オプションの強制フックは `guard_hook.py register --client claude` |
 | opencode | skills + MCP config | verified | `~/.config/opencode/opencode.json`、スニペットは下記 |
 | Cursor | skills + mcp.json | untested* | プロジェクトにコピー；安定したプラグインディレクトリはまだ無し |
 | VS Code (+Copilot) | MCP サポート展開中 | untested* | mcp.json フィールドをそのまま使用 |

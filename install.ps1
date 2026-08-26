@@ -2,13 +2,15 @@
 #
 # Usage: .\install.ps1 [-Client claude|opencode|cursor|manual] [-Dir TARGET]
 #                      [-Sha256 HEX] [-Url ZIP_URL] [-Repo owner/name]
-#                      [-Forge github|gitcode]
+#                      [-Forge github|gitcode] [-Hooks]
 #
 # -Url   : download a specific release zip directly (any host). Skips repo
 #          resolution entirely.
 # -Repo  : override the repository (default: badhope/AgentSeed, the canonical
 #          GitCode home; weed33834/* on GitHub is a deprecated mirror).
 # -Forge : which release API to query (default: gitcode).
+# -Hooks : additionally register the client-enforcement hook (Claude Code:
+#          merges into ~\.claude\settings.json, idempotent).
 param(
     [ValidateSet("auto", "claude", "opencode", "cursor", "manual")]
     [string]$Client = "auto",
@@ -17,7 +19,8 @@ param(
     [string]$Url = "",
     [ValidateSet("github", "gitcode")]
     [string]$Forge = "gitcode",
-    [string]$Repo = "badhope/AgentSeed"
+    [string]$Repo = "badhope/AgentSeed",
+    [switch]$Hooks
 )
 $ErrorActionPreference = "Stop"
 $repo = "badhope/AgentSeed"
@@ -79,22 +82,32 @@ try {
         Write-Host "==> skill installed to $dest"
     }
     $serverPy = Join-Path $pluginHome "server\guard_server.py"
+    $hookPy = Join-Path $pluginHome "server\guard_hook.py"
+    $py = if ($env:PYTHON) { $env:PYTHON } else { "python" }
 
     switch ($Client) {
         "claude" {
             Install-Skill "$HOME\.claude\skills\verify-before-code"
+            if ($Hooks) {
+                & $py $hookPy register --client claude
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Warning "hook registration failed; run: python `"$hookPy`" register --client claude"
+                }
+            }
             Write-Host ""
             Write-Host "==> final step - register the MCP server:"
             Write-Host "    claude mcp add agentseed -- python `"$serverPy`""
         }
         "opencode" {
             Install-Skill "$HOME\.config\opencode\skill\verify-before-code"
+            if ($Hooks) { & $py $hookPy register --client opencode }
             Write-Host ""
             Write-Host "==> final step - add to ~/.config/opencode/opencode.json:"
             Write-Host "    `"mcp`": { `"agentseed`": { `"type`": `"local`","
             Write-Host "        `"command`": [`"python`", `"$serverPy`"], `"enabled`": true } }"
         }
         "cursor" {
+            if ($Hooks) { & $py $hookPy register --client cursor }
             Write-Host "==> Cursor has no stable Agent Plugins directory yet."
             Write-Host "    Plugin kept at: $pluginHome"
             Write-Host "    Register the MCP server in Cursor settings:"
