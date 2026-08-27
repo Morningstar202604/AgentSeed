@@ -66,5 +66,42 @@ class TestManifestConsistency(unittest.TestCase):
             )
 
 
+class TestArtifactHygiene(unittest.TestCase):
+    """What the release zip must NOT contain (and must contain)."""
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "pack", os.path.join(ROOT, "scripts", "pack.py")
+        )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        cls.pack = module
+
+    def test_local_runtime_state_never_ships(self):
+        """A local run wrote server/.agentseed/verification-log.jsonl and it
+        ended up in the built artifact — an audit log (task names, absolute
+        paths) must never ride along in a public zip."""
+        skip_dirs = self.pack.ARTIFACT_SKIP_DIRS
+        for runtime in (".agentseed", ".agentseed_cache", "__pycache__", ".git"):
+            self.assertIn(runtime, skip_dirs, f"{runtime} would ship in the artifact")
+        self.assertIn("verification-log.jsonl", self.pack.ARTIFACT_SKIP_FILES)
+        for suffix in (".pyc", ".log"):
+            self.assertIn(suffix, self.pack.ARTIFACT_SKIP_SUFFIXES)
+
+    def test_artifact_ships_its_own_documentation(self):
+        docs = self.pack.ARTIFACT_EXTRA_DOCS
+        for name in ("README.md", "SECURITY.md"):
+            self.assertIn(name, docs, f"{name} missing from the release artifact")
+        for name in docs:
+            self.assertTrue(
+                os.path.exists(os.path.join(ROOT, name)), f"ARTIFACT_EXTRA_DOCS entry missing: {name}"
+            )
+        overlap = set(docs) & set(_load("package.json").get("files", []))
+        self.assertEqual(overlap, set(), "artifact docs duplicated in package.json files")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -102,6 +102,24 @@ def check_consistency() -> list[str]:
     return errors
 
 
+# Runtime state and tool caches that must never enter a public artifact.
+ARTIFACT_SKIP_DIRS = {
+    "__pycache__",
+    ".git",
+    ".agentseed",
+    ".agentseed_cache",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".idea",
+    ".vscode",
+    ".venv",
+    "venv",
+}
+ARTIFACT_SKIP_FILES = {"verification-log.jsonl"}
+ARTIFACT_SKIP_SUFFIXES = (".pyc", ".log")
+
+
 def build() -> tuple[str, str]:
     """Build dist/agentseed-<version>.zip; returns (zip_path, sha256_hex)."""
     pkg = _load("package.json")
@@ -118,22 +136,16 @@ def build() -> tuple[str, str]:
         full = os.path.join(ROOT, raw)
         if os.path.isdir(full):
             for base, dirs, names in os.walk(full):
-                # never ship caches or VCS metadata in the artifact
-                dirs[:] = [
-                    d
-                    for d in dirs
-                    if d
-                    not in (
-                        "__pycache__",
-                        ".git",
-                        ".pytest_cache",
-                        ".mypy_cache",
-                        ".ruff_cache",
-                        ".idea",
-                        ".vscode",
-                    )
-                ]
-                entries.extend(os.path.join(base, n) for n in names if not n.endswith(".pyc"))
+                # never ship caches, VCS metadata, or local runtime state: an
+                # audit log written under server/.agentseed/ during a local run
+                # would otherwise leave the build machine in a public artifact
+                dirs[:] = [d for d in dirs if d not in ARTIFACT_SKIP_DIRS]
+                entries.extend(
+                    os.path.join(base, n)
+                    for n in names
+                    if n not in ARTIFACT_SKIP_FILES
+                    and not n.endswith(ARTIFACT_SKIP_SUFFIXES)
+                )
         elif os.path.isfile(full):
             entries.append(full)
     # Deterministic archive: fixed timestamp + sorted order so the same
