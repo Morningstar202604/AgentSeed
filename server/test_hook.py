@@ -218,6 +218,28 @@ class TestRegister(unittest.TestCase):
                 self.assertEqual(len(agentseed_groups), 1, ev)
                 self.assertEqual(agentseed_groups[0]["matcher"], "Write|Edit|MultiEdit")
 
+    def test_register_leaves_rollback_backup(self):
+        """Registration must never destroy the user's previous config (P1-8).
+
+        Registering rewrites ~/.claude/settings.json (or ~/.cursor/hooks.json);
+        a `.bak` of the exact pre-registration bytes is kept so the user can
+        roll back if the merged result is not what their client expected.
+        """
+        with tempfile.TemporaryDirectory() as d:
+            settings = os.path.join(d, "settings.json")
+            original = {"model": "opus", "hooks": {}}
+            with open(settings, "w", encoding="utf-8") as fh:
+                json.dump(original, fh)
+            r = run_hook(None, "register", "--client", "claude", "--settings", settings)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            backup = settings + ".bak"
+            self.assertTrue(os.path.isfile(backup), "no .bak written before overwrite")
+            with open(backup, encoding="utf-8") as fh:
+                saved = json.load(fh)
+            self.assertEqual(saved, original)
+            with open(settings, encoding="utf-8") as fh:
+                self.assertIn("PreToolUse", json.load(fh)["hooks"])
+
     def test_register_replaces_stale_agentseed_entries(self):
         with tempfile.TemporaryDirectory() as d:
             settings = os.path.join(d, "settings.json")

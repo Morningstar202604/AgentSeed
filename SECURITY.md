@@ -41,9 +41,12 @@ AgentSeed is a **developer-machine tool**, not a sandbox boundary:
   variable names before spawn. This is a best-effort denylist for leak
   reduction — NOT a security boundary; treat any spawned process as able to
   read whatever remains.
-- Known hardening limits (documented non-goals): child output is buffered in
-  full before truncation (a multi-GB-writing child can stress memory), and
-  no CPU/memory rlimits are imposed on children.
+- A child that floods its output can no longer balloon the server: both pipes
+  are drained incrementally by reader threads into tail ring buffers (8 KB
+  stdout / 4 KB stderr), so memory stays bounded while the "last output wins"
+  truncation semantics hold (see `server/engine/sandbox.py`).
+- Known hardening limit (documented non-goal): no CPU/memory rlimits are
+  imposed on children — an escaping process can still consume host CPU or disk.
 - The stdio MCP server trusts its launching client (local process). It binds
   no sockets and performs no network I/O itself. Protocol frames larger than
   2 MB are rejected unread (-32600) as a parse-cost bound.

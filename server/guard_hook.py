@@ -233,6 +233,34 @@ def _clean_groups(groups: list, command: str) -> list:
     return kept
 
 
+def _write_json_config(path: str, data: dict) -> None:
+    """Persist a client config atomically, keeping one `.bak` of the previous
+    contents.
+
+    The registration path used to `open(path, "w")` the user's own
+    `settings.json` / `hooks.json` directly: that truncates the file before a
+    single byte is written, so an interrupt or a full disk leaves the client
+    with a corrupt config and no way back. Writing a sibling temp file and
+    `os.replace`-ing it is atomic on every supported platform.
+    """
+    directory = os.path.dirname(path) or "."
+    os.makedirs(directory, exist_ok=True)
+    payload = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+    if os.path.isfile(path):
+        with open(path, encoding="utf-8") as fh:
+            if fh.read() != payload:
+                shutil.copyfile(path, path + ".bak")
+    tmp = path + f".agentseed-tmp-{os.getpid()}"
+    try:
+        with open(tmp, "w", encoding="utf-8") as fh:
+            fh.write(payload)
+        os.replace(tmp, path)
+    except OSError:
+        if os.path.isfile(tmp):
+            os.remove(tmp)
+        raise
+
+
 CURSOR_HOOK_EVENTS = ("preToolUse", "afterFileEdit")
 
 
@@ -258,10 +286,7 @@ def _register_cursor(command: str, path: str) -> int:
             groups = []
         hooks[ev] = _clean_groups(groups, command)
     try:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as fh:
-            json.dump(data, fh, ensure_ascii=False, indent=2)
-            fh.write("\n")
+        _write_json_config(path, data)
     except OSError as exc:
         print(json.dumps({"ok": False, "error": f"cannot write {path}: {exc}"}, indent=2))
         return 1
@@ -326,10 +351,7 @@ def cmd_register(client: str, settings_path: str | None = None) -> int:
             groups = []
         hooks[ev] = _clean_groups(groups, command)
     try:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as fh:
-            json.dump(data, fh, ensure_ascii=False, indent=2)
-            fh.write("\n")
+        _write_json_config(path, data)
     except OSError as exc:
         print(json.dumps({"ok": False, "error": f"cannot write {path}: {exc}"}, indent=2))
         return 1
