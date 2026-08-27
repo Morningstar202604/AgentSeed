@@ -357,15 +357,6 @@ maintains for AI coding agents (`CLAUDE.md`, `AGENTS.md`, `.cursor/rules/`,
 | Enforcement | soft (skill text) | CI gate | **hard gate**: skill + MCP + CLI exit codes |
 | Agent Plugins 1.0.0 conformance linter | ❌ | ❌ | ✅ first |
 
-## Roadmap
-
-- [x] Hybrid Skill + MCP guardrail, 6 tools — first strict 1.0.0 linter
-- [x] Prompt pool + pattern library + grouped signals + vendor techniques
-- [x] `verify_code` for TypeScript / JavaScript (zero-dependency lexical pass)
-- [ ] `verify_code` for Go
-- [ ] Grammar-constrained decoding for structured outputs
-- [ ] Optional remote fact-checker (HHEM-style) MCP server
-
 ## FAQ
 
 **Does it need a specific LLM?** No — it's client-agnostic and model-agnostic. The gate is enforced by the skill + MCP server, not by any model.
@@ -376,7 +367,7 @@ maintains for AI coding agents (`CLAUDE.md`, `AGENTS.md`, `.cursor/rules/`,
 
 ## Contributing
 
-Issues, PRs and ideas welcome. See the [roadmap](#roadmap) for directions — or open an issue for a hallucination pattern we haven't catalogued yet.
+Issues, PRs and ideas welcome — or open an issue for a hallucination pattern we haven't catalogued yet.
 
 ## License
 

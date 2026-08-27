@@ -1,0 +1,14 @@
+# Normalize line endings: LF stored in the repo; checkout honors core.autocrlf
+# (CRLF on Windows). Fixes the phantom "modified" state caused by mixed
+# line endings committed before this file existed.
+* text=auto
+
+# Binary assets must never be touched by text normalization
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.pyc binary

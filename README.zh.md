@@ -319,15 +319,6 @@ AgentSeed 与团队已有的 AI 配置文件（`CLAUDE.md` / `AGENTS.md` / `.cur
 | 强制 | 软（skill 文本） | CI 门禁 | **硬闸门**：skill + MCP + CLI 退出码 |
 | 1.0.0 linter | ❌ | ❌ | ✅ 首个 |
 
-## 路线图
-
-- [x] 混合 Skill + MCP 护栏，6 个工具 —— 首个严格 1.0.0 linter
-- [x] 提示池 + 模式库 + 分组信号 + 厂商技术引进
-- [x] `verify_code` 支持 TypeScript / JavaScript（零依赖词法分析）
-- [ ] `verify_code` 支持 Go
-- [ ] 结构化输出的语法约束解码
-- [ ] 可选远程事实检查器（HHEM 风格）MCP 服务器
-
 ## 常见问题
 
 **需要特定的大模型吗？** 不需要——与客户端、模型无关。闸门由 skill + MCP 服务器强制，不依赖任何模型。
@@ -338,7 +329,7 @@ AgentSeed 与团队已有的 AI 配置文件（`CLAUDE.md` / `AGENTS.md` / `.cur
 
 ## 贡献
 
-欢迎 Issue、PR 和点子。方向见[路线图](#路线图)——如果你发现了我们还没收录的幻觉模式，开个 Issue。
+欢迎 Issue、PR 和点子。如果你发现了我们还没收录的幻觉模式，开个 Issue。
 
 ## 许可证
 

@@ -10,7 +10,7 @@ license: Apache-2.0
 compatibility: Requires Python 3.9+ for the MCP server. Zero required dependencies; optional extras (jsonschema, pyflakes, pyyaml) upgrade analysis engines with automatic fallback.
 metadata:
   author: AgentSeed
-  version: "0.1.1"
+  version: "0.2.0"
   spec: agent-plugins-1.0.0
 ---
 

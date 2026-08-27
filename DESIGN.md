@@ -179,17 +179,7 @@ Returns `ok`, `errors[]`, `warnings[]`.
 | Enforcement | soft | CI gate | **hard gate** |
 | 1.0.0 linter | ❌ | ❌ | ✅ |
 
-## 8. Roadmap (moat)
-
-1. Extend `verify_code` to Go (TS/JS lexical pass already shipped in v0.1).
-2. Harden `sandbox_run` further — streamed output truncation
-   (tree-kill on timeout and optional env scrubbing already shipped).
-3. Add `check_contract` — ingest the user's private spec as the contract.
-4. Wire the PROMPT-POOL into per-client configs (Cursor rules, CLAUDE.md,
-   AGENTS.md) so the prompts apply outside plugin-aware clients.
-5. Ship the missing **registry** for 1.0.0 distribution.
-
-## 9. Risks & explicit non-goals
+## 8. Risks & explicit non-goals
 
 Risks:
 
@@ -209,7 +199,7 @@ Explicit non-goals (stated so nobody mistakes them for bugs):
 - **Full sandbox isolation**: `sandbox_run` is a deterministic execution
   channel with tree-kill and optional env scrubbing, not a container.
 
-## 10. Build & test
+## 9. Build & test
 
 ```bash
 python3 server/guard_engine.py                 # self-check + demos

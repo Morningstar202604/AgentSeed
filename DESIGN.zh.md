@@ -133,16 +133,7 @@ AgentSeed 填补：**代码级 + 真跑工具 + Skill/MCP 闭环强制**。`chec
 | 强制 | 软 | CI 门禁 | **硬闸门** |
 | 1.0.0 linter | ❌ | ❌ | ✅ |
 
-## 8. 路线图（护城河）
-
-1. `verify_code` 扩展到 Go（TS/JS 词法分析已随 v0.1 提供）。
-2. 进一步加固 `sandbox_run` —— 输出流式截断（超时树杀与可选环境清洗已随本版提供）。
-3. 加 `check_contract` —— 把用户的私有规范作为契约摄入。
-4. 把 PROMPT-POOL 接入各客户端配置（Cursor rules、CLAUDE.md、AGENTS.md），
-   让提示在"非插件感知"的客户端也生效。
-5. 填补 1.0.0 缺失的**注册表**分发机制。
-
-## 9. 风险与明确的非目标
+## 8. 风险与明确的非目标
 
 风险：
 
@@ -159,7 +150,7 @@ AgentSeed 填补：**代码级 + 真跑工具 + Skill/MCP 闭环强制**。`chec
 - **完整沙箱隔离**：`sandbox_run` 是带树杀与可选环境清洗的确定性执行通道，
   不是容器。
 
-## 10. 构建与测试
+## 9. 构建与测试
 
 ```bash
 python3 server/guard_engine.py                 # 自测 + 演示

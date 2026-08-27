@@ -3,7 +3,7 @@
 Flags tokens across three signal groups:
   - stub_code:     stub/mock/fake/placeholder/dummy/todo/...
   - oversold:      guaranteed/"all tests pass"/"production ready"/...
-  - fabricated:    simulated/hypothetical/imaginary/invented/...
+  - fabricated:    simulated/invented/fabricated/...
 """
 
 from __future__ import annotations
@@ -17,37 +17,75 @@ from .config import _VALID_SEVERITIES
 # ---------------------------------------------------------------------------
 
 STUB_TOKENS = [
-    "stub", "mock", "fake", "placeholder", "dummy",
-    "todo", "fixme", "xxx", "tbd", "tba",
-    "wip", "not implemented", "coming soon",
+    "stub",
+    "mock",
+    "fake",
+    "placeholder",
+    "dummy",
+    "todo",
+    "fixme",
+    "xxx",
+    "tbd",
+    "tba",
+    "wip",
+    "not implemented",
+    "coming soon",
 ]
 
 # CJK tokens: \b word boundaries are meaningless between CJK chars, so these
 # are matched as substrings (they are specific enough to stay low-noise).
 STUB_TOKENS_ZH = [
-    "占位", "待实现", "未实现", "待补充", "稍后补",
-    "假数据", "模拟数据", "临时方案", "先这样",
+    "占位",
+    "待实现",
+    "未实现",
+    "待补充",
+    "稍后补",
+    "假数据",
+    "模拟数据",
+    "临时方案",
+    "先这样",
 ]
 
 OVERSOLD_TOKENS = [
-    "guaranteed", "definitely works", "all tests pass", "everything works",
-    "fully tested", "production ready", "no bugs", "works perfectly",
-    "should work", "trust me", "works on my machine", "100% correct",
-    "bug free", "zero errors",
+    "guaranteed",
+    "definitely works",
+    "all tests pass",
+    "everything works",
+    "fully tested",
+    "production ready",
+    "no bugs",
+    "works perfectly",
+    "should work",
+    "trust me",
+    "works on my machine",
+    "100% correct",
+    "bug free",
+    "zero errors",
 ]
 
 OVERSOLD_TOKENS_ZH = [
-    "保证通过", "绝对没问题", "肯定能跑", "万无一失",
-    "完美运行", "零缺陷", "无需测试", "包过",
+    "保证通过",
+    "绝对没问题",
+    "肯定能跑",
+    "万无一失",
+    "完美运行",
+    "零缺陷",
+    "无需测试",
+    "包过",
 ]
 
 FABRICATED_TOKENS = [
-    "simulated", "hypothetical", "imaginary", "invented",
-    "fabricated", "fictional", "pretend", "made up",
+    "simulated",
+    "invented",
+    "fabricated",
+    "fictional",
+    "pretend",
+    "made up",
 ]
 
 FABRICATED_TOKENS_ZH = [
-    "虚构", "编造", "臆造", "假装运行",
+    "虚构",
+    "编造",
 ]
 
 # Full pool: token -> group (kept for backward compatibility).
@@ -78,9 +116,7 @@ DEFAULT_ALLOWLIST = [
     "mocker",
 ]
 
-_IMPORT_LINE_RE = re.compile(
-    r"^\s*(?:from\s+[\w.]+\s+import\b|import\s+\w)", re.IGNORECASE
-)
+_IMPORT_LINE_RE = re.compile(r"^\s*(?:from\s+[\w.]+\s+import\b|import\s+\w)", re.IGNORECASE)
 
 # Default severity per signal group.
 DEFAULT_SEVERITIES: dict[str, str] = {
@@ -99,8 +135,7 @@ _CJK_RE = re.compile(r"[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]")
 
 
 def _compile_group(tokens: list[str]) -> re.Pattern:
-    ascii_alts = [re.escape(t).replace(r"\ ", r"\s+")
-                  for t in tokens if not _CJK_RE.search(t)]
+    ascii_alts = [re.escape(t).replace(r"\ ", r"\s+") for t in tokens if not _CJK_RE.search(t)]
     cjk_alts = [re.escape(t) for t in tokens if _CJK_RE.search(t)]
     parts = []
     if ascii_alts:
@@ -154,8 +189,9 @@ def scan_hallucination_words(
         # string would iterate characters and silently suppress every match.
         allowlist = [allowlist]
     elif not isinstance(allowlist, list):
-        allowlist = [a for a in allowlist if isinstance(a, str)] \
-            if hasattr(allowlist, "__iter__") else []
+        allowlist = (
+            [a for a in allowlist if isinstance(a, str)] if hasattr(allowlist, "__iter__") else []
+        )
     allowlist = [a for a in allowlist if isinstance(a, str) and a]
     sev = dict(DEFAULT_SEVERITIES)
     if severities:
@@ -177,18 +213,16 @@ def scan_hallucination_words(
             continue
         for pattern, group in patterns:
             for m in pattern.finditer(line):
-                before = line[max(0, m.start() - 1):m.start()]
-                after = line[m.end():m.end() + 1]
+                before = line[max(0, m.start() - 1) : m.start()]
+                after = line[m.end() : m.end() + 1]
                 if before == "." or after == ".":
                     continue  # part of a dotted path (module/attribute)
-                rest = line[m.start():]
+                rest = line[m.start() :]
                 if any(rest.lower().startswith(a.lower()) for a in allowlist):
                     continue
                 word = m.group(0).lower()
                 severity = sev.get(group, "warning")
-                hits.append(
-                    {"word": word, "group": group, "line": i, "severity": severity}
-                )
+                hits.append({"word": word, "group": group, "line": i, "severity": severity})
                 group_counts[group] += 1
                 severity_counts[severity] += 1
     return {
