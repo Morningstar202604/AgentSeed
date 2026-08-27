@@ -3,6 +3,14 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  # Re-publish an existing tag after a transient failure, without moving a
+  # public tag: `gh workflow run release.yml -f tag=v0.3.1`.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to (re)publish, e.g. v0.3.1"
+        required: true
+        type: string
 
 # contents: write -> GitHub Releases; id-token: write -> npm provenance
 # (provenance attestation requires the OIDC token and a tag-push trigger,
@@ -18,8 +26,12 @@ jobs:
   # Same bar as CI: nothing is published unless the full gate passes first.
   verify:
     runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.RELEASE_TAG }}
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
@@ -39,7 +51,7 @@ jobs:
         run: python server/guard_cli.py gate --root .
       - name: Manifest drift gate
         run: python scripts/pack.py --check-only
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
       - name: npm smoke (pack + global install + MCP stdio round-trip)
@@ -55,15 +67,19 @@ jobs:
   publish:
     needs: verify
     runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.RELEASE_TAG }}
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Build artifact + SHA256SUMS (manifest drift checked in verify)
         run: python scripts/pack.py
       - name: Upload workflow artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
@@ -73,27 +89,48 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            echo "Release $GITHUB_REF_NAME already exists — refreshing assets, title and notes."
-            gh release upload "$GITHUB_REF_NAME" dist/*.zip dist/SHA256SUMS.txt --clobber
-            gh release view "$GITHUB_REF_NAME" --json notes -q .notes > release-notes.md
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists — refreshing assets and title."
+            gh release upload "$RELEASE_TAG" dist/*.zip dist/SHA256SUMS.txt --clobber
+            gh release view "$RELEASE_TAG" --json body -q .body > release-notes.md
             if [ -s release-notes.md ]; then
-              gh release edit "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file release-notes.md
+              gh release edit "$RELEASE_TAG" --title "$RELEASE_TAG" --notes-file release-notes.md
             else
-              gh release edit "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME"
+              gh release edit "$RELEASE_TAG" --title "$RELEASE_TAG"
             fi
           else
-            gh release create "$GITHUB_REF_NAME" dist/*.zip dist/SHA256SUMS.txt \
-              --title "$GITHUB_REF_NAME" --generate-notes
+            gh release create "$RELEASE_TAG" dist/*.zip dist/SHA256SUMS.txt \
+              --title "$RELEASE_TAG" --generate-notes
           fi
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           registry-url: https://registry.npmjs.org/
       # Skipped entirely when NPM_TOKEN is unset, so the provenance
       # requirement can never break the (still-released) no-npm path.
+      # Provenance is only attested on a real tag push: that is the trigger
+      # whose OIDC ref actually names the released tag.
       - name: Publish to npm (skipped when NPM_TOKEN secret is unset)
         if: env.NPM_TOKEN != ''
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --access public --provenance
+          PROVENANCE: ${{ github.event_name == 'push' && '--provenance' || '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          NAME="$(node -p "require('./package.json').name")"
+          VERSION="$(node -p "require('./package.json').version")"
+          if curl -fsS "https://registry.npmjs.org/${NAME}/${VERSION}" >/dev/null 2>&1; then
+            echo "${NAME}@${VERSION} is already on the registry — comparing contents."
+            PUBLISHED="$(curl -fsS "https://registry.npmjs.org/${NAME}/${VERSION}" \
+              | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).dist.shasum))')"
+            LOCAL_TARBALL="$(npm pack --silent)"
+            LOCAL="$(node -e 'const c=require("crypto"),f=require("fs");console.log(c.createHash("sha1").update(f.readFileSync(process.argv[1])).digest("hex"))' "$LOCAL_TARBALL")"
+            if [ "$PUBLISHED" = "$LOCAL" ]; then
+              echo "Identical tarball (shasum $PUBLISHED): already published, nothing to do."
+              exit 0
+            fi
+            echo "::error::${NAME}@${VERSION} exists on npm with different contents (published $PUBLISHED, built $LOCAL). Bump the version; never overwrite."
+            exit 1
+          fi
+          npm publish --access public ${PROVENANCE}
