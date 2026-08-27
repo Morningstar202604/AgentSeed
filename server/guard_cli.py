@@ -55,6 +55,15 @@ def cmd_verify(args: argparse.Namespace) -> int:
     return 1 if result["suspects"] else 0
 
 
+def cmd_contract(args: argparse.Namespace) -> int:
+    """Contract gate: exit 1 unless every `requires` symbol is defined and
+    no `prohibits` token appears."""
+    source = _read_source(args.source)
+    result = engine.check_contract(source, args.contract, args.language)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0 if result["contract_ok"] else 1
+
+
 def _iter_source_files(root: str):
     """Deterministic walk of text sources worth scanning (skips VCS/cache)."""
     skip_dirs = {".git", ".agentseed", "__pycache__", "node_modules", ".github", ".workbuddy"}
@@ -328,6 +337,20 @@ def main(argv: list[str] | None = None) -> int:
     )
     p_verify.add_argument("--config", help="explicit config file path")
     p_verify.set_defaults(func=cmd_verify)
+
+    p_contract = sub.add_parser(
+        "contract", help="verify source against a declared contract (requires/prohibits)"
+    )
+    p_contract.add_argument("source", help="source code or a file path")
+    p_contract.add_argument(
+        "--contract",
+        required=True,
+        help='JSON: {"requires": [...], "prohibits": [...]}',
+    )
+    p_contract.add_argument(
+        "--language", default="python", choices=list(SUPPORTED_LANGUAGES)
+    )
+    p_contract.set_defaults(func=cmd_contract)
 
     p_scan = sub.add_parser("scan", help="scan for hallucination signals")
     p_scan.add_argument("source", help="source text or a file path")

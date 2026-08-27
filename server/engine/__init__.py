@@ -29,7 +29,7 @@ from .hallucination import DEFAULT_ALLOWLIST, HALLUCINATION_WORDS, scan_hallucin
 from .plugin import check_plugin_conformance
 from .sandbox import build_env, kill_tree, resolve_executable, sandbox_run
 from .schema import schema_validate
-from .symbols import detect_undefined_symbols
+from .symbols import defined_symbols, detect_undefined_symbols
 from .version import plugin_version
 
 __all__ = [
@@ -47,6 +47,7 @@ __all__ = [
     "config_severities",
     "config_str_list",
     "detect_undefined_symbols",
+    "defined_symbols",
     "kill_tree",
     "load_config",
     "parse_timeout",

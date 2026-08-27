@@ -266,6 +266,84 @@ class TestGenericLanguages(unittest.TestCase):
         self.assertIn("go", r["note"])
 
 
+class TestStreamedSandbox(unittest.TestCase):
+    def test_large_output_kept_bounded_tail(self):
+        # 100k chars then a marker: memory must stay bounded AND the tail
+        # (last 8000 chars) must survive — the marker proves tail semantics.
+        src = "import sys\nprint('X' * 100000)\nprint('TAIL_MARKER')\n"
+        r = engine.sandbox_run([PY, "-c", src], 15)
+        self.assertTrue(r["stdout"].rstrip().endswith("TAIL_MARKER"), repr(r["stdout"][-80:]))
+        self.assertLessEqual(len(r["stdout"]), 8000)
+
+    def test_clean_output_unaffected(self):
+        r = engine.sandbox_run([PY, "-c", "print(6*7)"], 10)
+        self.assertIn("42", r["stdout"])
+
+
+class TestCheckContract(unittest.TestCase):
+    def test_requires_missing_fails(self):
+        r = engine.check_contract(
+            "def run():\n    return 1\n", '{"requires": ["run", "ghost"]}'
+        )
+        self.assertFalse(r["contract_ok"])
+        self.assertEqual(r["missing"], ["ghost"])
+
+    def test_requires_satisfied_passes(self):
+        r = engine.check_contract(
+            "def run():\n    return helper()\ndef helper():\n    return 1\n",
+            '{"requires": ["run", "helper"]}',
+        )
+        self.assertTrue(r["contract_ok"])
+        self.assertEqual(r["missing"], [])
+
+    def test_prohibits_token_hit(self):
+        r = engine.check_contract(
+            "def run():\n    return 1  # TODO\n", '{"prohibits": ["TODO"]}'
+        )
+        self.assertFalse(r["contract_ok"])
+        self.assertEqual(r["prohibited_hits"], ["TODO"])
+
+    def test_prohibits_clean(self):
+        r = engine.check_contract("def run():\n    return 1\n", '{"prohibits": ["TODO"]}')
+        self.assertTrue(r["contract_ok"])
+
+    def test_invalid_contract_json(self):
+        r = engine.check_contract("x = 1\n", "not json")
+        self.assertFalse(r["contract_ok"])
+        self.assertIn("invalid", r["note"])
+
+    def test_go_contract_uses_registry_definitions(self):
+        r = engine.check_contract(
+            "package main\nfunc helper(x int) int { return x }\n",
+            '{"requires": ["helper"]}',
+            "go",
+        )
+        self.assertTrue(r["contract_ok"])
+
+    def test_defined_symbols_public_helper(self):
+        ds = engine.defined_symbols(
+            "package main\nfunc helper(x int) int { return x }\n", "go"
+        )
+        self.assertIn("helper", ds)
+
+
+class TestExportPromptPool(unittest.TestCase):
+    def test_parse_and_render_deterministic(self):
+        sys.path.insert(0, os.path.join(PLUGIN_ROOT, "scripts"))
+        import export_prompt_pool as xp
+
+        pool = os.path.join(
+            PLUGIN_ROOT, "skills", "verify-before-code", "references", "PROMPT-POOL.md"
+        )
+        entries = xp.parse_pool(pool)
+        self.assertGreaterEqual(len(entries), 20)  # 23 entries today
+        for fmt in ("claude", "agents", "cursor"):
+            out = xp.render(fmt, entries)
+            self.assertIn("## A1", out)
+            self.assertIn("## J4", out)
+            self.assertEqual(out, xp.render(fmt, entries))  # deterministic
+
+
 class TestHallucinationScan(unittest.TestCase):
     def test_stub_group(self):
         r = engine.scan_hallucination_words("def run():\n    return stub_result  # TODO\n")

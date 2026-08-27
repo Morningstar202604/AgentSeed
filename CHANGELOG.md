@@ -15,6 +15,24 @@ Format based on [Keep a Changelog](https://keepachangelog.com); versioning follo
   not an engine change. Ruby's paren-less calls are supported via `bare_calls`.
   MCP `verify_code.language` and CLI `verify --language` accept all aliases;
   unsupported languages now list the supported set in `note`.
+- **`check_contract` — verify code against a written spec**: new MCP tool +
+  `guard_cli contract` subcommand. Contract is JSON
+  (`{"requires": [...], "prohibits": [...]}`); `requires` names must be
+  defined/imported by the source (via new public `defined_symbols`),
+  `prohibits` tokens must not appear. Exits 1 on violations.
+- **`scripts/export_prompt_pool.py` — wire the prompt pool into per-client
+  configs**: parses `PROMPT-POOL.md` (23 entries) and renders identical
+  anti-hallucination prompts as `CLAUDE.md`, `AGENTS.md`, and Cursor
+  rules (`.cursor/rules/agentseed-guardrails.mdc`) so the gates apply outside
+  plugin-aware clients.
+
+### Changed
+- **`sandbox_run` — streamed, bounded-memory output truncation**: output was
+  previously captured in full via `communicate()` then truncated, so a child
+  flooding output could balloon server memory. Two daemon reader threads now
+  drain stdout/stderr incrementally into tail ring buffers (8 KB / 4 KB caps),
+  so memory stays bounded while the last-output tail semantics are preserved.
+- `tools/list` now exposes 7 tools (was 6).
 
 ## [0.2.0] — 2026-08-26
 

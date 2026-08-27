@@ -195,7 +195,7 @@
    "stub_code|fake": 1,
    "stub_code|mock": 1,
    "stub_code|placeholder": 1,
-   "stub_code|stub": 1,
+   "stub_code|stub": 2,
    "stub_code|todo": 1,
    "stub_code|占位": 1,
    "stub_code|待实现": 1
@@ -223,7 +223,7 @@
    "stub_code|fake": 2,
    "stub_code|mock": 2,
    "stub_code|stub": 1,
-   "stub_code|todo": 4
+   "stub_code|todo": 8
   },
   "server/test_hook.py": {
    "oversold|all tests pass": 1,

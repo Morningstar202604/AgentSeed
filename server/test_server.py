@@ -104,6 +104,7 @@ class TestServerProtocol(unittest.TestCase):
             names,
             {
                 "verify_code",
+                "check_contract",
                 "scan_hallucination",
                 "check_plugin",
                 "sandbox_run",

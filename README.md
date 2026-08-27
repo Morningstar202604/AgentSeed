@@ -43,6 +43,7 @@ Six MCP tools — zero *required* dependencies, enhanced by optional extras:
 | Tool | Catches | Technique |
 | --- | --- | --- |
 | `verify_code` | Invented APIs / undefined symbols | Python AST + config-driven lexical passes (12+ languages) |
+| `check_contract` | Code violates a written spec | requires/prohibits contract check |
 | `scan_hallucination` | Placeholder code, overclaims, fabricated content | 28+ signals in 3 groups |
 | `check_plugin` | Non-conformant plugin packaging | Strict 1.0.0 linter |
 | `sandbox_run` | "Tests pass" without running anything | Deterministic execution channel |
@@ -191,7 +192,7 @@ AgentSeed adapts to whatever the host supports, degrading one level at a time
 | Host capability | What you get | Setup |
 | --- | --- | --- |
 | Full Agent Plugins | drop-in: skill + MCP auto-discovered, `${PLUGIN_DATA}` config honored | copy the plugin directory |
-| MCP-capable client | all 6 tools via registration | exact snippets above |
+| MCP-capable client | all 7 tools via registration | exact snippets above |
 | Skills-only client | skill workflow; **verification degrades to `guard_cli.py` via shell** (the skill contains the fallback instructions) | copy `skills/verify-before-code` flat |
 | Plain terminal / CI / no agent at all | CLI gates with exit codes | `python server/guard_cli.py check . --ci` |
 
@@ -259,7 +260,7 @@ supported. Each language ships with its own keyword/global allowlist.
 AgentSeed has two halves; both are needed for the full gate:
 
 1. **Skill** (`skills/verify-before-code/`) — teaches the agent the workflow.
-2. **MCP server** (`server/guard_server.py`) — provides the 6 tools.
+2. **MCP server** (`server/guard_server.py`) — provides the 7 tools.
 
 The installers wire step 1 and print step 2 for your client. Manual setup:
 
@@ -359,7 +360,7 @@ maintains for AI coding agents (`CLAUDE.md`, `AGENTS.md`, `.cursor/rules/`,
 | | Prompt-only guardrail skills (e.g. superpowers) | Static import linters (MCP) | **AgentSeed** |
 | --- | --- | --- | --- |
 | Touches code | ❌ prompt only | ✅ import-graph analysis | ✅ AST + lexical analysis |
-| Runs verification tools | ❌ | lint gates | ✅ 6 MCP tools incl. sandboxed execution |
+| Runs verification tools | ❌ | lint gates | ✅ 7 MCP tools incl. sandboxed execution |
 | Hallucination-language scan | ❌ | ❌ | ✅ stub / oversold / fabricated signals (EN + CJK) |
 | Enforcement | soft (skill text) | CI gate | **hard gate**: skill + MCP + CLI exit codes |
 | Agent Plugins 1.0.0 conformance linter | ❌ | ❌ | ✅ first |

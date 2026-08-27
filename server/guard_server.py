@@ -94,6 +94,28 @@ TOOLS = [
         ["source"],
     ),
     _tool(
+        "check_contract",
+        "Verify source against a declared contract: 'requires' names must be "
+        "defined or imported by the source, 'prohibits' tokens must not "
+        "appear. Contract is a JSON string, e.g. "
+        '{"requires": ["run"], "prohibits": ["stub"]}. Same language set as '
+        "verify_code. Use when a task must satisfy a written spec, not just "
+        "avoid undefined symbols.",
+        {
+            "source": {"type": "string", "description": "Source code to analyze."},
+            "contract": {
+                "type": "string",
+                "description": 'JSON contract: {"requires": [...], "prohibits": [...]}.',
+            },
+            "language": {
+                "type": "string",
+                "description": "Source language (same set as verify_code).",
+                "default": "python",
+            },
+        },
+        ["source", "contract"],
+    ),
+    _tool(
         "scan_hallucination",
         "Scan source for hallucination signals in three groups: stub_code "
         "(stub/mock/fake/placeholder/todo/占位/待实现/...), oversold "
@@ -223,6 +245,12 @@ def _execute(name: str, args: dict) -> dict:
             args.get("source", ""),
             args.get("language", "python"),
             suppress=CONFIG_SUPPRESS,
+        )
+    if name == "check_contract":
+        return engine.check_contract(
+            args.get("source", ""),
+            args.get("contract", ""),
+            args.get("language", "python"),
         )
     if name == "scan_hallucination":
         # explicit tool arguments win over config-file values

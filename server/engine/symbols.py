@@ -803,6 +803,74 @@ _MATCH_STAR = getattr(ast, "MatchStar", None)
 _MATCH_MAPPING = getattr(ast, "MatchMapping", None)
 
 
+def _python_defined_symbols(tree: ast.AST) -> set[str]:
+    """Names defined or imported by a parsed Python module (for ``defined_symbols``)."""
+    defined: set[str] = set(dir(builtins))
+    defined |= {
+        "__file__",
+        "__doc__",
+        "__package__",
+        "__spec__",
+        "__loader__",
+        "__main__",
+        "__dict__",
+        "__builtins__",
+        "__cached__",
+    }
+    imported: set[str] = set()
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                imported.add(alias.asname or alias.name.split(".")[0])
+        elif isinstance(node, ast.ImportFrom):
+            for alias in node.names:
+                imported.add(alias.asname or alias.name)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            defined.add(node.name)
+        elif isinstance(node, ast.arg):
+            defined.add(node.arg)
+        elif isinstance(node, ast.Global) or isinstance(node, ast.Nonlocal):
+            defined.update(node.names)
+        elif isinstance(node, ast.ExceptHandler) and node.name:
+            defined.add(node.name)
+        elif _MATCH_AS is not None and isinstance(node, _MATCH_AS) and node.name:
+            defined.add(node.name)  # case pattern capture, py3.10+
+        elif _MATCH_STAR is not None and isinstance(node, _MATCH_STAR) and node.name:
+            defined.add(node.name)
+        elif _MATCH_MAPPING is not None and isinstance(node, _MATCH_MAPPING) and node.rest:
+            defined.add(node.rest)
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+            defined.add(node.id)
+
+    defined |= imported
+    return defined
+
+
+def defined_symbols(source: str, language: str = "python") -> list[str]:
+    """Names the source defines or imports (sorted). Used by ``check_contract``
+    to verify that ``requires`` symbols actually exist in the module.
+
+    Same language support as ``detect_undefined_symbols``: Python (AST),
+    TypeScript/JavaScript (lexical), and the config-driven generic registry.
+    Returns [] for unsupported languages or unparseable Python.
+    """
+    lang = (language or "python").strip().lower()
+    if lang in ("typescript", "ts", "javascript", "js"):
+        return sorted(_ts_defined_symbols(source))
+    spec = resolve_language(lang)
+    if spec is not None:
+        return sorted(_generic_defined(_mask_source(source, spec), spec))
+    if lang == "python":
+        try:
+            return sorted(_python_defined_symbols(ast.parse(source)))
+        except SyntaxError:
+            return []
+    return []
+
+
 def detect_undefined_symbols(
     source: str, language: str = "python", suppress: list[str] | None = None
 ) -> dict:
@@ -846,47 +914,7 @@ def detect_undefined_symbols(
             "note": f"Cannot parse (syntax error): {exc}",
         }
 
-    defined: set[str] = set(dir(builtins))
-    defined |= {
-        "__file__",
-        "__doc__",
-        "__package__",
-        "__spec__",
-        "__loader__",
-        "__main__",
-        "__dict__",
-        "__builtins__",
-        "__cached__",
-    }
-    imported: set[str] = set()
-
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                imported.add(alias.asname or alias.name.split(".")[0])
-        elif isinstance(node, ast.ImportFrom):
-            for alias in node.names:
-                imported.add(alias.asname or alias.name)
-        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            defined.add(node.name)
-        elif isinstance(node, ast.arg):
-            defined.add(node.arg)
-        elif isinstance(node, ast.Global) or isinstance(node, ast.Nonlocal):
-            defined.update(node.names)
-        elif isinstance(node, ast.ExceptHandler) and node.name:
-            defined.add(node.name)
-        elif _MATCH_AS is not None and isinstance(node, _MATCH_AS) and node.name:
-            defined.add(node.name)  # case pattern capture, py3.10+
-        elif _MATCH_STAR is not None and isinstance(node, _MATCH_STAR) and node.name:
-            defined.add(node.name)
-        elif _MATCH_MAPPING is not None and isinstance(node, _MATCH_MAPPING) and node.rest:
-            defined.add(node.rest)
-
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
-            defined.add(node.id)
-
-    defined |= imported
+    defined = _python_defined_symbols(tree)
 
     seen: set[str] = set()
     suspects: list[str] = []

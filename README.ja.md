@@ -47,11 +47,12 @@ LLM は幻覚します — コードでは**存在しない API、未定義の�
 
 ## 機能
 
-ゼロ依存の MCP ツール 6 つ：
+ゼロ依存の MCP ツール 7 つ：
 
 | ツール | ブロックするもの | 技術 |
 | --- | --- | --- |
 | `verify_code` | 捏造 API / 未定義シンボル | Python AST + 設定駆動の汎用語彙パス（12+ 言語） |
+| `check_contract` | 仕様に違反するコード | requires/prohibits 契約チェック |
 | `scan_hallucination` | プレースホルダー、誇張、捏造 | 3 グループ 28+ シグナル |
 | `check_plugin` | 不適合なプラグイン | 厳格 1.0.0 linter |
 | `sandbox_run` | 実行せずに「テスト合格」 | 決定的実行チャネル |
@@ -196,7 +197,7 @@ pip install -r server/requirements.txt
 | ホスト能力 | 得られるもの | セットアップ |
 | --- | --- | --- |
 | フル Agent Plugins | 置くだけ：skill + MCP 自動検出、`${PLUGIN_DATA}` 設定有効 | プラグインディレクトリをコピー |
-| MCP 対応クライアント | 全 6 ツール（登録必要） | 下記の正確なスニペット |
+| MCP 対応クライアント | 全 7 ツール（登録必要） | 下記の正確なスニペット |
 | スキルのみのクライアント | skill ワークフロー；**検証は shell 経由の `guard_cli.py` に降級**（skill 内にフォールバック手順あり） | `skills/verify-before-code` をフラットコピー |
 | 端末のみ / CI / エージェントなし | CLI ゲート + 終了コード | `python server/guard_cli.py check . --ci` |
 
@@ -260,7 +261,7 @@ verified = メンテナーが実際に確認済み。検証したら PR でこ�
 AgentSeed は二つの要素で構成され、完全なゲートには両方が必要です：
 
 1. **スキル**（`skills/verify-before-code/`）— エージェントにワークフローを教える。
-2. **MCP サーバー**（`server/guard_server.py`）— 6 ツールを提供。
+2. **MCP サーバー**（`server/guard_server.py`）— 7 ツールを提供。
 
 インストーラーが 1 を配置し、2 の登録手順を表示します。手動設定：
 

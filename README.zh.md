@@ -45,6 +45,7 @@
 | 工具 | 拦截什么 | 技术 |
 | --- | --- | --- |
 | `verify_code` | 编造的 API / 未定义符号 | Python AST + 配置驱动的通用词法扫描（12+ 语言） |
+| `check_contract` | 违反书面规范 | requires/prohibits 契约校验 |
 | `scan_hallucination` | 占位代码、夸大声称、虚构内容 | 3 组 28+ 信号 |
 | `check_plugin` | 不合规的插件打包 | 严格 1.0.0 linter |
 | `sandbox_run` | 什么都没跑就说"测试通过" | 确定性执行通道 |
@@ -179,7 +180,7 @@ AgentSeed 适配宿主环境的实际能力，逐级降级——绝不静默跳�
 | 宿主能力 | 你得到什么 | 安装方式 |
 | --- | --- | --- |
 | 完整 Agent Plugins | 即插即用：skill + MCP 自动发现，`${PLUGIN_DATA}` 配置生效 | 拷贝插件目录 |
-| 支持 MCP 的客户端 | 全部 6 个工具（需注册） | 见下方确切片段 |
+| 支持 MCP 的客户端 | 全部 7 个工具（需注册） | 见下方确切片段 |
 | 仅技能的客户端 | skill 工作流；**验证降级为 shell 调用 `guard_cli.py`**（技能内含回退指引） | 平铺拷贝 `skills/verify-before-code` |
 | 纯终端 / CI / 无智能体 | CLI 闸门 + 退出码 | `python server/guard_cli.py check . --ci` |
 
@@ -240,7 +241,7 @@ AgentSeed 适配宿主环境的实际能力，逐级降级——绝不静默跳�
 AgentSeed 有两半，完整闸门两者都要装：
 
 1. **技能**（`skills/verify-before-code/`）—— 教会智能体工作流。
-2. **MCP 服务器**（`server/guard_server.py`）—— 提供 6 个工具。
+2. **MCP 服务器**（`server/guard_server.py`）—— 提供 7 个工具。
 
 安装器负责第 1 步并为你所用客户端打印第 2 步。手动配置：
 
@@ -319,7 +320,7 @@ AgentSeed 与团队已有的 AI 配置文件（`CLAUDE.md` / `AGENTS.md` / `.cur
 | | 纯 prompt 技能（superpowers…） | 静态 import 检查器 | **AgentSeed** |
 | --- | --- | --- | --- |
 | 碰代码 | ❌ 仅 prompt | ✅ import 图分析 | ✅ AST + 词法分析 |
-| 跑验证工具 | ❌ | lint 门禁 | ✅ 含沙箱共 6 个 MCP 工具 |
+| 跑验证工具 | ❌ | lint 门禁 | ✅ 含沙箱共 7 个 MCP 工具 |
 | 幻觉语言扫描 | ❌ | ❌ | ✅ 占位/夸大/编造信号（中英日） |
 | 强制 | 软（skill 文本） | CI 门禁 | **硬闸门**：skill + MCP + CLI 退出码 |
 | 1.0.0 linter | ❌ | ❌ | ✅ 首个 |

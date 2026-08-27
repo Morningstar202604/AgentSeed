@@ -76,7 +76,7 @@ AgentSeed 填补：**代码级 + 真跑工具 + Skill/MCP 闭环强制**。`chec
 | 方法 | 说明 |
 | --- | --- |
 | `initialize` | 握手，返回 protocolVersion / capabilities / serverInfo |
-| `tools/list` | 返回 6 个工具 |
+| `tools/list` | 返回 7 个工具 |
 | `tools/call` | 调用 `verify_code` / `scan_hallucination` / `check_plugin` / `sandbox_run` / `schema_validate` / `record_verification` |
 
 工具签名：见英文版 §4.2。

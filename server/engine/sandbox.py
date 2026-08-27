@@ -6,13 +6,37 @@ Turns "tests pass" into an observed fact.
 
 from __future__ import annotations
 
+from collections import deque
 import os
 import shutil
 import subprocess
+import threading
 
 
 def _decode(raw) -> str:
     return raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else (raw or "")
+
+
+def _read_bounded(stream, cap: int, sink: list[str]) -> None:
+    """Drain a pipe stream into ``sink`` keeping only the last ``cap`` chars.
+
+    Truncation happens WHILE streaming (drop-from-front ring buffer), so a
+    child that emits gigabytes of output costs O(cap) memory instead of
+    O(output). ``sink`` receives the final tail once EOF is reached.
+    """
+    chunks: deque[str] = deque()
+    size = 0
+    while True:
+        data = stream.read(65536)
+        if not data:
+            break
+        text = data.decode("utf-8", errors="replace")
+        chunks.append(text)
+        size += len(text)
+        while chunks and size - len(chunks[0]) >= cap:
+            size -= len(chunks[0])
+            chunks.popleft()
+    sink.append("".join(chunks)[-cap:])
 
 
 def resolve_executable(command_name: str, base_dir: str | None = None) -> str | None:
@@ -175,25 +199,34 @@ def _run_command(command: list[str], timeout: int, cwd: str | None, on_proc=None
         return {"exit_code": -9, "stdout": "", "stderr": f"run failed: {exc}", "timed_out": False}
     if callable(on_proc):
         on_proc(proc)
+    # Two reader threads keep the response bounded in MEMORY, not just at the
+    # end: each pipe is drained incrementally into a tail ring buffer, so a
+    # child writing unlimited output cannot balloon the process. Threads (not
+    # selectors) because Windows select() does not work on pipes.
+    stdout_buf: list[str] = []
+    stderr_buf: list[str] = []
+    reader_out = threading.Thread(
+        target=_read_bounded, args=(proc.stdout, 8000, stdout_buf), daemon=True
+    )
+    reader_err = threading.Thread(
+        target=_read_bounded, args=(proc.stderr, 4000, stderr_buf), daemon=True
+    )
+    reader_out.start()
+    reader_err.start()
+    timed_out = False
     try:
-        out, errb = proc.communicate(timeout=max(1, min(int(timeout), 120)))
-        return {
-            "exit_code": proc.returncode,
-            "stdout": _decode(out)[-8000:],
-            "stderr": _decode(errb)[-4000:],
-            "timed_out": False,
-        }
+        proc.wait(timeout=max(1, min(int(timeout), 120)))
     except subprocess.TimeoutExpired:
+        timed_out = True
         kill_tree(proc)
-        out, errb = proc.communicate()
-        return {
-            "exit_code": -1,
-            "stdout": _decode(out)[-8000:],
-            "stderr": _decode(errb)[-4000:],
-            "timed_out": True,
-        }
-    except Exception as exc:  # noqa: BLE001
-        return {"exit_code": -9, "stdout": "", "stderr": f"run failed: {exc}", "timed_out": False}
+    reader_out.join(timeout=5)
+    reader_err.join(timeout=5)
+    return {
+        "exit_code": -1 if timed_out else proc.returncode,
+        "stdout": stdout_buf[0] if stdout_buf else "",
+        "stderr": stderr_buf[0] if stderr_buf else "",
+        "timed_out": timed_out,
+    }
 
 
 def sandbox_run(
@@ -208,7 +241,8 @@ def sandbox_run(
 
     Deterministic verification channel: turns "the test passes" into an
     observed fact (exit code + output). No shell means no injection via args;
-    output is truncated to keep the tool response bounded.
+    output is truncated to a bounded tail WHILE streaming, so even a child
+    that floods output cannot blow the server's memory.
 
     ``allowed_prefixes`` (config: ``sandbox_allowed_prefixes``): when a
     non-empty list, the first argument is resolved to the absolute path the

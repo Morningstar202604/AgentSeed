@@ -13,7 +13,9 @@ the results, proving the engine works without starting the MCP server.
 """
 from __future__ import annotations
 
+import json
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -22,8 +24,62 @@ from engine import *  # noqa: E402, F401, F403
 from engine import (  # noqa: E402  (explicit names clear F405 in _self_check)
     plugin_version,
     detect_undefined_symbols,
+    defined_symbols,
     scan_hallucination_words,
 )
+
+
+def check_contract(source: str, contract: str, language: str = "python") -> dict:
+    """Verify source against a declared contract (the roadmap 'check_contract').
+
+    ``contract`` is a JSON string:
+        {"requires": ["symbol", ...], "prohibits": ["token", ...]}
+    - ``requires``: names the module MUST define or import (checked against
+      ``defined_symbols`` for the same language set as ``verify_code``).
+    - ``prohibits``: tokens that MUST NOT appear (word-boundary scan).
+
+    Returns:
+        {"language", "contract_ok", "missing": [...], "prohibited_hits": [...],
+         "note"}
+    """
+    try:
+        spec = json.loads(contract)
+    except (ValueError, TypeError) as exc:
+        return {
+            "language": language,
+            "contract_ok": False,
+            "missing": [],
+            "prohibited_hits": [],
+            "note": f"invalid contract JSON: {exc}",
+        }
+    if not isinstance(spec, dict):
+        return {
+            "language": language,
+            "contract_ok": False,
+            "missing": [],
+            "prohibited_hits": [],
+            "note": "contract must be a JSON object",
+        }
+    requires = [r for r in spec.get("requires", []) if isinstance(r, str) and r]
+    prohibits = [p for p in spec.get("prohibits", []) if isinstance(p, str) and p]
+
+    defined = set(defined_symbols(source, language))
+    missing = [r for r in requires if r not in defined]
+    hits = [
+        p
+        for p in prohibits
+        if re.search(r"\b" + re.escape(p) + r"\b", source, re.IGNORECASE)
+    ]
+    return {
+        "language": language,
+        "contract_ok": not missing and not hits,
+        "missing": missing,
+        "prohibited_hits": hits,
+        "note": (
+            "Contract check: 'requires' names must be defined/imported by the "
+            "source; 'prohibits' tokens must not appear anywhere."
+        ),
+    }
 
 
 def _self_check() -> int:
