@@ -30,6 +30,7 @@ Gate 3 as non-skippable.
 | `references/PROMPT-POOL.md` | copy-paste guardrail prompts (completion claims, uncertainty, API verification, citation rules, etc.) |
 | `references/HALLUCINATION-PATTERNS.md` | catalog of hallucination failure modes with signals and countermeasures |
 | `references/VERIFICATION-CHECKLIST.md` | executable checklist for end-of-task verification |
+| `references/VENDOR-SOLUTIONS.md` | map of vendor guardrail techniques and what AgentSeed adopts |
 
 ## Gate 1 — Load the contract (BEFORE writing code)
 

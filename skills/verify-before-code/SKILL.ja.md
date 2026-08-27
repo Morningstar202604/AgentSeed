@@ -24,6 +24,7 @@ AgentSeed ガードレール保護下のセッションにいます。`agentseed
 | リソース | 目的 |
 | --- | --- |
 | `references/SDD-CONTRACT.ja.md` | すべてのコーディングタスクが満たすべき契約 |
+| `references/DEFAULT-NORMS.md`（英語版のみ） | シニアエンジニアの行動規範と、それを強制するゲートの対応 |
 | `references/PROMPT-POOL.ja.md` | コピペ可能なガードレールプロンプト集 |
 | `references/HALLUCINATION-PATTERNS.ja.md` | 幻覚の失敗モードカタログ |
 | `references/VERIFICATION-CHECKLIST.ja.md` | タスク完了時の実行可能チェックリスト |

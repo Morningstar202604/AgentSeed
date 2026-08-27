@@ -23,9 +23,11 @@ metadata:
 | 资源 | 用途 |
 | --- | --- |
 | `references/SDD-CONTRACT.zh.md` | 每个编程任务必须满足的契约 |
+| `references/DEFAULT-NORMS.md`（仅英文） | 资深工程师的行动规范，并标注每条规范由哪个闸门强制执行 |
 | `references/PROMPT-POOL.zh.md` | 即用型护栏提示词（完成声明、不确定性、API 验证、引用规则等） |
 | `references/HALLUCINATION-PATTERNS.zh.md` | 幻觉失效模式目录（信号 + 对策） |
 | `references/VERIFICATION-CHECKLIST.zh.md` | 任务收尾的可执行验证清单 |
+| `references/VENDOR-SOLUTIONS.zh.md` | 业界护栏技术清单与 AgentSeed 的采纳情况 |
 
 ## 闸门 1 —— 加载契约（写码之前）
 
