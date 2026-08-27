@@ -72,14 +72,13 @@ AgentSeed は「**コードレベル + 実ツール実行 + Skill/MCP クロー�
 ## 4. MCP インターフェース契約
 
 トランスポート：stdio 上の行区切り JSON-RPC 2.0。サーバー名 `agentseed`、
-`check_imports`（slopsquatting ガード）は別途提供：stdlib と `known_packages` に無い
-トップレベル import を報告する。
-
-プロトコル `2024-11-05`。
+バージョン `0.3.1`、プロトコル `2024-11-05`。
 
 | ツール | 説明 |
 | --- | --- |
-| `verify_code` | 未定義/未インポートシンボルの静的 AST 検出 |
+| `verify_code` | 未定義/未インポートシンボルの静的検出（Python は AST、他は語彙パス） |
+| `check_contract` | 書かれた契約（requires/prohibits）に対してソースを検証 |
+| `check_imports` | stdlib と `known_packages` に無いトップレベル import を報告（slopsquatting ガード） |
 | `scan_hallucination` | 3 グループ幻覚シグナルスキャン（stub_code/oversold/fabricated） |
 | `check_plugin` | Agent Plugins 1.0.0 適合性 linter |
 | `sandbox_run` | 決定的実行チャネル（サブプロセス・タイムアウト付き） |
@@ -92,8 +91,7 @@ AgentSeed は「**コードレベル + 実ツール実行 + Skill/MCP クロー�
   def/class、引数）を収集し、外れの `Name`/`Call` を検出。静的スコープのみ、実行
   なし、属性呼び出しは非展開（誤検出の可能性）。Python（AST + pyflakes 併用、
   インストール時）、TypeScript/JavaScript（語彙スキャン）、そして**汎用レジストリ
-  （語彙）**に対応：同一エンジンで多言語（go/rust/java/c/c++/c#/php/ruby/kotlin/
-  swift/dart/lua/r/zig）を解析。各 `LangSpec` がコメント/文字列構文・キーワード・グローバル名・
+  （語彙）**に対応：同一エンジンで登録済み全言語を解析（一覧は `canonical_languages()`）。各 `LangSpec` がコメント/文字列構文・キーワード・グローバル名・
   定義/インポート/引数正規表現・引数名モードを宣言し、共有エンジンがコメントと
   文字列をマスク → 定義を収集 → 未定義の裸呼び出し・`new` を検出。言語追加は
   レジストリ追加のみでエンジン変更不要。Ruby の括弧なし呼び出しは `bare_calls`

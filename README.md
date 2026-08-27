@@ -12,8 +12,8 @@ a zero-dependency plugin that verifies code *before* it is marked done, so
 "done" means *observed fact*, not self-report.
 
 [![License](https://img.shields.io/badge/license-Apache_2.0-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.3.0-blue)](https://gitcode.com/badhope/AgentSeed/releases)
-[![CI](https://github.com/Morningstar202604/AgentSeed/actions/workflows/ci.yml/badge.svg)](https://github.com/Morningstar202604/AgentSeed/actions/workflows/ci.yml)
+[![Version](https://img.shields.io/badge/version-0.3.1-blue)](https://github.com/Morningstar202604/agentseed-mcp/releases)
+[![CI](https://github.com/Morningstar202604/agentseed-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Morningstar202604/agentseed-mcp/actions/workflows/ci.yml)
 [![Platforms](https://img.shields.io/badge/platform-Cursor%20%7C%20VS%20Code%20%7C%20Claude%20Code%20%7C%20Copilot-blue)](https://agent-plugins.org)
 
 **English** · [中文](./README.zh.md) · [日本語](./README.ja.md)
@@ -45,7 +45,7 @@ promises:
 
 | Promise | How it's kept |
 | --- | --- |
-| **🚫 No invented APIs** | `verify_code` parses your code in **16 languages** and flags any symbol that is called but never defined or imported |
+| **🚫 No invented APIs** | `verify_code` parses your code in **17 languages** and flags any symbol that is called but never defined or imported |
 | **🚫 No fake "done"** | `scan_hallucination` catches stubs, overclaims, and fabricated claims in **English and CJK**; `sandbox_run` proves runtime claims by actually running them |
 | **🚫 No skipped verification** | the Skill gates the workflow, the **client hook** blocks `Write`/`Edit` on files that don't pass, and `guard_cli gate` enforces the same rules in CI with exit codes |
 
@@ -109,7 +109,7 @@ regression test. Methodology and honest limits:
 **Option A — download a release (no git needed):**
 
 ```bash
-# grab the latest asset from https://gitcode.com/badhope/AgentSeed/releases
+# grab the latest asset from https://github.com/Morningstar202604/agentseed-mcp/releases
 # or use the installer, which wires it into your client:
 bash install.sh --client auto --hooks        # macOS / Linux
 ./install.ps1 -Client auto -Hooks            # Windows PowerShell
@@ -120,11 +120,11 @@ bash install.sh --client auto --hooks        # macOS / Linux
 **Option B — clone:**
 
 ```bash
-git clone https://gitcode.com/badhope/AgentSeed.git
-# mirrors: https://gitcode.com/badhope/AgentSeed · https://gitee.com/badhope/AgentSeed
+git clone https://github.com/Morningstar202604/agentseed-mcp.git
+# mirrors: https://gitee.com/badhope/agentseed-mcp · https://gitcode.com/badhope/agentseed-mcp
 ```
 
-1. **Drop** the `AgentSeed/` directory into any Agent Plugins–capable client
+1. **Drop** the cloned `agentseed-mcp/` directory into any Agent Plugins–capable client
    (Cursor, VS Code, Claude Code, Copilot…). No build, no install.
 2. The client auto-discovers the `verify-before-code` skill and the
    `agentseed` MCP server from `plugin.json` + `mcp.json`.
@@ -134,16 +134,22 @@ git clone https://gitcode.com/badhope/AgentSeed.git
 Run it standalone or gate a human PR with the same rules:
 
 ```bash
-python3 server/guard_engine.py              # self-check demo
-python3 -m unittest discover -s server      # 160+ unit tests
-python3 server/guard_cli.py gate --root .   # CI-equivalent hard gate
-python3 server/guard_cli.py check . --ci    # plugin conformance only
-python3 server/guard_cli.py scan src/ --strict
+python3 server/guard_engine.py                       # self-check demo
+python3 -m unittest discover -s server               # full unit-test suite
+python3 server/guard_cli.py gate --root .            # CI-equivalent hard gate
+python3 server/guard_cli.py check . --ci             # plugin conformance only
+python3 server/guard_cli.py verify src/app.go        # language inferred from the suffix
+python3 server/guard_cli.py scan src/app.py --strict # inline or file, hallucination signals
+python3 server/guard_cli.py scan . --baseline baseline-scan.json  # tree sweep, new signals only
 ```
 
-> **Windows note:** `mcp.json` launches the server via `python3`. On many
-> Windows installs that alias is a Microsoft Store stub; change `command` to
-> `["python", "server/guard_server.py"]` or use your interpreter's absolute path.
+> **Windows note:** `mcp.json` may only name one literal interpreter, and it
+> ships `python3` (right for macOS/Linux/WSL). On Windows run
+> `./install.ps1`, which rewrites `command` to `python` in the installed copy,
+> or edit it by hand as `"command": "python"` with
+> `"args": ["server/guard_server.py"]` — `command` is a string, the array
+> belongs to `args`. `npx agentseed-mcp` needs no editing at all: the npm shim
+> picks the interpreter per platform.
 
 ## The 8 MCP tools
 
@@ -152,7 +158,7 @@ upgrade two tools to industry-standard engines (see below).
 
 | Tool | Catches | Technique |
 | --- | --- | --- |
-| `verify_code` | Invented APIs / undefined symbols | Python AST + config-driven lexical passes (16 languages) |
+| `verify_code` | Invented APIs / undefined symbols | Python AST + config-driven lexical passes (17 languages) |
 | `check_contract` | Code violates a written spec | requires/prohibits contract check |
 | `check_imports` | Hallucinated packages (slopsquatting) | stdlib + known-packages allowlist check |
 | `scan_hallucination` | Placeholder code, overclaims, fabricated content | 28+ signals in 3 groups, EN + CJK |
@@ -273,16 +279,19 @@ Unknown keys are warned on stderr — a typo is never silently ignored.
 
 ## Built-in guardrail library (EN / 中文 / 日本語)
 
-`PROMPT-POOL` (20+ copy-paste guardrail prompts) · `HALLUCINATION-PATTERNS`
-(5-class failure-mode catalog) · `VERIFICATION-CHECKLIST` (executable
-end-of-task checklist) · `SDD-CONTRACT` (the contract every task must
-satisfy) · `VENDOR-SOLUTIONS` (adoption map of vendor techniques).
+`PROMPT-POOL` (copy-paste guardrail prompts) · `HALLUCINATION-PATTERNS`
+(failure-mode catalog) · `VERIFICATION-CHECKLIST` (executable end-of-task
+checklist) · `SDD-CONTRACT` (the contract every task must satisfy) ·
+`DEFAULT-NORMS` (senior-engineer operating norms, mapped to the gate that
+enforces each; English only) · `VENDOR-SOLUTIONS` (adoption map of vendor
+techniques). Every library lives under
+`skills/verify-before-code/references/`, and the SKILL files list them.
 
 ## Why AgentSeed vs. alternatives
 
 | | Prompt-only guardrail skills | Static import linters (MCP) | **AgentSeed** |
 | --- | --- | --- | --- |
-| Touches code | ❌ prompt only | ✅ import graphs | ✅ AST + lexical (12+ langs) |
+| Touches code | ❌ prompt only | ✅ import graphs | ✅ AST + lexical (registry-wide) |
 | Runs verification tools | ❌ | lint gates | ✅ 8 MCP tools incl. sandbox |
 | Hallucination-language scan | ❌ | ❌ | ✅ stub/oversold/fabricated, EN + CJK |
 | Enforcement | soft (skill text) | CI gate | **hard**: skill + MCP + hook + CLI exit codes |

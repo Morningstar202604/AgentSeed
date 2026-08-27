@@ -7,10 +7,10 @@ better.
 ## Quick start
 
 ```bash
-git clone https://gitcode.com/badhope/AgentSeed.git
-cd AgentSeed
-python -m unittest discover -s server -p "test_*.py"   # 160+ tests, no deps needed
-python server/guard_cli.py check . --ci                # must print ok: true
+git clone https://github.com/Morningstar202604/agentseed-mcp.git
+cd agentseed-mcp
+python -m unittest discover -s server -p "test_*.py"   # no deps needed
+python server/guard_cli.py gate --root .               # the CI-equivalent hard gate
 ```
 
 Optional extras used by the test suite when present:
@@ -21,10 +21,24 @@ Optional extras used by the test suite when present:
 - **Zero required dependencies.** The plugin must run on a bare Python 3.9+.
   Third-party libraries are welcome only behind an optional import with a
   working stdlib fallback (see `server/engine/schema.py` for the pattern).
-- **Every behavior change ships with tests.** CI runs the suite both with and
-  without dependencies installed; both must pass.
-- **The plugin must stay self-conformant**: `guard_cli.py check . --ci` is part
-  of CI and blocks merges.
+- **Every behavior change ships with tests.** CI discovers `server/test_*.py`
+  and runs the whole suite both with and without the optional dependencies
+  installed; both must pass.
+- **The plugin must stay self-conformant.** CI runs `guard_cli.py gate --root .`
+  (conformance + undefined symbols + hallucination scan against the committed
+  `baseline-scan.json`); `guard_cli.py check . --ci` is the conformance stage on
+  its own. `main` is protected: a red check blocks the merge.
+- **Docs may not drift from the engine.** `server/test_docs_sync.py` asserts the
+  language/tool counts, repository URLs, registry identity and version strings
+  in README/DESIGN against the language registry and `tools/list`. If you change
+  a number in prose, run that file.
+- **Adding a language = one registry entry.** A `LangSpec` must declare its own
+  `extensions`; the CLI's path heuristic, tree scanning, the MCP schema `enum`
+  and the prompt-pool exporter all derive from the registry, and an entry
+  without suffixes fails at import rather than going unnoticed.
+- **Release discipline.** A change that is not yet released gets its own
+  `## [x.y.z]` section — never append entries to a version that has already been
+  tagged. `CHANGELOG.md` describes what shipped, not what is planned.
 - Match the existing code style (stdlib, type hints, no comments unless the
   logic genuinely needs one).
 

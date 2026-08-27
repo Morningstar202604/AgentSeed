@@ -1,9 +1,9 @@
 {
   "name": "agentseed-mcp",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Anti-hallucination guardrails for AI coding agents: hybrid Skill + MCP server that forces spec-driven development and verifies code before it is marked done.",
   "license": "Apache-2.0",
-  "mcpName": "io.gitcode.badhope/agentseed",
+  "mcpName": "io.github.morningstar202604/agentseed-mcp",
   "bin": {
     "agentseed-mcp": "bin/cli.js"
   },
@@ -18,11 +18,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://gitcode.com/badhope/AgentSeed.git"
+    "url": "https://github.com/Morningstar202604/agentseed-mcp.git"
   },
-  "homepage": "https://gitcode.com/badhope/AgentSeed#readme",
+  "homepage": "https://github.com/Morningstar202604/agentseed-mcp#readme",
   "bugs": {
-    "url": "https://gitcode.com/badhope/AgentSeed/issues"
+    "url": "https://github.com/Morningstar202604/agentseed-mcp/issues"
   },
   "engines": {
     "node": ">=16"

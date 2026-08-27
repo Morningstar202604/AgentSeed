@@ -11,8 +11,8 @@ AI 会编造不存在的 API，会不跑任何测试就说"全部通过"，会�
 在任务被标记为"完成"之前先验证代码，让"完成"= **可观测事实**，而非自说自话。
 
 [![License](https://img.shields.io/badge/license-Apache_2.0-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.3.0-blue)](https://gitcode.com/badhope/AgentSeed/releases)
-[![CI](https://github.com/Morningstar202604/AgentSeed/actions/workflows/ci.yml/badge.svg)](https://github.com/Morningstar202604/AgentSeed/actions/workflows/ci.yml)
+[![Version](https://img.shields.io/badge/version-0.3.1-blue)](https://github.com/Morningstar202604/agentseed-mcp/releases)
+[![CI](https://github.com/Morningstar202604/agentseed-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Morningstar202604/agentseed-mcp/actions/workflows/ci.yml)
 [![Platforms](https://img.shields.io/badge/platform-Cursor%20%7C%20VS%20Code%20%7C%20Claude%20Code%20%7C%20Copilot-blue)](https://agent-plugins.org)
 
 [English](./README.md) · **中文** · [日本語](./README.ja.md)
@@ -42,7 +42,7 @@ LLM 会幻觉——放到代码里就是**编造的 API、未定义的标识符�
 
 | 承诺 | 如何兑现 |
 | --- | --- |
-| **🚫 不编造 API** | `verify_code` 用 **12+ 种语言**解析你的代码，标记任何"被调用却从未定义/导入"的符号 |
+| **🚫 不编造 API** | `verify_code` 用 **17 种语言**解析你的代码，标记任何"被调用却从未定义/导入"的符号 |
 | **🚫 不假报"完成"** | `scan_hallucination` 拦截占位代码、过度声明与虚构内容（**中英双语**）；`sandbox_run` 用真实执行证明运行时声明 |
 | **🚫 不跳过验证** | Skill 约束流程、**客户端 Hook** 在 `Write`/`Edit` 落盘前拦截、`guard_cli gate` 用退出码在 CI 强制同一套规则 |
 
@@ -104,7 +104,7 @@ $ scan_hallucination(source=...)
 **方案 A —— 下载发布包（无需 git）：**
 
 ```bash
-# 从 https://gitcode.com/badhope/AgentSeed/releases 取最新资产
+# 从 https://github.com/Morningstar202604/agentseed-mcp/releases 取最新资产
 # 或用安装器一键接入你的客户端：
 bash install.sh --client auto --hooks        # macOS / Linux
 ./install.ps1 -Client auto -Hooks            # Windows PowerShell
@@ -115,11 +115,11 @@ bash install.sh --client auto --hooks        # macOS / Linux
 **方案 B —— 克隆：**
 
 ```bash
-git clone https://gitcode.com/badhope/AgentSeed.git
-# 镜像：https://gitcode.com/badhope/AgentSeed · https://gitee.com/badhope/AgentSeed
+git clone https://github.com/Morningstar202604/agentseed-mcp.git
+# 镜像：https://gitee.com/badhope/agentseed-mcp · https://gitcode.com/badhope/agentseed-mcp
 ```
 
-1. 把 `AgentSeed/` 目录**丢进**任意支持 Agent Plugins 的客户端
+1. 把克隆出来的 `agentseed-mcp/` 目录**丢进**任意支持 Agent Plugins 的客户端
    （Cursor、VS Code、Claude Code、Copilot…）。无需构建、无需安装。
 2. 客户端从 `plugin.json` + `mcp.json` 自动发现 `verify-before-code` skill
    与 `agentseed` MCP 服务器。
@@ -128,16 +128,21 @@ git clone https://gitcode.com/badhope/AgentSeed.git
 独立运行，或用人机同规的 CI 门禁：
 
 ```bash
-python3 server/guard_engine.py              # 自检演示
-python3 -m unittest discover -s server      # 160+ 单元测试
-python3 server/guard_cli.py gate --root .   # CI 等价硬门禁
-python3 server/guard_cli.py check . --ci    # 仅插件合规
-python3 server/guard_cli.py scan src/ --strict
+python3 server/guard_engine.py                       # 自检演示
+python3 -m unittest discover -s server               # 全量单元测试
+python3 server/guard_cli.py gate --root .            # CI 等价硬门禁
+python3 server/guard_cli.py check . --ci             # 仅插件合规
+python3 server/guard_cli.py verify src/app.go        # 按后缀自动选语言
+python3 server/guard_cli.py scan src/app.py --strict # 内联或文件，幻觉信号扫描
+python3 server/guard_cli.py scan . --baseline baseline-scan.json  # 目录扫描，只报新增
 ```
 
-> **Windows 提示：** `mcp.json` 用 `python3` 启动服务器。很多 Windows 安装的
-> 该别名是 Microsoft Store 占位程序；把 `command` 改成
-> `["python", "server/guard_server.py"]` 或指向你的解释器绝对路径即可。
+> **Windows 提示：** Agent Plugins 规范要求 `mcp.json` 里的 `command` 只能是一
+> 个字面量解释器名，仓库里发布的是 `python3`（macOS/Linux/WSL 正确）。Windows 上
+> 请直接跑 `./install.ps1`，它会把安装副本里的 `command` 改写成 `python`；手工改
+> 的话写成 `"command": "python"` 配 `"args": ["server/guard_server.py"]`——
+> `command` 是字符串，数组属于 `args`。用 `npx agentseed-mcp` 则完全不用改：
+> npm shim 会按平台自己挑解释器。
 
 ## 8 个 MCP 工具
 
@@ -146,7 +151,7 @@ python3 server/guard_cli.py scan src/ --strict
 
 | 工具 | 拦截什么 | 技术 |
 | --- | --- | --- |
-| `verify_code` | 编造的 API / 未定义符号 | Python AST + 配置驱动的通用词法扫描（16 语言） |
+| `verify_code` | 编造的 API / 未定义符号 | Python AST + 配置驱动的通用词法扫描（17 语言） |
 | `check_contract` | 违反书面规范 | requires/prohibits 契约校验 |
 | `check_imports` | 幻觉包导入（slopsquatting 抢注） | stdlib + known_packages 白名单校验 |
 | `scan_hallucination` | 占位代码、夸大声称、虚构内容 | 3 组 28+ 信号，中英双语 |
@@ -261,16 +266,17 @@ pip install -r server/requirements.txt
 
 ## 内置护栏库（EN / 中文 / 日本語）
 
-`PROMPT-POOL`（20+ 条即贴即用的护栏提示）· `HALLUCINATION-PATTERNS`
-（5 类失败模式目录）· `VERIFICATION-CHECKLIST`（可执行的收尾检查清单）·
-`SDD-CONTRACT`（每个任务必须满足的契约）· `VENDOR-SOLUTIONS`
-（厂商技术落地地图）。
+`PROMPT-POOL`（即贴即用的护栏提示）· `HALLUCINATION-PATTERNS`（失败模式
+目录）· `VERIFICATION-CHECKLIST`（可执行的收尾检查清单）· `SDD-CONTRACT`
+（每个任务必须满足的契约）· `DEFAULT-NORMS`（资深工程师行动规范与对应的强制
+闸门；仅英文）· `VENDOR-SOLUTIONS`（厂商技术落地地图）。全部位于
+`skills/verify-before-code/references/`，并由各语言 SKILL 文件列出。
 
 ## 为什么选 AgentSeed 而非替代方案
 
 | | 纯提示词护栏 skill | 静态 import linter（MCP） | **AgentSeed** |
 | --- | --- | --- | --- |
-| 触碰代码 | ❌ 仅提示 | ✅ import 图 | ✅ AST + 词法（16 语言） |
+| 触碰代码 | ❌ 仅提示 | ✅ import 图 | ✅ AST + 词法（17 语言） |
 | 跑验证工具 | ❌ | lint 门禁 | ✅ 8 个 MCP 工具含沙箱 |
 | 幻觉语言扫描 | ❌ | ❌ | ✅ stub/oversold/fabricated，中英双语 |
 | 强制力 | 软（skill 文本） | CI 门禁 | **硬**：skill + MCP + hook + CLI 退出码 |

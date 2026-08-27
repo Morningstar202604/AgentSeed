@@ -12,8 +12,8 @@ AI は存在しない API を捏造し、何も実行せずに「テスト全部
 「完了」にします。「完了」= **観測された事実**であり、自己申告ではありません。
 
 [![License](https://img.shields.io/badge/license-Apache_2.0-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.3.0-blue)](https://gitcode.com/badhope/AgentSeed/releases)
-[![CI](https://github.com/Morningstar202604/AgentSeed/actions/workflows/ci.yml/badge.svg)](https://github.com/Morningstar202604/AgentSeed/actions/workflows/ci.yml)
+[![Version](https://img.shields.io/badge/version-0.3.1-blue)](https://github.com/Morningstar202604/agentseed-mcp/releases)
+[![CI](https://github.com/Morningstar202604/agentseed-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Morningstar202604/agentseed-mcp/actions/workflows/ci.yml)
 [![Platforms](https://img.shields.io/badge/platform-Cursor%20%7C%20VS%20Code%20%7C%20Claude%20Code%20%7C%20Copilot-blue)](https://agent-plugins.org)
 
 [English](./README.md) · [中文](./README.zh.md) · **日本語**
@@ -48,7 +48,7 @@ LLM は幻覚を起こします——コードではそれは**捏造 API・未�
 
 | 約束 | 実現方法 |
 | --- | --- |
-| **🚫 API を捏造しない** | `verify_code` が **16 言語**のコードを解析し、「呼ばれたのに定義もインポートもされていない」シンボルを検出 |
+| **🚫 API を捏造しない** | `verify_code` が **17 言語**のコードを解析し、「呼ばれたのに定義もインポートもされていない」シンボルを検出 |
 | **🚫 偽の「完了」を出さない** | `scan_hallucination` がスタブ・過剰宣言・捏造主張を（**英語+中国語+CJK**）検出；`sandbox_run` が実行時主張を実際に実行して証明 |
 | **🚫 検証をスキップさせない** | Skill がワークフローを制約、**クライアント Hook** が `Write`/`Edit` を未検証ファイルでブロック、`guard_cli gate` が CI で同じルールを終了コードで強制 |
 
@@ -110,7 +110,7 @@ $ scan_hallucination(source=...)
 **A — リリースをダウンロード（git 不要）：**
 
 ```bash
-# https://gitcode.com/badhope/AgentSeed/releases から最新アセットを取得
+# https://github.com/Morningstar202604/agentseed-mcp/releases から最新アセットを取得
 # またはインストーラーでクライアントに配線：
 bash install.sh --client auto --hooks        # macOS / Linux
 ./install.ps1 -Client auto -Hooks            # Windows PowerShell
@@ -121,11 +121,11 @@ bash install.sh --client auto --hooks        # macOS / Linux
 **B — クローン：**
 
 ```bash
-git clone https://gitcode.com/badhope/AgentSeed.git
-# ミラー：https://gitcode.com/badhope/AgentSeed · https://gitee.com/badhope/AgentSeed
+git clone https://github.com/Morningstar202604/agentseed-mcp.git
+# ミラー：https://gitee.com/badhope/agentseed-mcp · https://gitcode.com/badhope/agentseed-mcp
 ```
 
-1. `AgentSeed/` ディレクトリを Agent Plugins 対応クライアント（Cursor、
+1. クローンした `agentseed-mcp/` ディレクトリを Agent Plugins 対応クライアント（Cursor、
    VS Code、Claude Code、Copilot…）に**ドロップ**する。ビルドもインストールも不要。
 2. クライアントが `plugin.json` + `mcp.json` から `verify-before-code` skill と
    `agentseed` MCP サーバーを自動発見。
@@ -135,17 +135,21 @@ git clone https://gitcode.com/badhope/AgentSeed.git
 単体実行、または人間の PR にも同じ CI ゲート：
 
 ```bash
-python3 server/guard_engine.py              # セルフチェック
-python3 -m unittest discover -s server      # 160+ ユニットテスト
-python3 server/guard_cli.py gate --root .   # CI 相当のハードゲート
-python3 server/guard_cli.py check . --ci    # プラグイン適合のみ
-python3 server/guard_cli.py scan src/ --strict
+python3 server/guard_engine.py                       # セルフチェック
+python3 -m unittest discover -s server               # 全ユニットテスト
+python3 server/guard_cli.py gate --root .            # CI 相当のハードゲート
+python3 server/guard_cli.py check . --ci             # プラグイン適合のみ
+python3 server/guard_cli.py verify src/app.go        # 拡張子から言語を推定
+python3 server/guard_cli.py scan src/app.py --strict # インラインでもファイルでも
+python3 server/guard_cli.py scan . --baseline baseline-scan.json  # ツリー検索・新規のみ報告
 ```
 
-> **Windows 注記：** `mcp.json` は `python3` でサーバーを起動します。多くの
-> Windows 環境ではそのエイリアスは Microsoft Store のスタブです。`command` を
-> `["python", "server/guard_server.py"]` に変更するか、インタプリタの絶対パスを
-> 指定してください。
+> **Windows 注記：** Agent Plugins 仕様上 `mcp.json` の `command` は単一の文字列
+> しか書けず、同梱値は `python3`（macOS/Linux/WSL 向け）です。Windows では
+> `./install.ps1` を実行するとインストール先の `command` が `python` に書き換え
+> られます。手動なら `"command": "python"` + `"args": ["server/guard_server.py"]`
+> （配列は `args` 側）。`npx agentseed-mcp` は shim が OS から解釈器を選ぶため
+> 編集不要です。
 
 ## 8 つの MCP ツール
 
@@ -154,7 +158,7 @@ python3 server/guard_cli.py scan src/ --strict
 
 | ツール | ブロックするもの | 技術 |
 | --- | --- | --- |
-| `verify_code` | 捏造 API / 未定義シンボル | Python AST + 設定駆動の汎用語彙パス（16 言語） |
+| `verify_code` | 捏造 API / 未定義シンボル | Python AST + 設定駆動の汎用語彙パス（17 言語） |
 | `check_contract` | 仕様に違反するコード | requires/prohibits 契約チェック |
 | `check_imports` | 幻覚パッケージ（slopsquatting） | stdlib + known_packages ホワイトリスト検証 |
 | `scan_hallucination` | プレースホルダー、誇張、捏造 | 3 グループ 28+ シグナル、EN + CJK |
@@ -273,16 +277,18 @@ pip install -r server/requirements.txt
 
 ## 内蔵ガードレールライブラリ（EN / 中文 / 日本語）
 
-`PROMPT-POOL`（20+ のコピペ即使用プロンプト）· `HALLUCINATION-PATTERNS`
-（5 クラス失敗モードカタログ）· `VERIFICATION-CHECKLIST`（実行可能な完了
-チェックリスト）· `SDD-CONTRACT`（全タスクが満たすべき契約）·
-`VENDOR-SOLUTIONS`（ベンダー手法の導入マップ）。
+`PROMPT-POOL`（コピペ即使用プロンプト）· `HALLUCINATION-PATTERNS`（失敗
+モードカタログ）· `VERIFICATION-CHECKLIST`（実行可能な完了チェックリスト）·
+`SDD-CONTRACT`（全タスクが満たすべき契約）· `DEFAULT-NORMS`（シニアエンジニア
+の行動規範とそれを強制するゲート、英語のみ）· `VENDOR-SOLUTIONS`（ベンダー
+手法の導入マップ）。すべて `skills/verify-before-code/references/` 配下にあり、
+各言語の SKILL ファイルが一覧化しています。
 
 ## 代替案との比較
 
 | | プロンプト専用 skill | 静的 import linter（MCP） | **AgentSeed** |
 | --- | --- | --- | --- |
-| コードに触れる | ❌ プロンプトのみ | ✅ import グラフ | ✅ AST + 語彙（16 言語） |
+| コードに触れる | ❌ プロンプトのみ | ✅ import グラフ | ✅ AST + 語彙（17 言語） |
 | 検証ツールを実行 | ❌ | lint ゲート | ✅ 8 MCP ツール（sandbox 含む） |
 | 幻覚言語スキャン | ❌ | ❌ | ✅ stub/oversold/fabricated、EN + CJK |
 | 強制力 | 軟（skill 文面） | CI ゲート | **硬**：skill + MCP + hook + CLI 終了コード |

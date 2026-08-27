@@ -3,7 +3,7 @@
   "CHANGELOG.md": {
    "fabricated|fabricated": 1,
    "fabricated|fictitious": 1,
-   "fabricated|invented": 1,
+   "fabricated|invented": 2,
    "fabricated|non-existent": 1,
    "fabricated|nonexistent": 1,
    "fabricated|凭空捏造": 1,
@@ -14,7 +14,7 @@
    "oversold|foolproof": 1,
    "oversold|万无一失": 1,
    "oversold|保证通过": 1,
-   "stub_code|stub": 1,
+   "stub_code|stub": 2,
    "stub_code|占位": 1,
    "stub_code|待实现": 1
   },
@@ -107,7 +107,7 @@
    "oversold|trust me": 1,
    "stub_code|fake": 2,
    "stub_code|placeholder": 1,
-   "stub_code|stub": 2
+   "stub_code|stub": 1
   },
   "README.zh.md": {
    "fabricated|fabricated": 1,
@@ -117,7 +117,7 @@
    "oversold|production ready": 2,
    "oversold|trust me": 1,
    "stub_code|stub": 1,
-   "stub_code|占位": 4
+   "stub_code|占位": 3
   },
   "scripts/bench_detection.py": {
    "fabricated|fabricated": 1,
@@ -126,6 +126,9 @@
    "oversold|all tests pass": 1,
    "stub_code|placeholder": 1,
    "stub_code|todo": 1
+  },
+  "scripts/smoke_npm.mjs": {
+   "fabricated|invented": 3
   },
   "server/engine/config.py": {
    "fabricated|fabricated": 1

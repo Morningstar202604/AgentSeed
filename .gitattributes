@@ -12,3 +12,8 @@
 *.pdf binary
 *.zip binary
 *.pyc binary
+
+# Shell scripts must keep LF: a CRLF install.sh cannot be run by bash
+# on Windows checkouts with core.autocrlf=true.
+*.sh text eol=lf
+*.ps1 text eol=crlf

@@ -1,6 +1,6 @@
 # AgentSeed — Technical Design
 
-> English technical design for AgentSeed. See [DESIGN.zh.md](./DESIGN.zh.md) for 中文.
+> English technical design for AgentSeed. Also in [中文](./DESIGN.zh.md) · [日本語](./DESIGN.ja.md).
 
 ## 1. Background & problem
 
@@ -80,37 +80,43 @@ AgentSeed fills: **code-level + real tooling + Skill/MCP closed-loop enforcement
 | `mcp.json` | declares the stdio `agentseed` MCP server |
 | `skills/verify-before-code/SKILL.md` | non-skippable 4-gate guardrail |
 | `references/SDD-CONTRACT.md` | contract the agent must load before coding |
-| `references/PROMPT-POOL.md` | 20+ copy-paste guardrail prompts (EN/ZH/JA) |
+| `references/DEFAULT-NORMS.md` | senior-engineer norms, each bound to its enforcing gate (EN only) |
+| `references/PROMPT-POOL.md` | copy-paste guardrail prompts (EN/ZH/JA) |
 | `references/HALLUCINATION-PATTERNS.md` | failure-mode catalog (EN/ZH/JA) |
 | `references/VERIFICATION-CHECKLIST.md` | executable end-of-task checklist (EN/ZH/JA) |
 | `references/VENDOR-SOLUTIONS.md` | vendor technique adoption map (EN/ZH/JA) |
-| `server/guard_engine.py` | pure-stdlib checks (6 capabilities) |
+| `server/guard_engine.py` | pure-stdlib checks behind every tool |
 | `server/guard_server.py` | hand-written JSON-RPC stdio MCP server |
 
 ## 4. MCP interface contract
 
 Transport: line-delimited JSON-RPC 2.0 over stdio. Server name `agentseed`,
-version `0.3.0`, protocol `2024-11-05`.
+version `0.3.1`, protocol `2024-11-05`.
 
 ### 4.1 `initialize` → result
 ```json
 { "protocolVersion": "2024-11-05",
   "capabilities": { "tools": {} },
-  "serverInfo": { "name": "agentseed", "version": "0.3.0" } }
+  "serverInfo": { "name": "agentseed", "version": "0.3.1" } }
 ```
 
 ### 4.2 `tools/list` → tools
-- `verify_code(source: string, language?: "python")` → `{language, suspects[], note}`
-- `check_contract(source: string, contract: string, language?: "python")` →
+- `verify_code(source: string, language?: string)` → `{language, suspects[], note}`
+  — `language` defaults to `python`; the accepted set is enumerated by
+  `canonical_languages()` / `SUPPORTED_LANGUAGES` and the schema `enum` is
+  generated from it, so registering a language updates `tools/list` too.
+- `check_contract(source: string, contract: string, language?: string)` →
   `{language, contract_ok, missing[], prohibited_hits[], note}`
-- `check_imports(source: string, language?: "python")` →
+- `check_imports(source: string, language?: string)` →
   `{language, imports_ok, suspicious[{package, line}], note}` — slopsquatting guard
 - `scan_hallucination(source: string)` → `{hits[{word,group,line}], clean: bool, groups{}}`
 - `check_plugin(path: string)` → `{ok: bool, errors[], warnings[]}`
 - `sandbox_run(command: string[], timeout?: int, cwd?: string)` →
   `{exit_code, stdout, stderr, timed_out}`
 - `schema_validate(instance: any, schema: object)` → `{valid: bool, errors[]}`
-- `record_verification(entry: object)` → `{ok: bool, path: string, error?: string}`
+- `record_verification(task: string, checks?: [{tool, status, summary?}], summary?: string)` →
+  `{ok: bool, path: string, total: int, error?: string}` — `status` is
+  `pass` | `fail` | `skipped`
 
 ### 4.3 `tools/call` example
 Request:

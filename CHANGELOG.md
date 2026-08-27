@@ -3,12 +3,113 @@
 All notable changes to AgentSeed are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com); versioning follows [SemVer](https://semver.org).
 
+## [0.3.1] — 2026-08-27
+
+A full audit of the 0.3.0 release. Everything below was reproduced against the
+published tag before being fixed; several items were self-inflicted failures of
+the exact discipline this plugin sells.
+
+### Security
+- **`guard_cli` no longer reports a false green for a missing path.**
+  `_read_source()` treated any unreadable argument as inline source text, so
+  `scan src/ --strict` (the command in our own README) on a typo'd or absent
+  path returned `clean: true` / exit 0, and `imports` returned
+  `imports_ok: true`. An argument that looks like a path but does not exist is
+  now a usage error (exit 2); `scan --baseline` on a missing target fails the
+  same way instead of raising an uncaught `FileNotFoundError`. A guardrail that
+  reports "clean" for code it never read is the failure mode this project
+  exists to prevent.
+- **Hook registration never destroys a client config.** `guard_hook register`
+  rewrote `~/.claude/settings.json` / `~/.cursor/hooks.json` with
+  `open(path, "w")`, truncating the user's file before writing. Writes are now
+  temp-file + `os.replace` (atomic) and the previous contents are kept as
+  `.bak` so a bad merge is reversible.
+- **The opencode plugin resolves a working interpreter instead of assuming
+  `python`.** A missing interpreter was caught by the fail-open path, so the
+  gate silently did nothing. It now probes `python`/`py`/`python3` per
+  platform, and every bypass path (engine not found, no interpreter, spawn
+  failure) announces itself once on stderr.
+- **Installers verify before extracting** (`install.ps1` extracted the archive
+  and only then checked `-Sha256`; `install.sh` had always done it in the right
+  order) and **never overwrite a previous install in place** — the old copy is
+  moved aside to `<dir>.bak-<timestamp>`.
+- `SECURITY.md` no longer lists buffered child output as a known limit; 0.3.0
+  moved to streamed tail ring buffers and the claim contradicted the code.
+
+### Fixed
+- **The documented install path installed an old release.** Both installers
+  defaulted to the GitCode API and took the first entry of its release list,
+  which that API returns oldest-first: `bash install.sh` / `.\install.ps1`
+  delivered **v0.1.1** (6 tools, 13 languages) while the README described 8
+  tools. GitHub is now the default forge with `/releases/latest`, and the
+  mirror path resolves the newest version tag before querying its release.
+- **`-Repo` was silently discarded** in `install.ps1`: PowerShell variables are
+  case-insensitive, so `$repo = "…"` shadowed the `-Repo` parameter.
+- **`mcp.json` on Windows.** The Agent Plugins schema allows exactly one
+  literal interpreter token in `command`, which shipped as `python3` — the
+  Microsoft Store stub on most Windows installs. `install.ps1` now rewrites it
+  to `python` in the installed copy (BOM-free, manifest kept valid), and the
+  README's Windows note shows the correct shape (`command` is a string; the
+  array belongs to `args`) instead of telling users to write invalid JSON.
+- **The release artifact carried no documentation.** `pack.py` staged the npm
+  `files` allowlist verbatim, so the zip installed to `~/.agentseed/AgentSeed`
+  contained no README/SECURITY/CONTRIBUTING. The zip now also stages them.
+- **v0.3.0's own tag failed lint** (`ruff` E402 on `dataclasses`) and the
+  published artifact did not contain the languages its CHANGELOG/README
+  advertised. Both are corrected here and the release pipeline can no longer
+  repeat it (below).
+
+### Added
+- **A docs-vs-engine consistency gate** (`server/test_docs_sync.py`): language
+  and tool counts in every README/DESIGN, repository references and forge
+  identity, reverse-DNS registry name, `server.json` installable packages,
+  version strings, and the `references/` library listing in all three SKILL and
+  README files are now asserted against the registry and `tools/list`. The
+  three language counts and two tool counts that shipped in 0.3.0 fail this
+  test on purpose.
+- **`guard_cli verify`/`contract` infer the language from the file suffix**
+  (`verify src/app.go` really analyzes Go); `--language` still overrides, and
+  inline text defaults to Python.
+- **CI/Release**: an npm job (`node --check` + `npm pack` + global install +
+  `scripts/smoke_npm.mjs`, which drives the published shim over JSON-RPC and
+  asserts 8 tools and an invented-symbol finding), a `verify` job gating
+  `release.yml` (tests + pinned lint + `gate` + manifest check + npm smoke),
+  npm provenance via `id-token: write`, an idempotent `gh release` step,
+  Dependabot for actions/npm/pip, and `ruff` pinned to a concrete version.
+  CI installs engine extras from `server/requirements.txt` and discovers tests
+  instead of listing files, so a new test file or dependency cannot be skipped.
+
+### Changed
+- **The language registry is now the single source of truth for file
+  suffixes.** Each `LangSpec` declares its own `extensions`, the
+  natively-analyzed languages live in a `_NATIVE_LANGS` table instead of
+  `if language in (…)` branches duplicated across functions, and
+  `canonical_languages()` / `source_extensions()` / `language_for_file()`
+  derive the CLI's path heuristic, tree-scan filter, MCP schema `enum`, and the
+  prompt-pool exporter's glob line. Adding a language is one table entry that
+  carries its syntax, suffixes and surface with it; an entry without suffixes
+  fails at import rather than becoming invisible to `gate`.
+- **Repository and package identity unified as `agentseed-mcp`** across GitHub
+  (`Morningstar202604/agentseed-mcp`), the Gitee/GitCode mirrors,
+  `plugin.json`/`package.json`/`server.json` URLs, the registry reverse-DNS name
+  (`io.github.morningstar202604/agentseed-mcp`), installers and
+  README/CONTRIBUTING — the npm package name we actually own, since plain
+  `agentseed` is taken by an unrelated publisher. The installed plugin home
+  (`~/.agentseed/AgentSeed`) is deliberately unchanged: it is the discovery
+  convention shared by the installers and the opencode plugin, and moving it
+  would only orphan existing installs.
+- **Release discipline**: an unreleased change gets its own version section;
+  entries may no longer be appended to a version that has already been tagged.
+- `record_verification`'s documented signature in `DESIGN.md` matches the
+  implementation, `DESIGN.ja.md` lists all 8 tools, and stale docstrings in
+  `guard_server.py` / `guard_cli.py` enumerate the real 8-tool surface.
+
 ## [0.3.0] — 2026-08-27
 
 ### Added
 - **`verify_code` — config-driven multi-language engine**: a generic lexical
   verifier backed by a language registry (`LangSpec`). Newly supported:
-  Go, Rust, Java, C, C++, C#, PHP, Ruby, Kotlin, Swift, Dart, Lua, R, Zig
+  Go, Rust, Java, C, C++, C#, PHP, Ruby, Kotlin, Swift
   — on top of Python
   (AST) and TypeScript/JavaScript (lexical). The same engine runs every
   registered language (mask comments/strings → collect definitions/imports →
@@ -16,13 +117,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com); versioning follo
   not an engine change. Ruby's paren-less calls are supported via `bare_calls`.
   MCP `verify_code.language` and CLI `verify --language` accept all aliases;
   unsupported languages now list the supported set in `note`.
+  *(Correction, 2026-08-27: Dart, Lua, R and Zig were merged after the
+  `v0.3.0` tag and are therefore not in the published 0.3.0 zip or npm build —
+  they ship with 0.3.1 below.)*
 - **`check_contract` — verify code against a written spec**: new MCP tool +
   `guard_cli contract` subcommand. Contract is JSON
   (`{"requires": [...], "prohibits": [...]}`); `requires` names must be
   defined/imported by the source (via new public `defined_symbols`),
   `prohibits` tokens must not appear. Exits 1 on violations.
 - **`scripts/export_prompt_pool.py` — wire the prompt pool into per-client
-  configs**: parses `PROMPT-POOL.md` (23 entries) and renders identical
+  configs**: parses `PROMPT-POOL.md` (the live pool, parsed at runtime) and renders identical
   anti-hallucination prompts as `CLAUDE.md`, `AGENTS.md`, and Cursor
   rules (`.cursor/rules/agentseed-guardrails.mdc`) so the gates apply outside
   plugin-aware clients.

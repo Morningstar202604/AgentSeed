@@ -1,4 +1,8 @@
 __pycache__/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
 *.pyc
 .DS_Store
 .agentseed_cache/

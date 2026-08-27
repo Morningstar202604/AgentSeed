@@ -1,6 +1,6 @@
 # AgentSeed —— 技术设计
 
-> AgentSeed 的中文技术设计。英文版见 [DESIGN.md](./DESIGN.md)。
+> AgentSeed 的中文技术设计。另见 [English](./DESIGN.md) · [日本語](./DESIGN.ja.md)。
 
 ## 1. 背景与问题
 
@@ -70,7 +70,7 @@ AgentSeed 填补：**代码级 + 真跑工具 + Skill/MCP 闭环强制**。`chec
 
 ## 4. MCP 接口契约
 
-传输：基于 stdio 的逐行 JSON-RPC 2.0。服务器名 `agentseed`，版本 `0.3.0`，
+传输：基于 stdio 的逐行 JSON-RPC 2.0。服务器名 `agentseed`，版本 `0.3.1`，
 协议 `2024-11-05`。
 
 | 方法 | 说明 |
@@ -135,7 +135,7 @@ AgentSeed 填补：**代码级 + 真跑工具 + Skill/MCP 闭环强制**。`chec
 | | 纯 prompt 技能（superpowers…） | 静态 import 检查器 | **AgentSeed** |
 | --- | --- | --- | --- |
 | 碰代码 | ❌ | ✅ import 图 | ✅ AST + 词法 |
-| 跑工具 | ❌ | lint 门禁 | ✅ 6 个 MCP 工具含沙箱 |
+| 跑工具 | ❌ | lint 门禁 | ✅ 8 个 MCP 工具含沙箱 |
 | 强制 | 软 | CI 门禁 | **硬闸门** |
 | 1.0.0 linter | ❌ | ❌ | ✅ |
 

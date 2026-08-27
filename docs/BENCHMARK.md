@@ -15,7 +15,7 @@ real-world hallucination-rate estimates.
   `scan_hallucination` group hits).
 - A clean module flagged by either detector counts as one false positive.
 
-## Results (2026-08-27 · Python 3.13.9 · Windows / engine 0.3.0 + pyflakes)
+## Results (2026-08-27 · Python 3.13.9 · Windows / engine 0.3.1 + pyflakes)
 
 | defect class | tp | fn | recall |
 | --- | --- | --- | --- |
