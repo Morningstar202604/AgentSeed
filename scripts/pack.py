@@ -5,7 +5,9 @@ GitCode Releases, npm). One invocation:
 
   1. Verifies plugin.json / package.json / server.json agree on version and
      license (exits non-zero on any drift — the multi-platform killer).
-  2. Stages exactly the files listed in package.json "files".
+  2. Stages the files listed in package.json "files" plus ARTIFACT_EXTRA_DOCS
+     (READMEs, SECURITY, CONTRIBUTING, DESIGN) so an installed plugin is
+     self-documenting.
   3. Builds dist/agentseed-<version>.zip and dist/SHA256SUMS.txt.
 
 The SAME zip + the SAME hash are uploaded everywhere; users pin it via
@@ -28,6 +30,21 @@ import sys
 import zipfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# Documentation the release zip must carry so an installed plugin is readable
+# on its own. npm ships README/LICENSE regardless of package.json "files", so
+# this list is only for the zip that the installers download; missing paths
+# are skipped by build().
+ARTIFACT_EXTRA_DOCS = [
+    "README.md",
+    "README.zh.md",
+    "README.ja.md",
+    "SECURITY.md",
+    "CONTRIBUTING.md",
+    "DESIGN.md",
+    "DESIGN.zh.md",
+    "DESIGN.ja.md",
+]
 
 
 def _load(name: str) -> dict:
@@ -97,7 +114,7 @@ def build() -> tuple[str, str]:
     zip_name = f"agentseed-{version}.zip"
     zip_path = os.path.join(dist, zip_name)
     entries: list[str] = []
-    for raw in pkg["files"]:
+    for raw in list(pkg["files"]) + ARTIFACT_EXTRA_DOCS:
         full = os.path.join(ROOT, raw)
         if os.path.isdir(full):
             for base, dirs, names in os.walk(full):

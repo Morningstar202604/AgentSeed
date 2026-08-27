@@ -1,20 +1,24 @@
 #!/usr/bin/env bash
 # AgentSeed installer - download the latest release and wire it into a client.
 #
-# Usage: ./install.sh [--client claude|opencode|cursor|manual] [--dir TARGET]
+# Usage: ./install.sh [--client auto|claude|opencode|cursor|manual] [--dir TARGET]
 #                     [--sha256 HEX] [--url ZIP_URL] [--hooks]
 #                     [--repo owner/name] [--forge github|gitcode]
 #
 # --url   : download a specific release zip directly (any host). Skips repo
 #           resolution entirely.
-# --repo  : override the repository (default: badhope/AgentSeed, the canonical
-#           GitCode home; weed33834/* on GitHub is a deprecated mirror).
-# --forge : which release API to query (default: gitcode).
+# --repo  : override the repository (default: Morningstar202604/agentseed-mcp,
+#           the canonical GitHub home; gitee/gitcode mirrors live under
+#           badhope/agentseed-mcp).
+# --forge : which release API to query (default: github). Use `gitcode` only
+#           for the CN mirror - its release API does NOT order newest-first,
+#           so the newest tag is resolved from /tags and sorted by version.
 # --hooks : additionally register the client-enforcement hook (Claude Code:
-#           merges into ~/.claude/settings.json, idempotent).
+#           merges into ~/.claude/settings.json, idempotent, previous config
+#           kept as settings.json.bak).
 set -e
-repo="badhope/AgentSeed"
-forge="gitcode"
+repo="Morningstar202604/agentseed-mcp"
+forge="github"
 client="auto"
 dir=""
 want_sha=""
@@ -33,21 +37,44 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+# Pick an interpreter that actually exists: `python3` is missing on plain
+# Windows installs, `python` is missing on bare Debian/macOS.
+resolve_python() {
+  if [ -n "${PYTHON:-}" ]; then
+    command -v "$PYTHON" >/dev/null 2>&1 || { echo "PYTHON=$PYTHON not found on PATH" >&2; exit 1; }
+    echo "$PYTHON"
+    return
+  fi
+  for cand in python3 python; do
+    if command -v "$cand" >/dev/null 2>&1 && "$cand" -c 'import sys' >/dev/null 2>&1; then
+      echo "$cand"
+      return
+    fi
+  done
+  echo ""
+}
+
 if [ -n "$direct_url" ]; then
   url="$direct_url"
 elif [ "$forge" = "gitcode" ]; then
-  echo "==> resolving latest GitCode release of $repo"
-  # GitCode v5 API (Gitee-compatible); /releases/latest 400s when empty.
-  url=$(curl -fsSL "https://api.gitcode.com/api/v5/repos/$repo/releases?per_page=1" |
+  echo "==> resolving newest release of $repo on GitCode"
+  # GitCode/Gitee list releases oldest-first and /releases/latest 400s on an
+  # empty repo, so take the highest version tag first, then its release.
+  newest=$(curl -fsSL "https://api.gitcode.com/api/v5/repos/$repo/tags?per_page=100" |
+    grep -o '"name": *"v[0-9][^"]*"' | sed 's/.*"\([^"]*\)"$/\1/' |
+    sed 's/^v//' | sort -V | tail -1)
+  [ -n "$newest" ] || { echo "no tags on $repo" >&2; exit 1; }
+  url=$(curl -fsSL "https://api.gitcode.com/api/v5/repos/$repo/releases/tags/v${newest}" |
     grep -o '"browser_download_url": *"[^"]*\.zip"' | head -1 |
     sed 's/.*"\(https[^"]*\)"/\1/')
-  [ -n "$url" ] || { echo "no .zip asset on the latest GitCode release" >&2; exit 1; }
+  [ -n "$url" ] || { echo "no .zip asset on $repo release v${newest}" >&2; exit 1; }
+  echo "==> newest mirror tag: v${newest}"
 else
-echo "==> resolving latest release of $repo"
-url=$(curl -fsSL "https://api.github.com/repos/$repo/releases/latest" |
-  grep -o '"browser_download_url": *"[^"]*\.zip"' | head -1 |
-  sed 's/.*"\(https[^"]*\)"/\1/')
-[ -n "$url" ] || { echo "no .zip asset on the latest release" >&2; exit 1; }
+  echo "==> resolving latest release of $repo"
+  url=$(curl -fsSL "https://api.github.com/repos/$repo/releases/latest" |
+    grep -o '"browser_download_url": *"[^"]*\.zip"' | head -1 |
+    sed 's/.*"\(https[^"]*\)"/\1/')
+  [ -n "$url" ] || { echo "no .zip asset on the latest $repo release" >&2; exit 1; }
 fi
 
 tmp=$(mktemp -d)
@@ -75,16 +102,27 @@ unzip -q "$tmp/agentseed.zip" -d "$tmp/x"
 src=$(dirname "$(find "$tmp/x" -name plugin.json | head -1)")
 [ -n "$src" ] || { echo "plugin.json not found in archive" >&2; exit 1; }
 
+py="$(resolve_python)"
+[ -n "$py" ] || { echo "no usable python3/python on PATH - set PYTHON=/path/to/python" >&2; exit 1; }
+
+# Never blow away a previous install: move it aside so an upgrade is reversible.
+backup_aside() {
+  [ -e "$1" ] || return 0
+  stamp=$(date +%Y%m%d-%H%M%S)
+  mv "$1" "$1.bak-$stamp"
+  echo "==> previous copy moved aside: $1.bak-$stamp"
+}
+
 # 1) stable full-plugin home (the MCP server runs from here)
 plugin_home="${AGENTSEED_HOME:-$HOME/.agentseed}/AgentSeed"
 mkdir -p "$(dirname "$plugin_home")"
-rm -rf "$plugin_home"
+backup_aside "$plugin_home"
 cp -R "$src" "$plugin_home"
 echo "==> full plugin installed to $plugin_home"
 
 # 2) flat skill copy so clients that scan <dir>/SKILL.md find it
 install_skill() {
-  rm -rf "$1"
+  backup_aside "$1"
   mkdir -p "$1"
   cp -R "$plugin_home/skills/verify-before-code/"* "$1/"
   printf '%s' "$plugin_home" > "$1/.agentseed-plugin-root"
@@ -95,17 +133,17 @@ case "$client" in
   claude)
     install_skill "$HOME/.claude/skills/verify-before-code"
     if [ "$want_hooks" = "1" ]; then
-      "${PYTHON:-python3}" "$plugin_home/server/guard_hook.py" register --client claude ||
-        echo "WARNING: hook registration failed; run: python \"$plugin_home/server/guard_hook.py\" register --client claude" >&2
+      "$py" "$plugin_home/server/guard_hook.py" register --client claude ||
+        echo "WARNING: hook registration failed; run: $py \"$plugin_home/server/guard_hook.py\" register --client claude" >&2
     fi
     echo ""
     echo "==> final step - register the MCP server:"
-    echo "    claude mcp add agentseed -- python \"$plugin_home/server/guard_server.py\""
+    echo "    claude mcp add agentseed -- $py \"$plugin_home/server/guard_server.py\""
     ;;
   opencode)
     install_skill "$HOME/.config/opencode/skill/verify-before-code"
     if [ "$want_hooks" = "1" ]; then
-      "${PYTHON:-python3}" "$plugin_home/server/guard_hook.py" register --client opencode || true
+      "$py" "$plugin_home/server/guard_hook.py" register --client opencode || true
     fi
     echo ""
     echo "==> final step - add to ~/.config/opencode/opencode.json:"
@@ -113,7 +151,7 @@ case "$client" in
     "mcp": {
       "agentseed": {
         "type": "local",
-        "command": ["python", "$plugin_home/server/guard_server.py"],
+        "command": ["$py", "$plugin_home/server/guard_server.py"],
         "enabled": true
       }
     }
@@ -121,19 +159,22 @@ EOF
     ;;
   cursor)
     if [ "$want_hooks" = "1" ]; then
-      "${PYTHON:-python3}" "$plugin_home/server/guard_hook.py" register --client cursor || true
+      "$py" "$plugin_home/server/guard_hook.py" register --client cursor || true
     fi
     echo "==> Cursor has no stable Agent Plugins directory yet."
     echo "    Plugin kept at: $plugin_home"
     echo "    Register the MCP server in Cursor settings:"
-    echo "      command: python  args: [$plugin_home/server/guard_server.py]"
+    echo "      command: $py  args: [$plugin_home/server/guard_server.py]"
     ;;
   manual|auto)
     dest="${dir:-$PWD}/AgentSeed"
     mkdir -p "$(dirname "$dest")"
-    rm -rf "$dest"
+    backup_aside "$dest"
     cp -R "$src" "$dest"
     echo "==> plugin copied to $dest"
+    echo "==> interpreter detected for this machine: $py"
+    echo "    Register the MCP server with:  $py \"$dest/server/guard_server.py\""
+    echo "    (or, if you use an npm-based client: npx agentseed-mcp)"
     echo "==> done. Drop it into your client, or re-run with --client claude|opencode."
     ;;
 esac
