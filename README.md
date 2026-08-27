@@ -45,7 +45,7 @@ promises:
 
 | Promise | How it's kept |
 | --- | --- |
-| **🚫 No invented APIs** | `verify_code` parses your code in **12+ languages** and flags any symbol that is called but never defined or imported |
+| **🚫 No invented APIs** | `verify_code` parses your code in **16 languages** and flags any symbol that is called but never defined or imported |
 | **🚫 No fake "done"** | `scan_hallucination` catches stubs, overclaims, and fabricated claims in **English and CJK**; `sandbox_run` proves runtime claims by actually running them |
 | **🚫 No skipped verification** | the Skill gates the workflow, the **client hook** blocks `Write`/`Edit` on files that don't pass, and `guard_cli gate` enforces the same rules in CI with exit codes |
 
@@ -152,7 +152,7 @@ upgrade two tools to industry-standard engines (see below).
 
 | Tool | Catches | Technique |
 | --- | --- | --- |
-| `verify_code` | Invented APIs / undefined symbols | Python AST + config-driven lexical passes (12+ languages) |
+| `verify_code` | Invented APIs / undefined symbols | Python AST + config-driven lexical passes (16 languages) |
 | `check_contract` | Code violates a written spec | requires/prohibits contract check |
 | `check_imports` | Hallucinated packages (slopsquatting) | stdlib + known-packages allowlist check |
 | `scan_hallucination` | Placeholder code, overclaims, fabricated content | 28+ signals in 3 groups, EN + CJK |
@@ -168,6 +168,7 @@ upgrade two tools to industry-standard engines (see below).
 | Python | full AST scope walk (+ pyflakes when installed), line numbers |
 | TypeScript / JavaScript | lexical regex pass (documented false-positive classes) |
 | Go · Rust · Java · C · C++ · C# · PHP · Ruby · Kotlin · Swift | config-driven generic lexical pass |
+| Dart · Lua · R · Zig | config-driven generic lexical pass |
 | any other language | add a `LangSpec` registry entry — no engine change |
 
 Honest limits: attribute calls (`obj.m()`), macros, and cross-file symbols
@@ -193,8 +194,9 @@ that is never defined is a hallucination, whatever the syntax:
 ```
 
 Verified across Go · Rust · Java · C · C++ · C# · PHP · Ruby · Kotlin ·
-Swift · TypeScript — every language flags its invented call, and clean
-code in each language reports **zero false positives**.
+Swift · TypeScript · Dart · Lua · R · Zig — every language flags its
+invented call, and clean code in each language reports **zero false
+positives**.
 
 
 ## Client-enforced hook mode

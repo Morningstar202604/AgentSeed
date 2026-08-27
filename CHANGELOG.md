@@ -8,7 +8,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com); versioning follo
 ### Added
 - **`verify_code` — config-driven multi-language engine**: a generic lexical
   verifier backed by a language registry (`LangSpec`). Newly supported:
-  Go, Rust, Java, C, C++, C#, PHP, Ruby, Kotlin, Swift — on top of Python
+  Go, Rust, Java, C, C++, C#, PHP, Ruby, Kotlin, Swift, Dart, Lua, R, Zig
+  — on top of Python
   (AST) and TypeScript/JavaScript (lexical). The same engine runs every
   registered language (mask comments/strings → collect definitions/imports →
   flag undefined bare calls and `new`); adding a language is a registry entry,

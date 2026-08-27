@@ -146,7 +146,7 @@ python3 server/guard_cli.py scan src/ --strict
 
 | 工具 | 拦截什么 | 技术 |
 | --- | --- | --- |
-| `verify_code` | 编造的 API / 未定义符号 | Python AST + 配置驱动的通用词法扫描（12+ 语言） |
+| `verify_code` | 编造的 API / 未定义符号 | Python AST + 配置驱动的通用词法扫描（16 语言） |
 | `check_contract` | 违反书面规范 | requires/prohibits 契约校验 |
 | `check_imports` | 幻觉包导入（slopsquatting 抢注） | stdlib + known_packages 白名单校验 |
 | `scan_hallucination` | 占位代码、夸大声称、虚构内容 | 3 组 28+ 信号，中英双语 |
@@ -162,6 +162,7 @@ python3 server/guard_cli.py scan src/ --strict
 | Python | 完整 AST 作用域遍历（装 pyflakes 则合并），带行号 |
 | TypeScript / JavaScript | 词法正则扫描（有明确记录的误报类别） |
 | Go · Rust · Java · C · C++ · C# · PHP · Ruby · Kotlin · Swift | 配置驱动的通用词法扫描 |
+| Dart · Lua · R · Zig | 配置驱动的通用词法扫描 |
 | 任何其他语言 | 加一条 `LangSpec` 注册即可——无需改引擎 |
 
 诚实边界：属性调用（`obj.m()`）、宏、跨文件符号不分析；Ruby 无括号调用已支持。
@@ -184,7 +185,7 @@ python3 server/guard_cli.py scan src/ --strict
 ```
 
 已实测 Go · Rust · Java · C · C++ · C# · PHP · Ruby · Kotlin · Swift ·
-TypeScript——每种语言都能抓出自己的幻觉调用，且各语言干净代码**零误报**。
+TypeScript · Dart · Lua · R · Zig——每种语言都能抓出自己的幻觉调用，且各语言干净代码**零误报**。
 
 
 ## 客户端强制 Hook 模式
@@ -269,7 +270,7 @@ pip install -r server/requirements.txt
 
 | | 纯提示词护栏 skill | 静态 import linter（MCP） | **AgentSeed** |
 | --- | --- | --- | --- |
-| 触碰代码 | ❌ 仅提示 | ✅ import 图 | ✅ AST + 词法（12+ 语言） |
+| 触碰代码 | ❌ 仅提示 | ✅ import 图 | ✅ AST + 词法（16 语言） |
 | 跑验证工具 | ❌ | lint 门禁 | ✅ 8 个 MCP 工具含沙箱 |
 | 幻觉语言扫描 | ❌ | ❌ | ✅ stub/oversold/fabricated，中英双语 |
 | 强制力 | 软（skill 文本） | CI 门禁 | **硬**：skill + MCP + hook + CLI 退出码 |

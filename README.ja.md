@@ -48,7 +48,7 @@ LLM は幻覚を起こします——コードではそれは**捏造 API・未�
 
 | 約束 | 実現方法 |
 | --- | --- |
-| **🚫 API を捏造しない** | `verify_code` が **12+ 言語**のコードを解析し、「呼ばれたのに定義もインポートもされていない」シンボルを検出 |
+| **🚫 API を捏造しない** | `verify_code` が **16 言語**のコードを解析し、「呼ばれたのに定義もインポートもされていない」シンボルを検出 |
 | **🚫 偽の「完了」を出さない** | `scan_hallucination` がスタブ・過剰宣言・捏造主張を（**英語+中国語+CJK**）検出；`sandbox_run` が実行時主張を実際に実行して証明 |
 | **🚫 検証をスキップさせない** | Skill がワークフローを制約、**クライアント Hook** が `Write`/`Edit` を未検証ファイルでブロック、`guard_cli gate` が CI で同じルールを終了コードで強制 |
 
@@ -154,7 +154,7 @@ python3 server/guard_cli.py scan src/ --strict
 
 | ツール | ブロックするもの | 技術 |
 | --- | --- | --- |
-| `verify_code` | 捏造 API / 未定義シンボル | Python AST + 設定駆動の汎用語彙パス（12+ 言語） |
+| `verify_code` | 捏造 API / 未定義シンボル | Python AST + 設定駆動の汎用語彙パス（16 言語） |
 | `check_contract` | 仕様に違反するコード | requires/prohibits 契約チェック |
 | `check_imports` | 幻覚パッケージ（slopsquatting） | stdlib + known_packages ホワイトリスト検証 |
 | `scan_hallucination` | プレースホルダー、誇張、捏造 | 3 グループ 28+ シグナル、EN + CJK |
@@ -170,6 +170,7 @@ python3 server/guard_cli.py scan src/ --strict
 | Python | フル AST スコープウォーク（pyflakes 時はマージ）、行番号付き |
 | TypeScript / JavaScript | 語彙正規表現パス（誤検出クラスを明記） |
 | Go · Rust · Java · C · C++ · C# · PHP · Ruby · Kotlin · Swift | 設定駆動の汎用語彙パス |
+| Dart · Lua · R · Zig | 設定駆動の汎用語彙パス |
 | その他の言語 | `LangSpec` レジストリに追加するだけ——エンジン変更不要 |
 
 正直な限界：属性呼び出し（`obj.m()`）、マクロ、ファイル横断シンボルは解析しません。
@@ -193,7 +194,7 @@ Ruby の括弧なし呼び出しは対応済み。
 # TypeScript function run() { connectDb() }           -> ["connectDb"]
 ```
 
-Go · Rust · Java · C · C++ · C# · PHP · Ruby · Kotlin · Swift · TypeScript で実測——
+Go · Rust · Java · C · C++ · C# · PHP · Ruby · Kotlin · Swift · TypeScript · Dart · Lua · R · Zig で実測——
 全言語が捏造呼び出しを検出し、各言語のクリーンコードは**誤検出ゼロ**。
 
 
@@ -281,7 +282,7 @@ pip install -r server/requirements.txt
 
 | | プロンプト専用 skill | 静的 import linter（MCP） | **AgentSeed** |
 | --- | --- | --- | --- |
-| コードに触れる | ❌ プロンプトのみ | ✅ import グラフ | ✅ AST + 語彙（12+ 言語） |
+| コードに触れる | ❌ プロンプトのみ | ✅ import グラフ | ✅ AST + 語彙（16 言語） |
 | 検証ツールを実行 | ❌ | lint ゲート | ✅ 8 MCP ツール（sandbox 含む） |
 | 幻覚言語スキャン | ❌ | ❌ | ✅ stub/oversold/fabricated、EN + CJK |
 | 強制力 | 軟（skill 文面） | CI ゲート | **硬**：skill + MCP + hook + CLI 終了コード |

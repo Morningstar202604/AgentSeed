@@ -259,6 +259,55 @@ class TestGenericLanguages(unittest.TestCase):
         r = engine.detect_undefined_symbols(src, "swift")
         self.assertEqual(r["suspects"], [])
 
+    def test_dart_catches_hallucinated_call(self):
+        src = "void main() {\n    ghost();\n}\n"
+        r = engine.detect_undefined_symbols(src, "dart")
+        self.assertIn("ghost", r["suspects"])
+
+    def test_dart_clean_methods(self):
+        src = (
+            "class Calc {\n"
+            "  int add(int a, int b) { return a + b; }\n"
+            "}\n"
+            "void main() { print(Calc().add(1, 2)); }\n"
+        )
+        r = engine.detect_undefined_symbols(src, "dart")
+        self.assertEqual(r["suspects"], [])
+
+    def test_lua_catches_hallucinated_call(self):
+        src = "function run() ghost() end\n"
+        r = engine.detect_undefined_symbols(src, "lua")
+        self.assertIn("ghost", r["suspects"])
+
+    def test_lua_clean_locals_and_calls(self):
+        src = "local function helper(x) return x * 2 end\nfunction run() print(helper(21)) end\n"
+        r = engine.detect_undefined_symbols(src, "lua")
+        self.assertEqual(r["suspects"], [])
+
+    def test_r_catches_hallucinated_call(self):
+        src = "run <- function() { ghost() }\n"
+        r = engine.detect_undefined_symbols(src, "r")
+        self.assertIn("ghost", r["suspects"])
+
+    def test_r_clean_assignment_and_call(self):
+        src = "helper <- function(x) x * 2\nprint(helper(21))\n"
+        r = engine.detect_undefined_symbols(src, "r")
+        self.assertEqual(r["suspects"], [])
+
+    def test_zig_catches_hallucinated_call(self):
+        src = "fn main() {\n    ghost();\n}\n"
+        r = engine.detect_undefined_symbols(src, "zig")
+        self.assertIn("ghost", r["suspects"])
+
+    def test_zig_clean_import_and_functions(self):
+        src = (
+            'const std = @import("std");\n'
+            "fn helper(x: i32) i32 { return x + 1; }\n"
+            "pub fn main() { std.debug.print(\"{d}\", .{helper(1)}); }\n"
+        )
+        r = engine.detect_undefined_symbols(src, "zig")
+        self.assertEqual(r["suspects"], [])
+
     def test_unsupported_language_reports_note(self):
         r = engine.detect_undefined_symbols("print('x')", "brainfuck")
         self.assertEqual(r["suspects"], [])

@@ -1,9 +1,10 @@
 """Export the AgentSeed prompt pool into per-client guardrail configs.
 
 Reads ``skills/verify-before-code/references/PROMPT-POOL.md`` and renders the
-same 23 anti-hallucination prompts as drop-in config files for the three
-main agent-config formats, so the guardrails apply OUTSIDE plugin-aware
-clients (roadmap item: "wire the PROMPT-POOL into per-client configs"):
+anti-hallucination prompts as drop-in config files for the three main
+agent-config formats, so the guardrails apply OUTSIDE plugin-aware clients
+(roadmap item: "wire the PROMPT-POOL into per-client configs"). The number of
+prompts is whatever the pool currently parses — it is never hardcoded here:
 
     --format claude   -> CLAUDE.md fragment
     --format agents   -> AGENTS.md fragment
@@ -28,6 +29,93 @@ import sys
 _ENTRY_RE = re.compile(
     r"\*\*([A-Za-z]+\d+)\.\s*([^*\n]+)\*\*\s*```(?:[a-zA-Z0-9_-]*)\n([\s\S]*?)```"
 )
+
+# Cursor `.mdc` globs are DERIVED from the language registry (see
+# server/engine/symbols.py) so they can never drift from the set of languages
+# the engine actually supports. This maps each canonical registry language to
+# its source-file globs; a language registered without an entry here makes the
+# export fail loudly rather than silently dropping it from the generated rules.
+_LANG_GLOBS = {
+    "python": "*.py",
+    "typescript": "*.ts,*.tsx",
+    "javascript": "*.js,*.jsx",
+    "go": "*.go",
+    "rust": "*.rs",
+    "java": "*.java",
+    "c": "*.c",
+    "cpp": "*.cpp",
+    "csharp": "*.cs",
+    "php": "*.php",
+    "ruby": "*.rb",
+    "kotlin": "*.kt",
+    "swift": "*.swift",
+    "dart": "*.dart",
+    "lua": "*.lua",
+    "r": "*.r",
+    "zig": "*.zig",
+}
+
+
+def _canonical_languages() -> tuple[str, ...]:
+    """Canonical engine languages, read live from server/engine/symbols.py.
+
+    Falls back to a manually-synced list only if the engine module cannot be
+    imported; the fallback stays in sync with the registry in symbols.py.
+    """
+    symbols_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "server",
+        "engine",
+        "symbols.py",
+    )
+    try:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("_agentseed_symbols", symbols_path)
+        module = importlib.util.module_from_spec(spec)
+        # symbols.py defines a @dataclass whose annotations dataclasses.py
+        # resolves via sys.modules[cls.__module__]; register the temp module so
+        # that lookup succeeds, and drop it afterwards to avoid leaking state.
+        sys.modules[spec.name] = module
+        try:
+            spec.loader.exec_module(module)
+        finally:
+            sys.modules.pop(spec.name, None)
+        resolve = module.resolve_language
+        supported = module.SUPPORTED_LANGUAGES
+    except Exception:  # pragma: no cover - keep in sync with server/engine/symbols.py
+        return (
+            "python", "typescript", "javascript", "go", "rust", "java", "c",
+            "cpp", "csharp", "php", "ruby", "kotlin", "swift", "dart", "lua",
+            "r", "zig",
+        )
+    canon = {"python", "typescript", "javascript"}
+    for name in supported:
+        lang = resolve_language_via(resolve, name)
+        if lang:
+            canon.add(lang)
+    return tuple(sorted(canon))
+
+
+def resolve_language_via(resolve, name: str) -> str | None:
+    """Canonical name for a SUPPORTED_LANGUAGES entry (or None for python/ts/js)."""
+    spec = resolve(name)
+    return spec.name if spec is not None else None
+
+
+def _cursor_globs() -> str:
+    """Comma-joined source globs covering every engine-supported language."""
+    canon = _canonical_languages()
+    missing = sorted(c for c in canon if c not in _LANG_GLOBS)
+    if missing:
+        raise ValueError(
+            "no cursor glob mapping for engine language(s): "
+            + ", ".join(missing)
+            + " — add them to _LANG_GLOBS in scripts/export_prompt_pool.py"
+        )
+    head = [lang for lang in ("python", "typescript", "javascript") if lang in canon]
+    rest = [lang for lang in canon if lang not in head]
+    return ",".join(_LANG_GLOBS[lang] for lang in head + rest)
 
 
 def parse_pool(pool_path: str) -> list[dict]:
@@ -64,7 +152,7 @@ def render(fmt: str, entries: list[dict]) -> str:
         return (
             "---\n"
             "description: AgentSeed anti-hallucination guardrail prompts\n"
-            "globs: *.py,*.ts,*.tsx,*.js,*.jsx,*.go,*.rs,*.java,*.c,*.cpp,*.cs,*.php,*.rb,*.kt,*.swift\n"
+            f"globs: {_cursor_globs()}\n"
             "---\n\n"
             "# AgentSeed guardrails\n\n"
             + sections

@@ -91,7 +91,7 @@ AgentSeed 填补：**代码级 + 真跑工具 + Skill/MCP 闭环强制**。`chec
     顶层调用与 `new` 表达式中未定义的被调者（成员访问 `obj.foo()` 不标记，
     关键词/全局白名单）。
   - 通用注册表（词法）：**同一引擎、多语言**。每个 `LangSpec`（go/rust/java/
-    c/c++/c#/php/ruby/kotlin/swift）声明注释/字符串语法、关键字、全局名、
+    c/c++/c#/php/ruby/kotlin/swift/dart/lua/r/zig）声明注释/字符串语法、关键字、全局名、
     定义/导入/参数正则与参数名模式。共享引擎屏蔽注释/字符串、收集定义，再标记
     裸调用与 `new` 中未定义的被调者。加语言=加注册条目，无需改引擎；Ruby 的
     无括号调用由 `bare_calls` 标志支持。

@@ -93,7 +93,7 @@ AgentSeed は「**コードレベル + 実ツール実行 + Skill/MCP クロー�
   なし、属性呼び出しは非展開（誤検出の可能性）。Python（AST + pyflakes 併用、
   インストール時）、TypeScript/JavaScript（語彙スキャン）、そして**汎用レジストリ
   （語彙）**に対応：同一エンジンで多言語（go/rust/java/c/c++/c#/php/ruby/kotlin/
-  swift）を解析。各 `LangSpec` がコメント/文字列構文・キーワード・グローバル名・
+  swift/dart/lua/r/zig）を解析。各 `LangSpec` がコメント/文字列構文・キーワード・グローバル名・
   定義/インポート/引数正規表現・引数名モードを宣言し、共有エンジンがコメントと
   文字列をマスク → 定義を収集 → 未定義の裸呼び出し・`new` を検出。言語追加は
   レジストリ追加のみでエンジン変更不要。Ruby の括弧なし呼び出しは `bare_calls`

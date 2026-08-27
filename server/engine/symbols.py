@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import ast
 import builtins
+import os
 import re
+from dataclasses import dataclass
 
 # Optional: pyflakes for more accurate Python undefined-name detection (F821).
 # When available its scope-aware analysis is merged in (e.g. ``del x`` on an
@@ -245,8 +247,6 @@ def _detect_ts_undefined(source: str) -> tuple[list[str], str]:
 # is how verify_code scales to "any language" without a parser per language.
 # ---------------------------------------------------------------------------
 
-from dataclasses import dataclass
-
 
 @dataclass(frozen=True)
 class LangSpec:
@@ -274,10 +274,48 @@ class LangSpec:
     # Ruby-style languages allow bare method calls without parentheses;
     # standalone undefined identifiers are then flagged as calls too.
     bare_calls: bool = False
+    # File suffixes for this language. The CLI's path-vs-inline heuristic and
+    # the tree walker derive their extension sets from the registry, so a
+    # language that declares no suffixes is invisible to `gate`/`scan`.
+    extensions: tuple[str, ...] = ()
 
 
 _LANG_REGISTRY: dict[str, LangSpec] = {}
 _LANG_ALIASES: dict[str, str] = {}
+
+# Languages with a dedicated analyzer instead of the generic lexical pass.
+# Declared as data so that dispatch, the supported-language surface and the
+# file-extension sets are all derived from one place — the old shape
+# (`if language in ("typescript", "ts", ...)`) had to be edited in every
+# function that touched a language and was already stale there.
+_NATIVE_LANGS: dict[str, dict] = {
+    "python": {
+        "mode": "ast",
+        "aliases": ("python", "py"),
+        "extensions": (".py", ".pyi"),
+    },
+    "typescript": {
+        "mode": "ts_lexical",
+        "aliases": ("typescript", "ts", "tsx"),
+        "extensions": (".ts", ".tsx", ".mts", ".cts"),
+    },
+    "javascript": {
+        "mode": "ts_lexical",
+        "aliases": ("javascript", "js", "jsx"),
+        "extensions": (".js", ".jsx", ".mjs", ".cjs"),
+    },
+}
+
+_NATIVE_BY_ALIAS: dict[str, tuple[str, str]] = {
+    alias: (name, cfg["mode"]) for name, cfg in _NATIVE_LANGS.items() for alias in cfg["aliases"]
+}
+
+
+def native_language(name: str) -> tuple[str, str] | None:
+    """Return ``(canonical, mode)`` for a natively-analyzed language, else None."""
+    if not name:
+        return None
+    return _NATIVE_BY_ALIAS.get(name.strip().lower())
 
 
 def _register_lang(spec: LangSpec) -> None:
@@ -387,7 +425,7 @@ def _generic_detect_undefined(source: str, spec: LangSpec) -> tuple[list[str], s
             suspects.append(name)
     # lookbehind blocks attribute (`obj.m()`, `obj->m()`), path (`a::b()`),
     # and `$`-prefixed calls so only bare calls are checked
-    for m in re.finditer(r"(?<![\w$.>:-])(" + ident + r")\s*\(", masked):
+    for m in re.finditer(r"(?<![\w$.>:-@])(" + ident + r")\s*\(", masked):
         name = m.group(1)
         if name not in defined and name not in spec.keywords:
             suspects.append(name)
@@ -409,6 +447,7 @@ def _generic_detect_undefined(source: str, spec: LangSpec) -> tuple[list[str], s
 _register_lang(
     LangSpec(
         name="go",
+        extensions=(".go",),
         aliases=("golang",),
         line_comments=("//",),
         block_comments=(("/*", "*/"),),
@@ -442,6 +481,7 @@ _register_lang(
 _register_lang(
     LangSpec(
         name="rust",
+        extensions=(".rs",),
         aliases=("rs",),
         line_comments=("//",),
         block_comments=(("/*", "*/"),),
@@ -483,6 +523,7 @@ _register_lang(
 _register_lang(
     LangSpec(
         name="java",
+        extensions=(".java",),
         aliases=(),
         line_comments=("//",),
         block_comments=(("/*", "*/"),),
@@ -524,6 +565,7 @@ _register_lang(
 _register_lang(
     LangSpec(
         name="c",
+        extensions=(".c", ".h"),
         aliases=(),
         line_comments=("//",),
         block_comments=(("/*", "*/"),),
@@ -559,6 +601,7 @@ _register_lang(
 _register_lang(
     LangSpec(
         name="cpp",
+        extensions=(".cc", ".cpp", ".cxx", ".c++", ".hpp", ".hh", ".hxx"),
         aliases=("c++", "cc", "cxx"),
         line_comments=("//",),
         block_comments=(("/*", "*/"),),
@@ -601,6 +644,7 @@ _register_lang(
 _register_lang(
     LangSpec(
         name="csharp",
+        extensions=(".cs",),
         aliases=("cs", "c#"),
         line_comments=("//",),
         block_comments=(("/*", "*/"),),
@@ -641,6 +685,7 @@ _register_lang(
 _register_lang(
     LangSpec(
         name="php",
+        extensions=(".php",),
         aliases=(),
         line_comments=("//", "#"),
         block_comments=(("/*", "*/"),),
@@ -679,6 +724,7 @@ _register_lang(
 _register_lang(
     LangSpec(
         name="ruby",
+        extensions=(".rb",),
         aliases=("rb",),
         line_comments=("#",),
         block_comments=(("=begin", "=end"),),
@@ -711,6 +757,7 @@ _register_lang(
 _register_lang(
     LangSpec(
         name="kotlin",
+        extensions=(".kt", ".kts"),
         aliases=("kt",),
         line_comments=("//",),
         block_comments=(("/*", "*/"),),
@@ -750,6 +797,7 @@ _register_lang(
 _register_lang(
     LangSpec(
         name="swift",
+        extensions=(".swift",),
         aliases=(),
         line_comments=("//",),
         block_comments=(("/*", "*/"),),
@@ -786,14 +834,188 @@ _register_lang(
     )
 )
 
-# Public surface for CLI/schema: canonical python + ts + every registered alias.
-SUPPORTED_LANGUAGES: tuple[str, ...] = (
-    "python",
-    "typescript",
-    "javascript",
-    "ts",
-    "js",
-) + tuple(sorted(_LANG_ALIASES))
+_register_lang(
+    LangSpec(
+        name="dart",
+        extensions=(".dart",),
+        aliases=(),
+        line_comments=("//",),
+        block_comments=(("/*", "*/"),),
+        strings=(r'"(?:[^"\\]|\\.)*"', r"'(?:[^'\\]|\\.)*'"),
+        keywords=frozenset(
+            {
+                "class", "void", "int", "double", "bool", "String", "List",
+                "Map", "Set", "dynamic", "final", "const", "var", "if",
+                "else", "for", "while", "do", "switch", "case", "default",
+                "break", "continue", "return", "new", "this", "super",
+                "extends", "implements", "with", "mixin", "abstract",
+                "static", "get", "set", "import", "export", "library",
+                "part", "async", "await", "yield", "null", "true", "false",
+                "throw", "try", "catch", "finally", "rethrow", "assert",
+                "in", "is", "as", "factory", "covariant", "typedef",
+                "deferred", "required", "late", "print", "main",
+            }
+        ),
+        defn_patterns=(
+            r"\b(?:void|int|double|bool|String|List|Map|Set|dynamic|[A-Za-z_]\w*)\s+([A-Za-z_]\w*)\s*\(",
+            r"\bclass\s+([A-Za-z_]\w*)",
+            r"\bmixin\s+([A-Za-z_]\w*)",
+            r"\benum\s+([A-Za-z_]\w*)",
+            r"\b(?:final|const|var|late)\s+([A-Za-z_]\w*)\s*[:=]",
+        ),
+        import_patterns=(),
+        param_patterns=(
+            r"\b(?:void|int|double|bool|String|List|Map|Set|dynamic|[A-Za-z_]\w*)\s+[A-Za-z_]\w*\s*\(([^)]*)\)",
+        ),
+        param_mode="last",
+    )
+)
+
+_register_lang(
+    LangSpec(
+        name="lua",
+        extensions=(".lua",),
+        aliases=(),
+        line_comments=("--",),
+        block_comments=(("--[[", "]]"),),
+        strings=(r'"(?:[^"\\]|\\.)*"', r"'(?:[^'\\]|\\.)*'"),
+        keywords=frozenset(
+            {
+                "function", "local", "if", "then", "else", "elseif", "end",
+                "for", "while", "repeat", "until", "do", "return", "break",
+                "in", "nil", "true", "false", "and", "or", "not", "goto",
+                "require", "self", "pcall", "xpcall", "pairs", "ipairs",
+                "print", "tonumber", "tostring", "type", "error", "assert",
+                "select", "unpack", "string", "table", "math", "os", "io",
+            }
+        ),
+        defn_patterns=(
+            r"\bfunction\s+(?:[A-Za-z_]\w*[.:])*([A-Za-z_]\w*)\s*\(",
+            r"\blocal\s+([A-Za-z_]\w*)\s*(?:=|,|$)",
+            r"\b([A-Za-z_]\w*)\s*=\s*function\s*\(",
+        ),
+        import_patterns=(),
+        param_patterns=(r"\bfunction\s+(?:[A-Za-z_]\w*[.:])*[A-Za-z_]\w*\s*\(([^)]*)\)",),
+        param_mode="first",
+    )
+)
+
+_register_lang(
+    LangSpec(
+        name="r",
+        extensions=(".r",),
+        aliases=("rlang",),
+        line_comments=("#",),
+        block_comments=(),
+        strings=(r'"(?:[^"\\]|\\.)*"', r"'(?:[^'\\]|\\.)*'"),
+        keywords=frozenset(
+            {
+                "function", "if", "else", "for", "while", "repeat", "break",
+                "next", "return", "in", "TRUE", "FALSE", "NULL", "NA",
+                "NaN", "Inf", "library", "require", "source", "install.packages",
+                "c", "list", "data.frame", "print", "cat", "sum", "mean",
+                "length", "nrow", "ncol", "str", "head", "tail", "names",
+                "lapply", "sapply", "apply", "tapply", "mapply", "aggregate",
+                "subset", "transform", "merge", "rbind", "cbind", "seq",
+                "rep", "paste", "paste0", "sprintf", "grep", "sub", "gsub",
+                "match", "which", "unique", "sort", "order", "table",
+                "summary", "plot", "hist", "boxplot", "lm", "glm", "t.test",
+                "chisq.test", "read.csv", "read.table", "write.csv",
+                "setwd", "getwd",
+            }
+        ),
+        defn_patterns=(
+            r"([A-Za-z_]\w*)\s*(?:<-|=)\s*function\s*\(",
+            r"([A-Za-z_]\w*)\s*<-\s*",
+        ),
+        import_patterns=(r"\b(?:library|require)\s*\(\s*['\"]?([A-Za-z0-9.]+)['\"]?\s*\)",),
+        param_patterns=(r"\bfunction\s*\(([^)]*)\)",),
+        param_mode="first",
+    )
+)
+
+_register_lang(
+    LangSpec(
+        name="zig",
+        extensions=(".zig",),
+        aliases=(),
+        line_comments=("//",),
+        block_comments=(("/*", "*/"),),
+        strings=(r'"(?:[^"\\]|\\.)*"', r"'(?:[^'\\]|\\.)*'"),
+        keywords=frozenset(
+            {
+                "fn", "const", "var", "if", "else", "for", "while", "switch",
+                "case", "return", "break", "continue", "pub", "comptime",
+                "defer", "errdefer", "try", "catch", "unreachable", "null",
+                "true", "false", "undefined", "struct", "enum", "union",
+                "error", "type", "anytype", "void", "bool", "u8", "u16",
+                "u32", "u64", "u128", "usize", "i8", "i16", "i32", "i64",
+                "i128", "isize", "f32", "f64", "and", "or", "not",
+                "andalso", "orelse", "std",
+            }
+        ),
+        defn_patterns=(
+            r"\bfn\s+([A-Za-z_]\w*)\s*\(",
+            r"\b(?:pub\s+)?const\s+([A-Za-z_]\w*)\s*=",
+            r"\b(?:pub\s+)?var\s+([A-Za-z_]\w*)\s*=",
+        ),
+        import_patterns=(r"\bconst\s+[A-Za-z_]\w*\s*=\s*@import\s*\(\s*\"([A-Za-z0-9_.]+)\"",),
+        param_patterns=(r"\bfn\s+[A-Za-z_]\w*\s*\(([^)]*)\)",),
+        param_mode="before_colon",
+    )
+)
+
+# Public surface for CLI/schema, derived from the two language tables above so
+# it cannot drift from what the engine actually dispatches.
+def canonical_languages() -> tuple[str, ...]:
+    """Every language the verifier can analyze, by canonical name."""
+    return tuple(sorted({*_NATIVE_LANGS, *_LANG_REGISTRY}))
+
+
+def language_aliases() -> tuple[str, ...]:
+    """Canonical names plus every accepted alias (what the CLI/schema allow)."""
+    names = set(_NATIVE_BY_ALIAS) | set(_LANG_ALIASES)
+    return tuple(sorted(names))
+
+
+def source_extensions() -> tuple[str, ...]:
+    """File suffixes belonging to a supported language.
+
+    Used by the CLI to tell a path argument from inline source and by the tree
+    walker to decide what is worth reading, so adding a language to the
+    registry also makes it visible to `gate`/`scan` in one step.
+    """
+    exts: set[str] = {e for cfg in _NATIVE_LANGS.values() for e in cfg["extensions"]}
+    exts |= {e for spec in _LANG_REGISTRY.values() for e in spec.extensions}
+    return tuple(sorted(exts))
+
+
+def language_for_file(path: str) -> str | None:
+    """Canonical language owning a file suffix (``.jsx`` → ``javascript``)."""
+    suffix = os.path.splitext(path or "")[1].lower()
+    if not suffix:
+        return None
+    for name, cfg in _NATIVE_LANGS.items():
+        if suffix in cfg["extensions"]:
+            return name
+    for spec in _LANG_REGISTRY.values():
+        if suffix in spec.extensions:
+            return spec.name
+    return None
+
+
+# Import-time guard: a registry entry without suffixes is silently invisible to
+# the CLI's path heuristic and to tree scanning, which is exactly the class of
+# drift this table-based design removes.
+_UNDECLARED = tuple(
+    sorted(n for n, spec in _LANG_REGISTRY.items() if not spec.extensions)
+)
+if _UNDECLARED:  # pragma: no cover - a development-time invariant, not a runtime path
+    raise RuntimeError(
+        "language registry entries missing file extensions: " + ", ".join(_UNDECLARED)
+    )
+
+SUPPORTED_LANGUAGES: tuple[str, ...] = language_aliases()
 
 
 # Match-statement node types exist only on Python 3.10+; resolve once so
@@ -877,9 +1099,11 @@ def detect_undefined_symbols(
     """Parse source and return symbols that look hallucinated
     (used/called but never defined or imported).
 
-    Supports: python (AST), typescript/javascript (lexical), plus a
-    config-driven generic lexical pass for go, rust, java, c, c++, c#,
-    php, ruby, kotlin, swift — extensible via the language registry.
+    Supported languages come from two tables and are enumerated by
+    ``canonical_languages()``: the natively-analyzed ones (Python via AST,
+    TypeScript/JavaScript via a lexical pass) and the config-driven generic
+    lexical registry. Adding a language is a table entry, never an edit to
+    this function.
     ``suppress`` removes exact symbol names from the findings (config:
     ``suppress_symbols``); suppressed names are reported separately so the
     omission stays visible.
@@ -889,16 +1113,17 @@ def detect_undefined_symbols(
          "suspects_detail": [{"name": "foo", "line": 12}, ...],
          "suppressed": ["bar"], "note": "..."}
     """
-    if language in ("typescript", "ts", "javascript", "js"):
+    native = native_language(language)
+    if native is not None and native[1] == "ts_lexical":
         suspects, note = _detect_ts_undefined(source)
         return _apply_suppress({"language": language, "suspects": suspects, "note": note}, suppress)
-    spec = resolve_language(language)
-    if spec is not None:
-        suspects, note = _generic_detect_undefined(source, spec)
-        return _apply_suppress(
-            {"language": spec.name, "suspects": suspects, "note": note}, suppress
-        )
-    if language != "python":
+    if native is None:
+        spec = resolve_language(language)
+        if spec is not None:
+            suspects, note = _generic_detect_undefined(source, spec)
+            return _apply_suppress(
+                {"language": spec.name, "suspects": suspects, "note": note}, suppress
+            )
         return {
             "language": language,
             "suspects": [],

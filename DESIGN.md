@@ -139,7 +139,7 @@ Backend passes:
   expressions whose callee is never defined (member access `obj.foo()` is not
   flagged; keywords/globals are whitelisted).
 - **Generic registry (lexical):** one engine, many languages. Each `LangSpec`
-  (go/rust/java/c/c++/c#/php/ruby/kotlin/swift) declares comment/string syntax,
+  (go/rust/java/c/c++/c#/php/ruby/kotlin/swift/dart/lua/r/zig) declares comment/string syntax,
   keywords, globals, definition/import/param regexes, and a parameter-name
   mode. The shared engine masks comments/strings, collects definitions, then
   flags bare calls and `new` whose callee is undefined. Adding a language is a

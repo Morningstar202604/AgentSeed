@@ -8,13 +8,16 @@ which MCP SDK version the client ships.
 
 Protocol: line-delimited JSON-RPC 2.0 over stdin/stdout (stdio transport).
 
-Tools:
-  - verify_code        -> detect_undefined_symbols
-  - scan_hallucination -> scan_hallucination_words
-  - check_plugin       -> check_plugin_conformance
-  - sandbox_run        -> deterministic command execution (verification channel)
-  - schema_validate    -> JSON Schema validation (jsonschema when installed,
-                         built-in subset fallback)
+Tools (8 — one per `guard_cli.py` subcommand):
+  - verify_code         -> detect_undefined_symbols
+  - check_contract      -> check_contract (source vs a written spec)
+  - check_imports       -> imported-but-unknown packages (slopsquatting)
+  - scan_hallucination  -> scan_hallucination_words
+  - check_plugin        -> check_plugin_conformance
+  - sandbox_run         -> deterministic command execution (verification channel)
+  - schema_validate     -> JSON Schema validation (jsonschema when installed,
+                          built-in subset fallback)
+  - record_verification -> append one entry to the verification audit log
 """
 
 from __future__ import annotations
@@ -24,9 +27,18 @@ import sys
 import threading
 
 import guard_engine as engine  # noqa: E402
+from engine.symbols import SUPPORTED_LANGUAGES, canonical_languages  # noqa: E402
 
 
 VERSION = engine.plugin_version()
+
+# Derived from the language registry so `tools/list` can never advertise a set
+# that differs from what verify_code actually dispatches.
+CANONICAL_LANGUAGES = canonical_languages()
+LANGUAGE_CHOICES = list(SUPPORTED_LANGUAGES)
+LANGUAGE_DESCRIPTION = (
+    "Source language, one of: " + " | ".join(CANONICAL_LANGUAGES) + " (aliases accepted)."
+)
 
 # Protocol versions this server can speak. initialize() echoes the client's
 # request when we support it, otherwise falls back to our baseline.
@@ -74,11 +86,12 @@ TOOLS = [
     _tool(
         "verify_code",
         "Static analysis to flag symbols the model may have hallucinated "
-        "(called/used but never defined or imported). python uses full AST "
-        "analysis; typescript/javascript use a lexical pass; go, rust, java, "
-        "c, c++, c#, php, ruby, kotlin, swift are analyzed by a config-driven "
-        "generic lexical engine (extensible — any language can be added via "
-        "the language registry). Use before marking a coding task complete. "
+        "(called/used but never defined or imported). Covers "
+        f"{len(CANONICAL_LANGUAGES)} languages: python via full AST analysis, "
+        "typescript/javascript via a lexical pass, and every other registered "
+        "language via a config-driven generic lexical engine — the set is "
+        "enumerated by the language registry, so a newly registered language "
+        "needs no change here. Use before marking a coding task complete. "
         "Returns 'suspects' plus per-symbol 'suspects_detail' line numbers; "
         "names listed in config 'suppress_symbols' are excluded but reported "
         "in 'suppressed'.",
@@ -86,9 +99,8 @@ TOOLS = [
             "source": {"type": "string", "description": "Source code to analyze."},
             "language": {
                 "type": "string",
-                "description": "Source language: python | typescript | javascript | "
-                "go | rust | java | c | c++ | c# | php | ruby | kotlin | swift "
-                "(aliases accepted).",
+                "description": LANGUAGE_DESCRIPTION,
+                "enum": LANGUAGE_CHOICES,
                 "default": "python",
             },
         },
@@ -110,7 +122,8 @@ TOOLS = [
             },
             "language": {
                 "type": "string",
-                "description": "Source language (same set as verify_code).",
+                "description": "Source language — same set as verify_code.",
+                "enum": LANGUAGE_CHOICES,
                 "default": "python",
             },
         },
