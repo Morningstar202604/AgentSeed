@@ -3,6 +3,19 @@
 All notable changes to AgentSeed are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com); versioning follows [SemVer](https://semver.org).
 
+## [Unreleased]
+
+### Added
+- **`verify_code` — config-driven multi-language engine**: a generic lexical
+  verifier backed by a language registry (`LangSpec`). Newly supported:
+  Go, Rust, Java, C, C++, C#, PHP, Ruby, Kotlin, Swift — on top of Python
+  (AST) and TypeScript/JavaScript (lexical). The same engine runs every
+  registered language (mask comments/strings → collect definitions/imports →
+  flag undefined bare calls and `new`); adding a language is a registry entry,
+  not an engine change. Ruby's paren-less calls are supported via `bare_calls`.
+  MCP `verify_code.language` and CLI `verify --language` accept all aliases;
+  unsupported languages now list the supported set in `note`.
+
 ## [0.2.0] — 2026-08-26
 
 ### Security

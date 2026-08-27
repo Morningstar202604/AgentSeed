@@ -174,7 +174,7 @@
    "stub_code|稍后补": 1
   },
   "server/engine/symbols.py": {
-   "stub_code|not implemented": 1
+   "stub_code|todo": 1
   },
   "server/guard_cli.py": {
    "stub_code|stub": 2

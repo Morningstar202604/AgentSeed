@@ -83,14 +83,20 @@ AgentSeed 填补：**代码级 + 真跑工具 + Skill/MCP 闭环强制**。`chec
 
 ## 5. 关键算法
 
-- **`detect_undefined_symbols`**：双后端——
+- **`detect_undefined_symbols`**：多后端——
   - Python（AST）：`ast` 解析，收集已定义名（builtins、导入别名、def/class 名、
     参数），再扫描不在集合内的 `Name`/`Call`。
   - TypeScript/JavaScript（词法）：正则收集导入（具名/默认/命名空间/解构）、
     声明（function/class/interface/type/enum/const/let/var）、函数参数，再标记
     顶层调用与 `new` 表达式中未定义的被调者（成员访问 `obj.foo()` 不标记，
     关键词/全局白名单）。
-  静态检查、不跑运行时；TS 通道是词法而非类型检查——动态/全局引用可能误报，
+  - 通用注册表（词法）：**同一引擎、多语言**。每个 `LangSpec`（go/rust/java/
+    c/c++/c#/php/ruby/kotlin/swift）声明注释/字符串语法、关键字、全局名、
+    定义/导入/参数正则与参数名模式。共享引擎屏蔽注释/字符串、收集定义，再标记
+    裸调用与 `new` 中未定义的被调者。加语言=加注册条目，无需改引擎；Ruby 的
+    无括号调用由 `bare_calls` 标志支持。
+  静态检查、不跑运行时；TS 与通用通道是词法而非类型检查——属性调用
+  （`obj.m()`、`a::b()`）、宏、跨文件符号不分析；动态/全局引用可能误报，
   解构边界情况可能漏报。
 - **`sandbox_run`**：无 shell 子进程执行（超时 1–120 秒、输出截断）。CDV 通道 A
   的落地——"测试通过"变成可观测事实。

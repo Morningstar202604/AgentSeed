@@ -88,7 +88,13 @@ AgentSeed は「**コードレベル + 実ツール実行 + Skill/MCP クロー�
 - **`detect_undefined_symbols`** — `ast` 解析で定義済み集合（builtins、インポート、
   def/class、引数）を収集し、外れの `Name`/`Call` を検出。静的スコープのみ、実行
   なし、属性呼び出しは非展開（誤検出の可能性）。Python（AST + pyflakes 併用、
-  インストール時）と TypeScript/JavaScript（語彙スキャン）に対応。
+  インストール時）、TypeScript/JavaScript（語彙スキャン）、そして**汎用レジストリ
+  （語彙）**に対応：同一エンジンで多言語（go/rust/java/c/c++/c#/php/ruby/kotlin/
+  swift）を解析。各 `LangSpec` がコメント/文字列構文・キーワード・グローバル名・
+  定義/インポート/引数正規表現・引数名モードを宣言し、共有エンジンがコメントと
+  文字列をマスク → 定義を収集 → 未定義の裸呼び出し・`new` を検出。言語追加は
+  レジストリ追加のみでエンジン変更不要。Ruby の括弧なし呼び出しは `bare_calls`
+  フラグで対応。
 - **`scan_hallucination_words`** — 28+ シグナルのグループ化ワード境界スキャン。
   出典：SFD Lab 5 ステップチェックリスト、CDV（"'done, all tests pass' は主張であり
   証拠ではない"）、reze83 先検証ルール。

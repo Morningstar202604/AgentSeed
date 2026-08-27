@@ -42,7 +42,7 @@ Six MCP tools — zero *required* dependencies, enhanced by optional extras:
 
 | Tool | Catches | Technique |
 | --- | --- | --- |
-| `verify_code` | Invented APIs / undefined symbols | Python AST + TS/JS lexical pass |
+| `verify_code` | Invented APIs / undefined symbols | Python AST + config-driven lexical passes (12+ languages) |
 | `scan_hallucination` | Placeholder code, overclaims, fabricated content | 28+ signals in 3 groups |
 | `check_plugin` | Non-conformant plugin packaging | Strict 1.0.0 linter |
 | `sandbox_run` | "Tests pass" without running anything | Deterministic execution channel |
@@ -237,7 +237,14 @@ ignored.
 | --- | --- |
 | Python | full AST scope walk (+ pyflakes when installed), line numbers |
 | TypeScript / JavaScript | lexical regex pass (documented false-positive classes) |
-| Go / Java / Rust / C/C++ / others | **not analyzed yet** — returns an empty result |
+| Go / Rust / Java / C / C++ / C# / PHP / Ruby / Kotlin / Swift | config-driven generic lexical pass (language registry) |
+| any other language | extensible — add a `LangSpec` registry entry, no engine change |
+
+The generic pass masks comments/strings, collects definitions and imports
+per language, then flags bare calls / `new` expressions whose callee is
+never defined. **Honest limits**: attribute calls (`obj.m()`), macros,
+and cross-file symbols are not analyzed; Ruby's paren-less calls are
+supported. Each language ships with its own keyword/global allowlist.
 
 > ⚠️ **Security note**: `sandbox_run` executes real processes with your user's
 > permissions. Clients must gate it behind user approval; set

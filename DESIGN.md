@@ -125,7 +125,7 @@ Response (text content carries the JSON result):
 ## 5. Key algorithms
 
 ### 5.1 `detect_undefined_symbols`
-Two backend passes:
+Backend passes:
 - **Python (AST):** parse with `ast`, collect defined names (builtins, imports
   asnames, def/class names, args), then walk for `Name`/`Call` loads not in the
   defined set.
@@ -134,9 +134,17 @@ Two backend passes:
   enum/const/let/var), function params, then flags top-level calls and `new`
   expressions whose callee is never defined (member access `obj.foo()` is not
   flagged; keywords/globals are whitelisted).
-**Scope/limits:** static only, no runtime; the TS pass is lexical, not a type
-checker — dynamic/global references may produce false positives, destructured
-edge cases may be missed.
+- **Generic registry (lexical):** one engine, many languages. Each `LangSpec`
+  (go/rust/java/c/c++/c#/php/ruby/kotlin/swift) declares comment/string syntax,
+  keywords, globals, definition/import/param regexes, and a parameter-name
+  mode. The shared engine masks comments/strings, collects definitions, then
+  flags bare calls and `new` whose callee is undefined. Adding a language is a
+  registry entry, not an engine change; Ruby's paren-less calls are supported
+  via the `bare_calls` flag.
+**Scope/limits:** static only, no runtime; the TS and generic passes are
+lexical, not type checkers — attribute calls (`obj.m()`, `a::b()`), macros,
+and cross-file symbols are not analyzed; dynamic/global references may
+produce false positives, destructured edge cases may be missed.
 
 ### 5.2 `scan_hallucination_words`
 Word-boundary regex scan over a **grouped pool of 28+ signals**:

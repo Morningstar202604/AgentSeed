@@ -4,3 +4,4 @@ __pycache__/
 .agentseed_cache/
 dist/
 .agentseed/
+.workbuddy/

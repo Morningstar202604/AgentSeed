@@ -18,6 +18,7 @@ import os
 import sys
 
 import guard_engine as engine  # noqa: E402
+from engine.symbols import SUPPORTED_LANGUAGES  # noqa: E402
 
 
 def _read_source(path_or_source: str) -> str:
@@ -56,7 +57,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
 
 def _iter_source_files(root: str):
     """Deterministic walk of text sources worth scanning (skips VCS/cache)."""
-    skip_dirs = {".git", ".agentseed", "__pycache__", "node_modules", ".github"}
+    skip_dirs = {".git", ".agentseed", "__pycache__", "node_modules", ".github", ".workbuddy"}
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = sorted(d for d in dirnames if d not in skip_dirs)
         for fn in sorted(filenames):
@@ -314,7 +315,7 @@ def main(argv: list[str] | None = None) -> int:
     p_verify = sub.add_parser("verify", help="flag possibly-hallucinated symbols")
     p_verify.add_argument("source", help="source code or a file path")
     p_verify.add_argument(
-        "--language", default="python", choices=["python", "typescript", "javascript", "ts", "js"]
+        "--language", default="python", choices=list(SUPPORTED_LANGUAGES)
     )
     p_verify.add_argument(
         "--strict", action="store_true", help="exit 1 when the source cannot be parsed at all"

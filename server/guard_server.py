@@ -73,17 +73,21 @@ TOOLS = [
     _tool(
         "verify_code",
         "Static analysis to flag symbols the model may have hallucinated "
-        "(called/used but never defined or imported). Supports python (AST) "
-        "and typescript/javascript (lexical regex pass); other languages are "
-        "NOT analyzed and return an empty result. Use before marking a "
-        "coding task complete. Returns 'suspects' plus per-symbol "
-        "'suspects_detail' line numbers; names listed in config "
-        "'suppress_symbols' are excluded but reported in 'suppressed'.",
+        "(called/used but never defined or imported). python uses full AST "
+        "analysis; typescript/javascript use a lexical pass; go, rust, java, "
+        "c, c++, c#, php, ruby, kotlin, swift are analyzed by a config-driven "
+        "generic lexical engine (extensible — any language can be added via "
+        "the language registry). Use before marking a coding task complete. "
+        "Returns 'suspects' plus per-symbol 'suspects_detail' line numbers; "
+        "names listed in config 'suppress_symbols' are excluded but reported "
+        "in 'suppressed'.",
         {
             "source": {"type": "string", "description": "Source code to analyze."},
             "language": {
                 "type": "string",
-                "description": "Source language: python | typescript | javascript.",
+                "description": "Source language: python | typescript | javascript | "
+                "go | rust | java | c | c++ | c# | php | ruby | kotlin | swift "
+                "(aliases accepted).",
                 "default": "python",
             },
         },

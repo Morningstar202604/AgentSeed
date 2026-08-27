@@ -97,6 +97,175 @@ class TestUndefinedSymbols(unittest.TestCase):
         self.assertEqual(r["suspects"], [])
 
 
+class TestGenericLanguages(unittest.TestCase):
+    """Config-driven generic lexical verify_code for the registered languages."""
+
+    def test_go_catches_hallucinated_call(self):
+        src = "package main\n\nfunc main() {\n    ghost()\n}\n"
+        r = engine.detect_undefined_symbols(src, "go")
+        self.assertIn("ghost", r["suspects"])
+
+    def test_go_clean_defined_and_attribute_calls(self):
+        src = (
+            "package main\n"
+            'import "fmt"\n'
+            "func helper(x int) int { return x * 2 }\n"
+            "func main() {\n"
+            "    fmt.Println(helper(21))\n"
+            "}\n"
+        )
+        r = engine.detect_undefined_symbols(src, "golang")
+        self.assertEqual(r["suspects"], [])
+
+    def test_go_short_declaration_not_flagged(self):
+        src = "func main() {\n    total := 0\n    total += 1\n}\n"
+        r = engine.detect_undefined_symbols(src, "go")
+        self.assertEqual(r["suspects"], [])
+
+    def test_rust_catches_hallucinated_call(self):
+        src = "fn main() {\n    ghost();\n}\n"
+        r = engine.detect_undefined_symbols(src, "rust")
+        self.assertIn("ghost", r["suspects"])
+
+    def test_rust_clean_module_with_path_calls(self):
+        src = (
+            "use std::io;\n"
+            "fn helper(x: i32) -> i32 { x + 1 }\n"
+            "fn main() {\n"
+            "    let y = helper(1);\n"
+            "    println!(\"{}\", y);\n"
+            "    io::stdout().flush();\n"
+            "}\n"
+        )
+        r = engine.detect_undefined_symbols(src, "rs")
+        self.assertEqual(r["suspects"], [])
+
+    def test_java_catches_hallucinated_call(self):
+        src = "class A {\n    void run() { ghost(); }\n}\n"
+        r = engine.detect_undefined_symbols(src, "java")
+        self.assertIn("ghost", r["suspects"])
+
+    def test_java_clean_methods_fields_and_imports(self):
+        src = (
+            "import java.util.List;\n"
+            "class Calc {\n"
+            "    private int count = 0;\n"
+            "    int add(int a, int b) { return a + b; }\n"
+            "    void run() { System.out.println(add(1, 2)); }\n"
+            "}\n"
+        )
+        r = engine.detect_undefined_symbols(src, "java")
+        self.assertEqual(r["suspects"], [])
+
+    def test_c_catches_hallucinated_call(self):
+        src = "int main(void) { ghost(); return 0; }\n"
+        r = engine.detect_undefined_symbols(src, "c")
+        self.assertIn("ghost", r["suspects"])
+
+    def test_c_clean_with_libc_and_defs(self):
+        src = (
+            "#include <stdio.h>\n"
+            "int add(int a, int b) { return a + b; }\n"
+            "int main(void) { printf(\"%d\", add(1, 2)); return 0; }\n"
+        )
+        r = engine.detect_undefined_symbols(src, "c")
+        self.assertEqual(r["suspects"], [])
+
+    def test_cpp_clean_class_vars_and_fields(self):
+        src = (
+            "#include <vector>\n"
+            "#include <string>\n"
+            "class Box {\n"
+            "public:\n"
+            "    Box(int s) : size(s) {}\n"
+            "    int get() const { return size; }\n"
+            "private:\n"
+            "    int size;\n"
+            "};\n"
+            "int main() { Box b(3); std::string s = \"x\"; return b.get(); }\n"
+        )
+        r = engine.detect_undefined_symbols(src, "cpp")
+        self.assertEqual(r["suspects"], [])
+
+    def test_cpp_catches_hallucinated_call(self):
+        src = "int main() { ghost(); return 0; }\n"
+        r = engine.detect_undefined_symbols(src, "c++")
+        self.assertIn("ghost", r["suspects"])
+
+    def test_csharp_catches_hallucinated_call(self):
+        src = "using System;\nclass P { static void Main() { Ghost(); } }\n"
+        r = engine.detect_undefined_symbols(src, "csharp")
+        self.assertIn("Ghost", r["suspects"])
+
+    def test_csharp_clean_console_call(self):
+        src = 'using System;\nclass P { static void Main() { Console.WriteLine("hi"); } }\n'
+        r = engine.detect_undefined_symbols(src, "c#")
+        self.assertEqual(r["suspects"], [])
+
+    def test_php_catches_hallucinated_call(self):
+        src = "<?php\nfunction run() { ghost(); }\nrun();\n"
+        r = engine.detect_undefined_symbols(src, "php")
+        self.assertIn("ghost", r["suspects"])
+
+    def test_php_clean_vars_and_functions(self):
+        src = (
+            "<?php\n"
+            "function add($a, $b) { return $a + $b; }\n"
+            "$x = 1;\n"
+            "$y = add($x, 2);\n"
+            "echo $y;\n"
+        )
+        r = engine.detect_undefined_symbols(src, "php")
+        self.assertEqual(r["suspects"], [])
+
+    def test_ruby_catches_hallucinated_call(self):
+        src = "def run\n  ghost\nend\nrun\n"
+        r = engine.detect_undefined_symbols(src, "ruby")
+        self.assertIn("ghost", r["suspects"])
+
+    def test_ruby_clean(self):
+        src = "def helper(x)\n  x * 2\nend\nputs helper(21)\n"
+        r = engine.detect_undefined_symbols(src, "rb")
+        self.assertEqual(r["suspects"], [])
+
+    def test_kotlin_catches_hallucinated_call(self):
+        src = "fun main() {\n    ghost()\n}\n"
+        r = engine.detect_undefined_symbols(src, "kotlin")
+        self.assertIn("ghost", r["suspects"])
+
+    def test_kotlin_clean_import_and_lambdas(self):
+        src = (
+            "import kotlin.math.sqrt\n"
+            "fun main() {\n"
+            "    val x = 4\n"
+            "    println(sqrt(x.toDouble()))\n"
+            "}\n"
+        )
+        r = engine.detect_undefined_symbols(src, "kt")
+        self.assertEqual(r["suspects"], [])
+
+    def test_swift_catches_hallucinated_call(self):
+        src = "func run() {\n    ghost()\n}\n"
+        r = engine.detect_undefined_symbols(src, "swift")
+        self.assertIn("ghost", r["suspects"])
+
+    def test_swift_clean(self):
+        src = (
+            "import Foundation\n"
+            "func helper(_ x: Int) -> Int { x + 1 }\n"
+            "let y = helper(1)\n"
+            "print(y)\n"
+        )
+        r = engine.detect_undefined_symbols(src, "swift")
+        self.assertEqual(r["suspects"], [])
+
+    def test_unsupported_language_reports_note(self):
+        r = engine.detect_undefined_symbols("print('x')", "brainfuck")
+        self.assertEqual(r["suspects"], [])
+        self.assertIn("Unsupported", r["note"])
+        self.assertIn("go", r["note"])
+
+
 class TestHallucinationScan(unittest.TestCase):
     def test_stub_group(self):
         r = engine.scan_hallucination_words("def run():\n    return stub_result  # TODO\n")
