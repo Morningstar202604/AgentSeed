@@ -25,6 +25,23 @@ Format based on [Keep a Changelog](https://keepachangelog.com); versioning follo
   anti-hallucination prompts as `CLAUDE.md`, `AGENTS.md`, and Cursor
   rules (`.cursor/rules/agentseed-guardrails.mdc`) so the gates apply outside
   plugin-aware clients.
+- **`check_imports` — package-hallucination (slopsquatting) guard**: new MCP
+  tool + `guard_cli imports` subcommand, motivated by "We Have a Package for
+  You!" (USENIX Security 2025, arXiv:2406.10279 — LLMs invent non-existent
+  package names in 5.2–21.7% of generated code, ~58% recur, attackers
+  pre-register them). Flags top-level imports that are neither Python stdlib
+  nor in the known-package set (stdlib via `sys.stdlib_module_names` +
+  curated common third-party list + config `known_packages`). Python only;
+  report, not a hard gate.
+- **Hallucination pool expansion (research-driven)**: +15 English and
+  +10 CJK low-false-positive tokens across stub/oversold/fabricated groups
+  (e.g. `foolproof`, `bulletproof`, `cannot fail`, `fictitious`,
+  `nonexistent`, `凭空捏造`, `子虚乌有`); guardrail library supplemented with
+  2025 code-hallucination taxonomy (arXiv:2504.20799), scaffolding
+  hallucination / phantom symbols (arXiv:2604.20202), and the
+  false-confidence finding (Perry et al., CCS 2023).
+- **README: multi-language live-tested demo** — 11 languages each catch
+  their invented call; clean code zero false positives.
 
 ### Changed
 - **`sandbox_run` — streamed, bounded-memory output truncation**: output was
@@ -32,7 +49,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com); versioning follo
   flooding output could balloon server memory. Two daemon reader threads now
   drain stdout/stderr incrementally into tail ring buffers (8 KB / 4 KB caps),
   so memory stays bounded while the last-output tail semantics are preserved.
-- `tools/list` now exposes 7 tools (was 6).
+- `tools/list` now exposes 8 tools (was 6).
 
 ## [0.2.0] — 2026-08-26
 

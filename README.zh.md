@@ -139,7 +139,7 @@ python3 server/guard_cli.py scan src/ --strict
 > 该别名是 Microsoft Store 占位程序；把 `command` 改成
 > `["python", "server/guard_server.py"]` 或指向你的解释器绝对路径即可。
 
-## 7 个 MCP 工具
+## 8 个 MCP 工具
 
 零**必需**依赖——纯 Python 标准库；可选依赖把两个工具升级为行业标准引擎
 （见下）。
@@ -148,6 +148,7 @@ python3 server/guard_cli.py scan src/ --strict
 | --- | --- | --- |
 | `verify_code` | 编造的 API / 未定义符号 | Python AST + 配置驱动的通用词法扫描（12+ 语言） |
 | `check_contract` | 违反书面规范 | requires/prohibits 契约校验 |
+| `check_imports` | 幻觉包导入（slopsquatting 抢注） | stdlib + known_packages 白名单校验 |
 | `scan_hallucination` | 占位代码、夸大声称、虚构内容 | 3 组 28+ 信号，中英双语 |
 | `check_plugin` | 不合规的插件打包 | 严格 1.0.0 linter |
 | `sandbox_run` | 什么都没跑就说"测试通过" | 确定性执行通道（有界内存输出） |
@@ -164,6 +165,27 @@ python3 server/guard_cli.py scan src/ --strict
 | 任何其他语言 | 加一条 `LangSpec` 注册即可——无需改引擎 |
 
 诚实边界：属性调用（`obj.m()`）、宏、跨文件符号不分析；Ruby 无括号调用已支持。
+
+诚实边界：属性调用（`obj.m()`）、宏、跨文件符号不分析；Ruby 无括号调用已支持。
+
+### 真的能抓其他语言——实测为证
+
+同一规则适用于所有注册语言：只要「裸调用了从未定义的符号」，无论什么语法，都是幻觉：
+
+```python
+# Go       detect_undefined_symbols("func main() { process_data() }", "go")  -> ["process_data"]
+# Rust     fn main() { let x = load_config() }        -> ["load_config"]
+# Java     class A { void m() { connect_db() } }      -> ["connect_db"]
+# C        int main() { ghost(); return 0; }          -> ["ghost"]
+# Kotlin   fun main() { fetch_users() }               -> ["fetch_users"]
+# Swift    func run() { connect() }                   -> ["connect"]
+# Ruby     def run; authenticate; end                 -> ["authenticate"]
+# TypeScript function run() { connectDb() }           -> ["connectDb"]
+```
+
+已实测 Go · Rust · Java · C · C++ · C# · PHP · Ruby · Kotlin · Swift ·
+TypeScript——每种语言都能抓出自己的幻觉调用，且各语言干净代码**零误报**。
+
 
 ## 客户端强制 Hook 模式
 
@@ -216,6 +238,7 @@ pip install -r server/requirements.txt
 | `timeout` | 默认 `sandbox_run` 超时，秒（1–120） |
 | `extra_tokens` | 运行时扩展幻觉词池 |
 | `suppress_symbols` | `verify_code` 永不标记的名字（在 `suppressed` 中可见） |
+| `known_packages` | `check_imports` 视为已知的包（stdlib + 常见包 + 本列表） |
 | `sandbox_allowed_prefixes` | `sandbox_run` 可启动的**可执行文件白名单**；PATH 解析、分隔符边界强制（缺省=不限） |
 | `sandbox_env` | `"inherit"` \| `"scrub"` —— `scrub` 在启动前剔除疑似凭据的环境变量 |
 
@@ -231,7 +254,7 @@ pip install -r server/requirements.txt
 | 宿主能力 | 得到什么 |
 | --- | --- |
 | 完整 Agent Plugins | 即插即用：skill + MCP 自动发现，`${PLUGIN_DATA}` 配置生效 |
-| 支持 MCP 的客户端 | 注册即得全部 7 个工具 |
+| 支持 MCP 的客户端 | 注册即得全部 8 个工具 |
 | 仅支持 skill 的客户端 | skill 流程；验证降级为 shell 调用 `guard_cli.py` |
 | 纯终端 / CI | 带退出码的 CLI 门禁 |
 
@@ -247,7 +270,7 @@ pip install -r server/requirements.txt
 | | 纯提示词护栏 skill | 静态 import linter（MCP） | **AgentSeed** |
 | --- | --- | --- | --- |
 | 触碰代码 | ❌ 仅提示 | ✅ import 图 | ✅ AST + 词法（12+ 语言） |
-| 跑验证工具 | ❌ | lint 门禁 | ✅ 7 个 MCP 工具含沙箱 |
+| 跑验证工具 | ❌ | lint 门禁 | ✅ 8 个 MCP 工具含沙箱 |
 | 幻觉语言扫描 | ❌ | ❌ | ✅ stub/oversold/fabricated，中英双语 |
 | 强制力 | 软（skill 文本） | CI 门禁 | **硬**：skill + MCP + hook + CLI 退出码 |
 | 1.0.0 合规 linter | ❌ | ❌ | ✅ 首个 |

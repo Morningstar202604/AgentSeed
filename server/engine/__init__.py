@@ -26,6 +26,7 @@ from .config import (
     unknown_config_keys,
 )
 from .hallucination import DEFAULT_ALLOWLIST, HALLUCINATION_WORDS, scan_hallucination_words
+from .imports import check_imports
 from .plugin import check_plugin_conformance
 from .sandbox import build_env, kill_tree, resolve_executable, sandbox_run
 from .schema import schema_validate
@@ -43,6 +44,7 @@ __all__ = [
     "audit_path",
     "build_env",
     "check_plugin_conformance",
+    "check_imports",
     "config_extra_tokens",
     "config_severities",
     "config_str_list",

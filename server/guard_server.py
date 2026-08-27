@@ -46,6 +46,7 @@ CONFIG_SEVERITIES = engine.config_severities(CONFIG)
 CONFIG_TIMEOUT = engine.parse_timeout(CONFIG)
 CONFIG_EXTRA_TOKENS = engine.config_extra_tokens(CONFIG)
 CONFIG_SUPPRESS = engine.config_str_list(CONFIG, "suppress_symbols")
+CONFIG_KNOWN_PACKAGES = engine.config_str_list(CONFIG, "known_packages")
 CONFIG_SANDBOX_ALLOW = engine.config_str_list(CONFIG, "sandbox_allowed_prefixes")
 CONFIG_SANDBOX_ENV = engine.sandbox_env_mode(CONFIG)
 
@@ -114,6 +115,24 @@ TOOLS = [
             },
         },
         ["source", "contract"],
+    ),
+    _tool(
+        "check_imports",
+        "Flag top-level imports that are neither Python stdlib nor in the "
+        "known-package set (stdlib + common third-party + config "
+        "'known_packages') — a possible hallucinated package (slopsquatting, "
+        "USENIX Security 2025). Report, not a gate: verify the name exists in "
+        "the registry before installing. Python only; other languages return "
+        "an empty result.",
+        {
+            "source": {"type": "string", "description": "Source code to analyze."},
+            "language": {
+                "type": "string",
+                "description": "Source language (python supported; others return empty).",
+                "default": "python",
+            },
+        },
+        ["source"],
     ),
     _tool(
         "scan_hallucination",
@@ -251,6 +270,12 @@ def _execute(name: str, args: dict) -> dict:
             args.get("source", ""),
             args.get("contract", ""),
             args.get("language", "python"),
+        )
+    if name == "check_imports":
+        return engine.check_imports(
+            args.get("source", ""),
+            args.get("language", "python"),
+            known_packages=CONFIG_KNOWN_PACKAGES,
         )
     if name == "scan_hallucination":
         # explicit tool arguments win over config-file values

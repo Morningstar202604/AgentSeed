@@ -1,9 +1,20 @@
 {
  "files": {
   "CHANGELOG.md": {
+   "fabricated|fabricated": 1,
+   "fabricated|fictitious": 1,
+   "fabricated|invented": 1,
+   "fabricated|non-existent": 1,
+   "fabricated|nonexistent": 1,
+   "fabricated|凭空捏造": 1,
+   "fabricated|子虚乌有": 1,
    "fabricated|虚构": 1,
+   "oversold|bulletproof": 1,
+   "oversold|cannot fail": 1,
+   "oversold|foolproof": 1,
    "oversold|万无一失": 1,
    "oversold|保证通过": 1,
+   "stub_code|stub": 1,
    "stub_code|占位": 1,
    "stub_code|待实现": 1
   },
@@ -90,7 +101,7 @@
   },
   "README.md": {
    "fabricated|fabricated": 4,
-   "fabricated|invented": 4,
+   "fabricated|invented": 5,
    "oversold|all tests pass": 2,
    "oversold|production ready": 2,
    "oversold|trust me": 1,
@@ -116,28 +127,35 @@
    "stub_code|placeholder": 1,
    "stub_code|todo": 1
   },
-  "scripts/token_coverage.py": {
-   "fabricated|fabricated": 1
-  },
   "server/engine/config.py": {
    "fabricated|fabricated": 1
   },
   "server/engine/hallucination.py": {
    "fabricated|fabricated": 9,
    "fabricated|fictional": 1,
+   "fabricated|fictitious": 1,
    "fabricated|invented": 3,
    "fabricated|made up": 1,
+   "fabricated|mythical": 1,
+   "fabricated|non-existent": 1,
+   "fabricated|nonexistent": 1,
    "fabricated|pretend": 1,
    "fabricated|simulated": 2,
+   "fabricated|凭空捏造": 1,
+   "fabricated|子虚乌有": 1,
    "fabricated|编造": 1,
    "fabricated|虚构": 1,
    "oversold|100% correct": 1,
    "oversold|all tests pass": 2,
    "oversold|bug free": 1,
+   "oversold|bulletproof": 1,
+   "oversold|cannot fail": 1,
    "oversold|definitely works": 1,
    "oversold|everything works": 1,
+   "oversold|foolproof": 1,
    "oversold|fully tested": 1,
-   "oversold|guaranteed": 2,
+   "oversold|guaranteed": 3,
+   "oversold|impossible to break": 1,
    "oversold|no bugs": 1,
    "oversold|production ready": 2,
    "oversold|should work": 1,
@@ -146,11 +164,15 @@
    "oversold|works perfectly": 1,
    "oversold|zero errors": 1,
    "oversold|万无一失": 1,
+   "oversold|不可能失败": 1,
    "oversold|保证通过": 1,
    "oversold|包过": 1,
    "oversold|完美运行": 1,
    "oversold|无需测试": 1,
+   "oversold|稳过": 1,
+   "oversold|绝对可靠": 1,
    "oversold|绝对没问题": 1,
+   "oversold|绝无问题": 1,
    "oversold|肯定能跑": 1,
    "oversold|零缺陷": 1,
    "stub_code|coming soon": 1,
@@ -158,11 +180,13 @@
    "stub_code|fake": 2,
    "stub_code|fixme": 1,
    "stub_code|mock": 2,
-   "stub_code|not implemented": 1,
+   "stub_code|not implemented": 2,
+   "stub_code|pending implementation": 1,
    "stub_code|placeholder": 3,
    "stub_code|stub": 3,
    "stub_code|tba": 1,
    "stub_code|tbd": 1,
+   "stub_code|to be implemented": 1,
    "stub_code|todo": 2,
    "stub_code|wip": 1,
    "stub_code|xxx": 1,
@@ -170,11 +194,17 @@
    "stub_code|假数据": 1,
    "stub_code|先这样": 1,
    "stub_code|占位": 2,
+   "stub_code|尚未实现": 1,
+   "stub_code|待完成": 1,
    "stub_code|待实现": 1,
    "stub_code|待补充": 1,
    "stub_code|未实现": 1,
    "stub_code|模拟数据": 1,
    "stub_code|稍后补": 1
+  },
+  "server/engine/imports.py": {
+   "fabricated|invented": 1,
+   "fabricated|non-existent": 1
   },
   "server/engine/symbols.py": {
    "stub_code|todo": 1
@@ -219,10 +249,15 @@
    "stub_code|稍后补": 1
   },
   "server/test_guard.py": {
-   "fabricated|fabricated": 2,
+   "fabricated|fabricated": 3,
+   "fabricated|fictitious": 1,
    "fabricated|simulated": 2,
+   "fabricated|凭空捏造": 1,
+   "fabricated|子虚乌有": 1,
+   "oversold|bulletproof": 1,
    "oversold|guaranteed": 2,
    "oversold|production ready": 1,
+   "oversold|绝对可靠": 1,
    "stub_code|fake": 2,
    "stub_code|mock": 2,
    "stub_code|stub": 1,
@@ -310,13 +345,14 @@
   },
   "skills/verify-before-code/references/HALLUCINATION-PATTERNS.md": {
    "fabricated|fabricated": 3,
-   "fabricated|invented": 2,
+   "fabricated|invented": 3,
+   "fabricated|non-existent": 1,
    "oversold|all tests pass": 1,
    "oversold|should work": 1,
    "stub_code|fake": 1
   },
   "skills/verify-before-code/references/HALLUCINATION-PATTERNS.zh.md": {
-   "fabricated|编造": 7
+   "fabricated|编造": 9
   },
   "skills/verify-before-code/references/PROMPT-POOL.ja.md": {
    "fabricated|simulated": 1,
@@ -339,6 +375,7 @@
   "skills/verify-before-code/references/PROMPT-POOL.md": {
    "fabricated|fabricated": 1,
    "fabricated|invented": 1,
+   "fabricated|non-existent": 1,
    "fabricated|simulated": 1,
    "oversold|all tests pass": 2,
    "oversold|definitely works": 1,
@@ -358,7 +395,7 @@
   },
   "skills/verify-before-code/references/PROMPT-POOL.zh.md": {
    "fabricated|simulated": 1,
-   "fabricated|编造": 3,
+   "fabricated|编造": 4,
    "oversold|all tests pass": 2,
    "oversold|definitely works": 1,
    "oversold|everything works": 1,

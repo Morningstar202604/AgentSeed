@@ -103,6 +103,8 @@ version `0.3.0`, protocol `2024-11-05`.
 - `verify_code(source: string, language?: "python")` → `{language, suspects[], note}`
 - `check_contract(source: string, contract: string, language?: "python")` →
   `{language, contract_ok, missing[], prohibited_hits[], note}`
+- `check_imports(source: string, language?: "python")` →
+  `{language, imports_ok, suspicious[{package, line}], note}` — slopsquatting guard
 - `scan_hallucination(source: string)` → `{hits[{word,group,line}], clean: bool, groups{}}`
 - `check_plugin(path: string)` → `{ok: bool, errors[], warnings[]}`
 - `sandbox_run(command: string[], timeout?: int, cwd?: string)` →
@@ -185,7 +187,7 @@ Returns `ok`, `errors[]`, `warnings[]`.
 | | Prompt-only skills (superpowers…) | Static import linters | **AgentSeed** |
 | --- | --- | --- | --- |
 | Touches code | ❌ | ✅ import graphs | ✅ AST + lexical |
-| Runs tools | ❌ | lint gates | ✅ 7 MCP tools incl. sandbox |
+| Runs tools | ❌ | lint gates | ✅ 8 MCP tools incl. sandbox |
 | Enforcement | soft | CI gate | **hard gate** |
 | 1.0.0 linter | ❌ | ❌ | ✅ |
 

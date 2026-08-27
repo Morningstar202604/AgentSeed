@@ -30,6 +30,9 @@ STUB_TOKENS = [
     "wip",
     "not implemented",
     "coming soon",
+    "to be implemented",
+    "not implemented yet",
+    "pending implementation",
 ]
 
 # CJK tokens: \b word boundaries are meaningless between CJK chars, so these
@@ -44,6 +47,8 @@ STUB_TOKENS_ZH = [
     "模拟数据",
     "临时方案",
     "先这样",
+    "待完成",
+    "尚未实现",
 ]
 
 OVERSOLD_TOKENS = [
@@ -61,6 +66,11 @@ OVERSOLD_TOKENS = [
     "100% correct",
     "bug free",
     "zero errors",
+    "foolproof",
+    "bulletproof",
+    "cannot fail",
+    "guaranteed to pass",
+    "impossible to break",
 ]
 
 OVERSOLD_TOKENS_ZH = [
@@ -72,6 +82,10 @@ OVERSOLD_TOKENS_ZH = [
     "零缺陷",
     "无需测试",
     "包过",
+    "绝无问题",
+    "不可能失败",
+    "绝对可靠",
+    "稳过",
 ]
 
 FABRICATED_TOKENS = [
@@ -81,11 +95,17 @@ FABRICATED_TOKENS = [
     "fictional",
     "pretend",
     "made up",
+    "fictitious",
+    "nonexistent",
+    "non-existent",
+    "mythical",
 ]
 
 FABRICATED_TOKENS_ZH = [
     "虚构",
     "编造",
+    "凭空捏造",
+    "子虚乌有",
 ]
 
 # Full pool: token -> group (kept for backward compatibility).

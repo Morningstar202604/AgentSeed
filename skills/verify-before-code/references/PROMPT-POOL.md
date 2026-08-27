@@ -262,3 +262,21 @@ Feed your generated output back through a follow-up prompt that verifies or
 expands on your previous statements. This catches and corrects inconsistencies
 that a single pass misses.
 ```
+
+**K1. Never trust an import the model suggests — verify the package exists**
+```
+Before using or installing any package a model suggests, verify it actually
+exists on the registry (pip index versions <pkg> / npm view <pkg>). LLMs
+hallucinate non-existent package names in ~5-22% of generated code, and ~58%
+of those names recur across runs — attackers pre-register them to deliver
+malware ("slopsquatting", USENIX Security 2025). A package name is a claim,
+not a fact.
+```
+
+**K2. Confidence is not evidence**
+```
+Assisted developers are measurably MORE confident and LESS secure (Perry et
+al., CCS 2023). Treat "I'm confident this works" as a signal to verify, not a
+substitute for it: run the command, show the exit code, cite the file:line.
+If a claim cannot be backed by an observed run, say so explicitly.
+```

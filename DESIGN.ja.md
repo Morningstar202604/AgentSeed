@@ -72,6 +72,9 @@ AgentSeed は「**コードレベル + 実ツール実行 + Skill/MCP クロー�
 ## 4. MCP インターフェース契約
 
 トランスポート：stdio 上の行区切り JSON-RPC 2.0。サーバー名 `agentseed`、
+`check_imports`（slopsquatting ガード）は別途提供：stdlib と `known_packages` に無い
+トップレベル import を報告する。
+
 プロトコル `2024-11-05`。
 
 | ツール | 説明 |
@@ -125,7 +128,7 @@ AgentSeed は「**コードレベル + 実ツール実行 + Skill/MCP クロー�
 | | プロンプト専用 skill（superpowers…） | 静的 import linter | **AgentSeed** |
 | --- | --- | --- | --- |
 | コードに触れる | ❌ | ✅ import グラフ | ✅ AST + 語彙解析 |
-| ツール実行 | ❌ | lint ゲート | ✅ sandbox 含む 7 MCP ツール |
+| ツール実行 | ❌ | lint ゲート | ✅ sandbox 含む 8 MCP ツール |
 | 強制 | 弱い | CI ゲート | **ハードゲート** |
 | 1.0.0 linter | ❌ | ❌ | ✅ |
 

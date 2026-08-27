@@ -370,6 +370,49 @@ class TestPerformanceBaseline(unittest.TestCase):
         )
 
 
+class TestCheckImports(unittest.TestCase):
+    """Package-hallucination (slopsquatting) guard — USENIX Security 2025."""
+
+    def test_stdlib_and_common_known_pass(self):
+        src = "import os\nimport json\nimport requests\nimport numpy as np\nfrom pathlib import Path\n"
+        r = engine.check_imports(src)
+        self.assertTrue(r["imports_ok"])
+        self.assertEqual(r["suspicious"], [])
+
+    def test_unknown_package_flagged(self):
+        src = "import os\nimport slopsquat_utils\n"
+        r = engine.check_imports(src)
+        self.assertFalse(r["imports_ok"])
+        self.assertEqual([s["package"] for s in r["suspicious"]], ["slopsquat_utils"])
+
+    def test_known_packages_allowlist(self):
+        src = "import os\nimport mycompany_core\n"
+        r = engine.check_imports(src, known_packages=["mycompany_core"])
+        self.assertTrue(r["imports_ok"])
+
+    def test_relative_imports_skipped(self):
+        # from . import x / from ..pkg import y — package-local, never flagged
+        src = "from . import helpers\nfrom ..db import session\nimport os\n"
+        r = engine.check_imports(src)
+        self.assertTrue(r["imports_ok"])
+
+    def test_other_language_honest_empty(self):
+        r = engine.check_imports("package main\nimport \"fmt\"\n", "go")
+        self.assertTrue(r["imports_ok"])
+        self.assertIn("python", r["note"])
+
+    def test_new_research_tokens_flagged(self):
+        # tokens added from 2025 research (slopsquatting + overclaim/fabrication)
+        r = engine.scan_hallucination_words(
+            "This is bulletproof and cannot fail. The data is fictitious and non-existent."
+        )
+        groups = {h["group"] for h in r["hits"]}
+        self.assertIn("oversold", groups)
+        self.assertIn("fabricated", groups)
+        r2 = engine.scan_hallucination_words("这个包是凭空捏造的，子虚乌有，绝对可靠。")
+        self.assertFalse(r2["clean"])
+
+
 class TestHallucinationScan(unittest.TestCase):
     def test_stub_group(self):
         r = engine.scan_hallucination_words("def run():\n    return stub_result  # TODO\n")

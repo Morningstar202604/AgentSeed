@@ -145,7 +145,7 @@ python3 server/guard_cli.py scan src/ --strict
 > Windows installs that alias is a Microsoft Store stub; change `command` to
 > `["python", "server/guard_server.py"]` or use your interpreter's absolute path.
 
-## The 7 MCP tools
+## The 8 MCP tools
 
 Zero *required* dependencies — pure Python standard library; optional extras
 upgrade two tools to industry-standard engines (see below).
@@ -154,6 +154,7 @@ upgrade two tools to industry-standard engines (see below).
 | --- | --- | --- |
 | `verify_code` | Invented APIs / undefined symbols | Python AST + config-driven lexical passes (12+ languages) |
 | `check_contract` | Code violates a written spec | requires/prohibits contract check |
+| `check_imports` | Hallucinated packages (slopsquatting) | stdlib + known-packages allowlist check |
 | `scan_hallucination` | Placeholder code, overclaims, fabricated content | 28+ signals in 3 groups, EN + CJK |
 | `check_plugin` | Non-conformant plugin packaging | Strict 1.0.0 linter |
 | `sandbox_run` | "Tests pass" without running anything | Deterministic execution channel (bounded-memory output) |
@@ -171,6 +172,30 @@ upgrade two tools to industry-standard engines (see below).
 
 Honest limits: attribute calls (`obj.m()`), macros, and cross-file symbols
 are not analyzed; Ruby's paren-less calls are supported.
+
+Honest limits: attribute calls (`obj.m()`), macros, and cross-file symbols
+are not analyzed; Ruby's paren-less calls are supported.
+
+### It really catches other languages — live-tested
+
+The same rule applies to every registered language: a bare call to a symbol
+that is never defined is a hallucination, whatever the syntax:
+
+```python
+# Go       detect_undefined_symbols("func main() { process_data() }", "go")  -> ["process_data"]
+# Rust     fn main() { let x = load_config() }        -> ["load_config"]
+# Java     class A { void m() { connect_db() } }      -> ["connect_db"]
+# C        int main() { ghost(); return 0; }          -> ["ghost"]
+# Kotlin   fun main() { fetch_users() }               -> ["fetch_users"]
+# Swift    func run() { connect() }                   -> ["connect"]
+# Ruby     def run; authenticate; end                 -> ["authenticate"]
+# TypeScript function run() { connectDb() }           -> ["connectDb"]
+```
+
+Verified across Go · Rust · Java · C · C++ · C# · PHP · Ruby · Kotlin ·
+Swift · TypeScript — every language flags its invented call, and clean
+code in each language reports **zero false positives**.
+
 
 ## Client-enforced hook mode
 
@@ -223,6 +248,7 @@ pip install -r server/requirements.txt
 | `timeout` | default `sandbox_run` timeout, seconds (1–120) |
 | `extra_tokens` | extend the hallucination word pool at runtime |
 | `suppress_symbols` | names `verify_code` never flags (reported in `suppressed`) |
+| `known_packages` | packages `check_imports` treats as known (stdlib + common + this list) |
 | `sandbox_allowed_prefixes` | **allowlist of executables** `sandbox_run` may launch; PATH-resolved, separator-boundary enforced (absent = unrestricted) |
 | `sandbox_env` | `"inherit"` \| `"scrub"` — `scrub` drops credential-looking env vars |
 
@@ -239,7 +265,7 @@ Unknown keys are warned on stderr — a typo is never silently ignored.
 | Host capability | What you get |
 | --- | --- |
 | Full Agent Plugins | drop-in: skill + MCP auto-discovered, `${PLUGIN_DATA}` config honored |
-| MCP-capable client | all 7 tools via registration |
+| MCP-capable client | all 8 tools via registration |
 | Skills-only client | skill workflow; verification degrades to `guard_cli.py` via shell |
 | Plain terminal / CI | CLI gates with exit codes |
 
@@ -255,7 +281,7 @@ satisfy) · `VENDOR-SOLUTIONS` (adoption map of vendor techniques).
 | | Prompt-only guardrail skills | Static import linters (MCP) | **AgentSeed** |
 | --- | --- | --- | --- |
 | Touches code | ❌ prompt only | ✅ import graphs | ✅ AST + lexical (12+ langs) |
-| Runs verification tools | ❌ | lint gates | ✅ 7 MCP tools incl. sandbox |
+| Runs verification tools | ❌ | lint gates | ✅ 8 MCP tools incl. sandbox |
 | Hallucination-language scan | ❌ | ❌ | ✅ stub/oversold/fabricated, EN + CJK |
 | Enforcement | soft (skill text) | CI gate | **hard**: skill + MCP + hook + CLI exit codes |
 | 1.0.0 conformance linter | ❌ | ❌ | ✅ first |

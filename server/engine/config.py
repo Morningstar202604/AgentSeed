@@ -19,6 +19,7 @@ KNOWN_CONFIG_KEYS = {
     "suppress_symbols",
     "sandbox_allowed_prefixes",
     "sandbox_env",
+    "known_packages",
 }
 
 SANDBOX_ENV_MODES = ("inherit", "scrub")
@@ -45,6 +46,8 @@ def load_config(explicit_path: str | None = None) -> dict:
       timeout                  : int - default sandbox_run timeout in seconds
       extra_tokens             : dict[group, list[str]] - extra hallucination words
       suppress_symbols         : list[str] - names verify_code never flags
+      known_packages           : list[str] - packages check_imports treats as known
+                                    (project-local / trusted third-party), beyond stdlib
       sandbox_allowed_prefixes : list[str] - executable allowlist for sandbox_run
                                                  (absent/empty = unrestricted)
 

@@ -64,6 +64,17 @@ def cmd_contract(args: argparse.Namespace) -> int:
     return 0 if result["contract_ok"] else 1
 
 
+def cmd_imports(args: argparse.Namespace) -> int:
+    """Slopsquatting gate: exit 1 when a top-level import is neither stdlib
+    nor in the known-package set (defaults + config known_packages + --known)."""
+    config = engine.load_config(getattr(args, "config", None))
+    known = args.known or engine.config_str_list(config, "known_packages")
+    source = _read_source(args.source)
+    result = engine.check_imports(source, known_packages=known)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0 if result["imports_ok"] else 1
+
+
 def _iter_source_files(root: str):
     """Deterministic walk of text sources worth scanning (skips VCS/cache)."""
     skip_dirs = {".git", ".agentseed", "__pycache__", "node_modules", ".github", ".workbuddy"}
@@ -351,6 +362,19 @@ def main(argv: list[str] | None = None) -> int:
         "--language", default="python", choices=list(SUPPORTED_LANGUAGES)
     )
     p_contract.set_defaults(func=cmd_contract)
+
+    p_imports = sub.add_parser(
+        "imports", help="flag imports not in stdlib / known packages (slopsquatting)"
+    )
+    p_imports.add_argument("source", help="source code or a file path")
+    p_imports.add_argument(
+        "--known",
+        action="append",
+        metavar="PKG",
+        help="extra known package (repeatable; default: config known_packages)",
+    )
+    p_imports.add_argument("--config", help="explicit config file path")
+    p_imports.set_defaults(func=cmd_imports)
 
     p_scan = sub.add_parser("scan", help="scan for hallucination signals")
     p_scan.add_argument("source", help="source text or a file path")

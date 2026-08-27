@@ -147,7 +147,7 @@ python3 server/guard_cli.py scan src/ --strict
 > `["python", "server/guard_server.py"]` に変更するか、インタプリタの絶対パスを
 > 指定してください。
 
-## 7 つの MCP ツール
+## 8 つの MCP ツール
 
 必須依存**ゼロ**——純 Python 標準ライブラリ。オプション拡張で 2 ツールが
 業界標準エンジンにアップグレードされます（下記）。
@@ -156,6 +156,7 @@ python3 server/guard_cli.py scan src/ --strict
 | --- | --- | --- |
 | `verify_code` | 捏造 API / 未定義シンボル | Python AST + 設定駆動の汎用語彙パス（12+ 言語） |
 | `check_contract` | 仕様に違反するコード | requires/prohibits 契約チェック |
+| `check_imports` | 幻覚パッケージ（slopsquatting） | stdlib + known_packages ホワイトリスト検証 |
 | `scan_hallucination` | プレースホルダー、誇張、捏造 | 3 グループ 28+ シグナル、EN + CJK |
 | `check_plugin` | 不適合なプラグイン | 厳格 1.0.0 linter |
 | `sandbox_run` | 実行せずに「テスト合格」 | 決定的実行チャネル（メモリ有界出力） |
@@ -173,6 +174,28 @@ python3 server/guard_cli.py scan src/ --strict
 
 正直な限界：属性呼び出し（`obj.m()`）、マクロ、ファイル横断シンボルは解析しません。
 Ruby の括弧なし呼び出しは対応済み。
+
+正直な限界：属性呼び出し（`obj.m()`）、マクロ、ファイル横断シンボルは解析しません。
+
+### 他の言語も本当に検出する——実測済み
+
+同じルールが全登録言語に適用されます：「未定義のシンボルの裸呼び出し」は、構文が何であれ
+幻覚です：
+
+```python
+# Go       detect_undefined_symbols("func main() { process_data() }", "go")  -> ["process_data"]
+# Rust     fn main() { let x = load_config() }        -> ["load_config"]
+# Java     class A { void m() { connect_db() } }      -> ["connect_db"]
+# C        int main() { ghost(); return 0; }          -> ["ghost"]
+# Kotlin   fun main() { fetch_users() }               -> ["fetch_users"]
+# Swift    func run() { connect() }                   -> ["connect"]
+# Ruby     def run; authenticate; end                 -> ["authenticate"]
+# TypeScript function run() { connectDb() }           -> ["connectDb"]
+```
+
+Go · Rust · Java · C · C++ · C# · PHP · Ruby · Kotlin · Swift · TypeScript で実測——
+全言語が捏造呼び出しを検出し、各言語のクリーンコードは**誤検出ゼロ**。
+
 
 ## クライアント強制 Hook モード
 
@@ -226,6 +249,7 @@ pip install -r server/requirements.txt
 | `timeout` | デフォルト `sandbox_run` タイムアウト（秒、1–120） |
 | `extra_tokens` | 実行時に幻覚ワードプールを拡張 |
 | `suppress_symbols` | `verify_code` が決してフラグしない名前（`suppressed` に表示） |
+| `known_packages` | `check_imports` が既知とするパッケージ（stdlib + 一般的 + このリスト） |
 | `sandbox_allowed_prefixes` | `sandbox_run` が起動できる**実行ファイルのホワイトリスト**；PATH 解決・区切り境界強制（省略=無制限） |
 | `sandbox_env` | `"inherit"` \| `"scrub"` —— `scrub` は認証情報らしき環境変数を起動前に除去 |
 
@@ -242,7 +266,7 @@ pip install -r server/requirements.txt
 | ホスト能力 | 得られるもの |
 | --- | --- |
 | フル Agent Plugins | ドロップイン：skill + MCP 自動発見、`${PLUGIN_DATA}` 設定尊重 |
-| MCP 対応クライアント | 登録で 7 ツールすべて |
+| MCP 対応クライアント | 登録で 8 ツールすべて |
 | skill のみのクライアント | skill ワークフロー；検証は `guard_cli.py` を shell 経由で実行 |
 | ターミナル / CI | 終了コード付き CLI ゲート |
 
@@ -258,7 +282,7 @@ pip install -r server/requirements.txt
 | | プロンプト専用 skill | 静的 import linter（MCP） | **AgentSeed** |
 | --- | --- | --- | --- |
 | コードに触れる | ❌ プロンプトのみ | ✅ import グラフ | ✅ AST + 語彙（12+ 言語） |
-| 検証ツールを実行 | ❌ | lint ゲート | ✅ 7 MCP ツール（sandbox 含む） |
+| 検証ツールを実行 | ❌ | lint ゲート | ✅ 8 MCP ツール（sandbox 含む） |
 | 幻覚言語スキャン | ❌ | ❌ | ✅ stub/oversold/fabricated、EN + CJK |
 | 強制力 | 軟（skill 文面） | CI ゲート | **硬**：skill + MCP + hook + CLI 終了コード |
 | 1.0.0 適合 linter | ❌ | ❌ | ✅ 最初 |

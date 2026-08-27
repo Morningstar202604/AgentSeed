@@ -136,3 +136,31 @@
 
 **Takeaway:** no model is "accurate enough" to skip verification. Design for
 the failure case. (OWASP LLM09: Overreliance.)
+
+## 5. 2025 research additions
+
+**5.1 Package hallucination / slopsquatting** — "We Have a Package for You!"
+(USENIX Security 2025, arXiv:2406.10279): across 576k generated samples, LLMs
+invented non-existent package names in ~5.2% (commercial) to ~21.7%
+(open-source) of outputs — 205,474 unique names; ~58% recur across runs.
+Predictable names let attackers pre-register the exact package with malware
+("slopsquatting"). Signal: an import whose package is not stdlib and not in
+the project's known set. Mitigation: `check_imports`.
+
+**5.2 Code-hallucination taxonomy** (arXiv:2504.20799): four observable
+categories — syntactic (breaks grammar), runtime (fails when run), functional
+(runs but wrong), quality (resource/security/smell). `verify_code` catches the
+invalid-reference subset statically; `sandbox_run` catches the runtime subset;
+the rest require human review.
+
+**5.3 Scaffolding hallucination / phantom symbols** (arXiv:2604.20202): the
+model invents imports, constants, methods, or builder call-chains that do not
+exist in the target API's docs (e.g. a constant the real API never defined).
+Signature: plausible-but-unverifiable scaffolding around a correct-looking
+core. Static detection needs an API oracle; `check_contract` lets the human
+encode the required/prohibited surface instead.
+
+**5.4 False sense of security** (Perry et al., CCS 2023): developers using an
+AI assistant wrote measurably LESS secure code while becoming MORE confident.
+Gate implication: confidence is not evidence — require runs, exit codes, and
+file:line citations (Gates 3–4).
