@@ -20,8 +20,8 @@ updates:
       interval: "weekly"
     ignore:
       # The engine's supported floor is Python 3.9 (CI matrix includes it), and
-      # jsonschema 4.26+ requires >=3.10 — a floor bump would be uninstallable
-      # on 3.9 and every such PR is red by construction. The requirement stays
-      # `>=4.0.0` so pip resolves the newest workable version per interpreter.
+      # jsonschema 4.26+ requires >=3.10 — a floor bump past 4.25.1 is
+      # uninstallable on 3.9 and every such PR is red by construction. Bumps up
+      # to 4.25.1 still arrive (see #6); drop this rule when 3.9 support ends.
       - dependency-name: "jsonschema"
         versions: [">= 4.26.0"]
