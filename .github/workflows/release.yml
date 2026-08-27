@@ -4,41 +4,96 @@ on:
   push:
     tags: ["v*"]
 
+# contents: write -> GitHub Releases; id-token: write -> npm provenance
+# (provenance attestation requires the OIDC token and a tag-push trigger,
+# which this workflow has).
 permissions:
   contents: write
+  id-token: write
 
 env:
   NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
 jobs:
-  publish:
+  # Same bar as CI: nothing is published unless the full gate passes first.
+  verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
+      - name: Install test runner + optional engine upgrades (from the manifest)
+        working-directory: server
+        run: |
+          python -m pip install --upgrade pip pytest coverage
+          python -m pip install -r requirements.txt
+      - name: Test suite (discovery)
+        working-directory: server
+        run: python -m pytest -q
+      - name: Lint (pinned ruff — same pin as ci.yml)
+        run: |
+          python -m pip install "ruff==0.16.4"
+          ruff check .
+      - name: Composite hard gate (conformance + symbols + baseline scan)
+        run: python server/guard_cli.py gate --root .
       - name: Manifest drift gate
         run: python scripts/pack.py --check-only
-      - name: Build artifact + SHA256SUMS
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: npm smoke (pack + global install + MCP stdio round-trip)
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check bin/cli.js
+          TARBALL="$(npm pack --silent)"
+          test -n "$TARBALL"
+          npm install -g "$TARBALL"
+          node scripts/smoke_npm.mjs
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Build artifact + SHA256SUMS (manifest drift checked in verify)
         run: python scripts/pack.py
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
           name: dist
           path: dist/
-      - name: Create GitHub release with the pinned artifact
+      - name: Create (or update, when re-running a tag) GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: >
-          gh release create "$GITHUB_REF_NAME" dist/*.zip dist/SHA256SUMS.txt
-          --title "$GITHUB_REF_NAME" --generate-notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME already exists — refreshing assets, title and notes."
+            gh release upload "$GITHUB_REF_NAME" dist/*.zip dist/SHA256SUMS.txt --clobber
+            gh release view "$GITHUB_REF_NAME" --json notes -q .notes > release-notes.md
+            if [ -s release-notes.md ]; then
+              gh release edit "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file release-notes.md
+            else
+              gh release edit "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME"
+            fi
+          else
+            gh release create "$GITHUB_REF_NAME" dist/*.zip dist/SHA256SUMS.txt \
+              --title "$GITHUB_REF_NAME" --generate-notes
+          fi
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           registry-url: https://registry.npmjs.org/
+      # Skipped entirely when NPM_TOKEN is unset, so the provenance
+      # requirement can never break the (still-released) no-npm path.
       - name: Publish to npm (skipped when NPM_TOKEN secret is unset)
         if: env.NPM_TOKEN != ''
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish
+        run: npm publish --access public --provenance
