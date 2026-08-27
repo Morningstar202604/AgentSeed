@@ -3,7 +3,7 @@
 All notable changes to AgentSeed are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com); versioning follows [SemVer](https://semver.org).
 
-## [Unreleased]
+## [0.3.0] — 2026-08-27
 
 ### Added
 - **`verify_code` — config-driven multi-language engine**: a generic lexical

@@ -344,6 +344,32 @@ class TestExportPromptPool(unittest.TestCase):
             self.assertEqual(out, xp.render(fmt, entries))  # deterministic
 
 
+class TestPerformanceBaseline(unittest.TestCase):
+    """Regression gate: verify_code + scan_hallucination on a ~0.5 MB
+    synthetic corpus must stay under 10 s (real baseline ~0.4 s). Catches a
+    pathological regression without flaking on slow CI. Uses the same
+    generator as ``scripts/bench.py`` so the measurement is comparable."""
+
+    def test_half_megabyte_under_ten_seconds(self):
+        import time
+
+        scripts_dir = os.path.join(PLUGIN_ROOT, "scripts")
+        sys.path.insert(0, scripts_dir)
+        try:
+            import bench  # noqa: PLC0415
+            src = bench.make_source(0.5)
+            t0 = time.perf_counter()
+            engine.detect_undefined_symbols(src)
+            engine.scan_hallucination_words(src)
+            elapsed = time.perf_counter() - t0
+        finally:
+            sys.path.remove(scripts_dir)
+        self.assertLess(
+            elapsed, 10.0,
+            f"hot path took {elapsed:.2f}s on ~0.5MB synthetic source",
+        )
+
+
 class TestHallucinationScan(unittest.TestCase):
     def test_stub_group(self):
         r = engine.scan_hallucination_words("def run():\n    return stub_result  # TODO\n")

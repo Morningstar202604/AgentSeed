@@ -9,7 +9,7 @@ better.
 ```bash
 git clone https://gitcode.com/badhope/AgentSeed.git
 cd AgentSeed
-python -m unittest discover -s server -p "test_*.py"   # 90+ tests, no deps needed
+python -m unittest discover -s server -p "test_*.py"   # 160+ tests, no deps needed
 python server/guard_cli.py check . --ci                # must print ok: true
 ```
 

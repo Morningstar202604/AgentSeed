@@ -4,7 +4,9 @@
 
 | Version | Support |
 |---------|---------|
-| 0.1.x   | active  |
+| 0.3.x   | active (current release line) |
+| 0.2.x   | critical security fixes only |
+| 0.1.x   | end-of-life |
 
 ## Reporting a vulnerability
 

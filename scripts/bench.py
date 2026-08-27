@@ -1,11 +1,15 @@
-"""AgentSeed performance baseline (P2-13).
+"""AgentSeed performance baseline.
 
-Generates a deterministic ~1 MB Python source, then times the two hot
-engines (AST symbol analysis + hallucination scan). Run directly for
-numbers; imported by test_guard.py as a loose regression gate so a
+Generates a deterministic ~``--mb`` Python source, then times the two hot
+engines (AST symbol analysis + hallucination scan). Use ``--mb`` to scale the
+corpus; the default (1 MB) is what CHANGELOG cites as the 2.3 s baseline.
+
+    python scripts/bench.py                 # ~1 MB
+    python scripts/bench.py --mb 5.0        # ~5 MB stress run
+
+Testsuite integration: ``server/test_guard.TestPerformanceBaseline`` runs the
+same measurement on a ~0.5 MB corpus and asserts ``elapsed < 10 s`` so a
 pathological slowdown cannot ship silently.
-
-    python scripts/bench.py [--mb 1.0]
 """
 
 from __future__ import annotations

@@ -1,378 +1,296 @@
 <div align="center">
 
-# 🛡️ AgentSeed
+<img src="docs/logo.png" width="96" alt="AgentSeed logo">
 
-**AI コーディングエージェント向け幻覚防止ガードレール。**
+# AgentSeed
 
-[Agent Plugins 1.0.0](https://agent-plugins.org) 準拠のハイブリッドプラグイン
-（Skill + MCP サーバー）。仕様駆動開発を強制し、**コードが「完了」とマークされる前に
-検証**します — "Done, all tests pass" を主張ではなく観測事実にします。
+**AI コーディングエージェントのための反幻覚ゲート。**
 
-[![License](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.2.0-blue)](https://gitcode.com/badhope/AgentSeed/releases)
+AI は存在しない API を捏造し、何も実行せずに「テスト全部通った」と言い、
+自信満々に偽のコードを納品します。**AgentSeed は「完了」と宣言する前に
+それを止めるゲート**——ゼロ依存のプラグインで、コードを検証してから
+「完了」にします。「完了」= **観測された事実**であり、自己申告ではありません。
+
+[![License](https://img.shields.io/badge/license-Apache_2.0-green)](LICENSE)
+[![Version](https://img.shields.io/badge/version-0.3.0-blue)](https://gitcode.com/badhope/AgentSeed/releases)
 [![CI](https://github.com/Morningstar202604/AgentSeed/actions/workflows/ci.yml/badge.svg)](https://github.com/Morningstar202604/AgentSeed/actions/workflows/ci.yml)
 [![Platforms](https://img.shields.io/badge/platform-Cursor%20%7C%20VS%20Code%20%7C%20Claude%20Code%20%7C%20Copilot-blue)](https://agent-plugins.org)
 
-**日本語** · [English](./README.md) · [中文](./README.zh.md)
+[English](./README.md) · [中文](./README.zh.md) · **日本語**
 
-> 本リポジトリの**基準言語は英語**です（最も完全で最新）。日・中文版は主要内容の対訳です。
-
-⭐ **役立つと思ったらスターをお願いします — 幻覚コードを出荷する前にガードレールを
-知る開発者を増やすことができます。**
+⭐ **気に入ったら Star を——幻覚コードを出荷する前に、開発者がガードレールに
+出会える最良のシグナルです。**
 
 </div>
 
 ---
 
-## なぜ AgentSeed なのか
+## なぜ必要か
 
-LLM は幻覚します — コードでは**存在しない API、未定義の識別子、偽のテスト合格、
-自信過剰な誇張主張**として現れます。データ：
+LLM は幻覚を起こします——コードではそれは**捏造 API・未定義の識別子・
+偽のテスト合格・過剰な宣言**を意味します：
 
-- コード幻覚の **15.1%** は知識衝突型：存在しない・未インポートの API 呼び出し
+- **15.1%** のコード幻覚は、存在しない・インポートされていない API を呼ぶこと
   （[arXiv:2404.00971](https://arxiv.org/abs/2404.00971)）。
-- 幻覚コードの **<10%** しかテストで検出されません — ほとんどが CI をすり抜けます（同上）。
-- モデル出力エラーの **60%+** は**検証不能**（FAVA、[SoK](https://arxiv.org/abs/2502.18468) 引用）。
+- **10% 未満**の幻覚コードしかテストを落とさない——**約 90% は CI をすり抜ける**
+  （[arXiv:2404.00971](https://arxiv.org/abs/2404.00971)）。
+- **60%+** のモデル出力エラーは**見た目では検証不能**（FAVA、[SoK](https://arxiv.org/abs/2502.18468)）。
 
-プロンプトのみのガードレールは「弱い」：モデルは検証に同意して、スキップできます。
-**AgentSeed は指示をハードな MCP ゲートに縛ります** — 証拠はモデルの自己申告ではなく、
-実行されたコードが生み出します。
+プロンプトだけのガードレールは「柔らかい」：モデルは検証に同意したふりをして
+スキップできます。**AgentSeed は指示を「硬いゲート」に結びつけます**——
+証拠はモデルの自己申告ではなく、実行されたコードから来ます。
+
+## 30 秒でわかる AgentSeed
+
+ドロップインの [Agent Plugins](https://agent-plugins.org) 1.0.0 プラグイン
+（Skill + MCP サーバー + 任意のクライアント Hook + CI ゲート）が約束する
+3 つのこと：
+
+| 約束 | 実現方法 |
+| --- | --- |
+| **🚫 API を捏造しない** | `verify_code` が **12+ 言語**のコードを解析し、「呼ばれたのに定義もインポートもされていない」シンボルを検出 |
+| **🚫 偽の「完了」を出さない** | `scan_hallucination` がスタブ・過剰宣言・捏造主張を（**英語+中国語+CJK**）検出；`sandbox_run` が実行時主張を実際に実行して証明 |
+| **🚫 検証をスキップさせない** | Skill がワークフローを制約、**クライアント Hook** が `Write`/`Edit` を未検証ファイルでブロック、`guard_cli gate` が CI で同じルールを終了コードで強制 |
 
 1.0.0 仕様が意図的に残した 2 つの穴も埋めます：
 
-| 仕様の穴 | AgentSeed の対応 |
+| Agent Plugins 1.0.0 の穴 | AgentSeed の答え |
 | --- | --- |
-| 強制メカニズムなし（スキルは任意） | `verify-before-code` を**スキップ不可**に |
-| 公式 linter なし | `check_plugin` が**初の厳格 1.0.0 linter** |
+| 強制メカニズムがない（skill は任意） | `verify-before-code` skill + 任意の**クライアント強制 Hook** で検証をスキップ不可に |
+| 公式 linter がない | `check_plugin` は**最初の厳格な 1.0.0 linter**——しかも AgentSeed 自身が自分の linter を通る（`ok: true`） |
 
-## 機能
+## 幻覚を捕まえる現場を見る
 
-ゼロ依存の MCP ツール 7 つ：
+```python
+# エージェントが「書き終えた」コード。magic_unknown() を呼ぶ——
+# 存在せず、インポートもされていない API：
+
+def f():
+    return magic_unknown()      # ← 幻覚 API
+
+# タスクが「完了」になる前に：
+$ verify_code(source=..., language="python")
+{
+  "language": "python",
+  "suspects": ["magic_unknown"]       # ← 検出、ブロック
+}
+```
+
+```text
+# 「完了」宣言も生き残れない：
+"The feature is production ready, all tests pass. Trust me."
+
+$ scan_hallucination(source=...)
+{
+  "hits": [
+    {"word": "all tests pass",   "group": "oversold",  "line": 1},
+    {"word": "production ready", "group": "oversold",  "line": 1},
+    {"word": "trust me",         "group": "oversold",  "line": 1}
+  ],
+  "clean": false                        # ← 検出、ブロック
+}
+```
+
+判定は**約束ではなく計測値**：シード固定の合成コーパス（5 欠陥クラス、
+欠陥 100 + クリーン 40 モジュール）で **precision 1.0 · recall 1.0**
+（tp=100, fp=0, fn=0）——回帰テストでロックイン済み。
+方法と正直な限界は [docs/BENCHMARK.md](./docs/BENCHMARK.md)。
+
+## ゲートの仕組み
+
+1. **コーディング前** — SDD 契約を読み、一文で宣言する。
+2. **実装** — 本物のコードだけ：プレースホルダーも捏造 API も禁止。
+3. **「完了」の前** — `verify_code` + `scan_hallucination` を実行；実行時主張は
+   `sandbox_run` で証明；構造は `schema_validate` で検証。
+4. **言語監査** — 完了報告に証拠を添付；過剰語彙は禁止。
+5. **すべてのチェックが通った時だけ**「完了」を許す。
+
+## クイックスタート
+
+**A — リリースをダウンロード（git 不要）：**
+
+```bash
+# https://gitcode.com/badhope/AgentSeed/releases から最新アセットを取得
+# またはインストーラーでクライアントに配線：
+bash install.sh --client auto --hooks        # macOS / Linux
+./install.ps1 -Client auto -Hooks            # Windows PowerShell
+# --client: claude | opencode | cursor | manual
+# --hooks / -Hooks: Claude Code 強制 Hook も登録
+```
+
+**B — クローン：**
+
+```bash
+git clone https://gitcode.com/badhope/AgentSeed.git
+# ミラー：https://gitcode.com/badhope/AgentSeed · https://gitee.com/badhope/AgentSeed
+```
+
+1. `AgentSeed/` ディレクトリを Agent Plugins 対応クライアント（Cursor、
+   VS Code、Claude Code、Copilot…）に**ドロップ**する。ビルドもインストールも不要。
+2. クライアントが `plugin.json` + `mcp.json` から `verify-before-code` skill と
+   `agentseed` MCP サーバーを自動発見。
+3. **これだけ。** 以降すべてのコーディングタスクがゲートされます：
+   契約 → 実装 → 検証 → 証拠。
+
+単体実行、または人間の PR にも同じ CI ゲート：
+
+```bash
+python3 server/guard_engine.py              # セルフチェック
+python3 -m unittest discover -s server      # 160+ ユニットテスト
+python3 server/guard_cli.py gate --root .   # CI 相当のハードゲート
+python3 server/guard_cli.py check . --ci    # プラグイン適合のみ
+python3 server/guard_cli.py scan src/ --strict
+```
+
+> **Windows 注記：** `mcp.json` は `python3` でサーバーを起動します。多くの
+> Windows 環境ではそのエイリアスは Microsoft Store のスタブです。`command` を
+> `["python", "server/guard_server.py"]` に変更するか、インタプリタの絶対パスを
+> 指定してください。
+
+## 7 つの MCP ツール
+
+必須依存**ゼロ**——純 Python 標準ライブラリ。オプション拡張で 2 ツールが
+業界標準エンジンにアップグレードされます（下記）。
 
 | ツール | ブロックするもの | 技術 |
 | --- | --- | --- |
 | `verify_code` | 捏造 API / 未定義シンボル | Python AST + 設定駆動の汎用語彙パス（12+ 言語） |
 | `check_contract` | 仕様に違反するコード | requires/prohibits 契約チェック |
-| `scan_hallucination` | プレースホルダー、誇張、捏造 | 3 グループ 28+ シグナル |
+| `scan_hallucination` | プレースホルダー、誇張、捏造 | 3 グループ 28+ シグナル、EN + CJK |
 | `check_plugin` | 不適合なプラグイン | 厳格 1.0.0 linter |
-| `sandbox_run` | 実行せずに「テスト合格」 | 決定的実行チャネル |
+| `sandbox_run` | 実行せずに「テスト合格」 | 決定的実行チャネル（メモリ有界出力） |
 | `schema_validate` | 不正な構造化出力 | JSON Schema 検証 |
-| `record_verification` | 証跡の永続化欠如 | `PLUGIN_DATA` 配下の JSONL に監査エントリを追記 |
-
-## ライブデモ
-
-```
-$ verify_code(source="def f():\n    return magic_unknown()\n", language="python")
-{
-  "language": "python",
-  "suspects": ["magic_unknown"]      # ← 幻覚 API を検出
-}
-
-$ scan_hallucination(source="The feature is production ready, all tests pass. Trust me.")
-{
-  "hits": [
-    {"word": "all tests pass", "group": "oversold", "line": 1},
-    {"word": "production ready", "group": "oversold", "line": 1},
-    {"word": "trust me", "group": "oversold", "line": 1}
-  ],
-  "clean": false                      # ← 誇張主張を検出
-}
-
-$ check_plugin(path="/path/to/AgentSeed")
-{ "ok": true, "errors": [], "warnings": [] }   # ← 厳格 1.0.0 適合
-```
-
-## クイックスタート
-
-**方法 A — リリースをダウンロード（git 不要）：**
-
-```bash
-# https://gitcode.com/badhope/AgentSeed/releases から最新アセットを取得、
-# またはインストーラーで任意のクライアントへ配置：
-bash install.sh --client auto        # macOS / Linux
-./install.ps1 -Client auto           # Windows PowerShell
-# --client: claude | opencode | cursor | manual
-# --hooks / -Hooks を追記すると Claude Code 強制フックも同時登録
-```
-
-**方法 B — クローン：**
-
-```bash
-git clone https://gitcode.com/badhope/AgentSeed.git
-# または：https://gitcode.com/badhope/AgentSeed · https://gitee.com/badhope/AgentSeed
-```
-
-1. `AgentSeed/` ディレクトリを Agent Plugins 1.0.0 対応クライアント（Cursor、VS Code、
-   Claude Code、Copilot…）に置くだけ。ビルド不要・インストール不要。コアは依存ゼロ（オプションの拡張は下記）。
-2. クライアントが `plugin.json` + `mcp.json` から `verify-before-code` スキルと
-   `agentseed` MCP サーバーを自動検出します。
-3. **完了。** 以降、すべてのコーディングタスクにゲートがかかります：
-   契約 → 実装 → 検証 → 証拠。
-
-スタンドアロンでの自己チェック：
-
-```bash
-python3 server/guard_engine.py              # 自己チェック: verify_code + scan_hallucination のデモ
-python3 -m unittest discover -s server      # 90+ 個のユニットテスト（CI は pytest も併用）
-```
-
-同じルールを人間の PR にも（CI モード）：
-
-```bash
-python3 server/guard_cli.py gate --root .        # 複合ハードゲート：適合性+シンボル+ベースライン走査、失敗時 exit 1
-python3 server/guard_cli.py check . --ci         # プラグイン適合性、エラー時 exit 1
-python3 server/guard_cli.py scan src/ --strict   # 幻覚スキャン、ブロック重大度のみ
-```
-
-> **Windows の注意：** `mcp.json` は `python3` でサーバーを起動します。多くの Windows
-> 環境ではこの別名が Microsoft Store のスタブです。サーバーが起動しない場合は
-> `command` を `["python", "server/guard_server.py"]` またはインタープリターの絶対パスに
-> 変更してください。
-
-## クライアント強制フック（Claude Code）
-
-スキルは説得し、フックはクライアント境界で強制します。AgentSeed を Claude Code の
-フックとして登録すると、すべての `Write`/`Edit`/`MultiEdit` ツール呼び出しが自動で
-スキャンされます——プロンプトでは回避できません：
-
-```bash
-python3 server/guard_hook.py register --client claude   # ~/.claude/settings.json へ冪等マージ
-python3 server/guard_hook.py --file path/to/source.py   # 任意ファイルを直接スキャン
-```
-
-- **PreToolUse** は書き込みがディスクに乗る*前*に `content`/`new_string` を検査します。
-  ブロック級の検出で exit `2` になり、Claude は stderr 経由で理由を受け取り、
-  指摘行を修正するまでファイルを書き込めません。
-- **PostToolUse** はインライン内容を持たない書き込みパス向けに、保存後のファイルを再チェックします。
-- **失敗ポリシー（正直な範囲）：** stdin 不正・読み取り不可・未知のツール形状といった
-  インフラ問題は編集をブロックしません（fail-open）。実際の検出ヒットのみがブロックします。
-  warning レベルは報告のみでブロックしません。
-- 重大度 / 許可リスト / 抑制シンボルの調整は、プラグイン他部と同じ `agentseed.config.json`
-  のキーを使います。
-
-register コマンドを使いたくない場合は、settings.json に手動で追記できます：
-
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      { "matcher": "Write|Edit|MultiEdit",
-        "hooks": [ { "type": "command",
-                     "command": "python /path/to/AgentSeed/server/guard_hook.py" } ] }
-    ],
-    "PostToolUse": [
-      { "matcher": "Write|Edit|MultiEdit",
-        "hooks": [ { "type": "command",
-                     "command": "python /path/to/AgentSeed/server/guard_hook.py" } ] }
-    ]
-  }
-}
-```
-
-インストーラーは `--hooks`（bash）/ `-Hooks`（PowerShell）でこの登録まで自動で行います。
-
-## オプション依存
-
-AgentSeed は Python 標準ライブラリだけで動きます。以下をインストールすると、2 つの
-ツールが業界標準エンジンにアップグレードされます（自動検出、未インストールでも
-グレースフルフォールバック）：
-
-```bash
-pip install -r server/requirements.txt
-```
-
-| 拡張 | アップグレード先 | 未インストール時 |
-| --- | --- | --- |
-| `jsonschema` | `schema_validate` → Draft 2020-12 フル検証 | 内蔵サブセット検証 |
-| `pyflakes` | `verify_code` → pyflakes F821 未定義名解析をマージ | 内蔵 AST ウォーク |
-| `pyyaml` | SKILL.md frontmatter 解析 → フル YAML | 内蔵ライトパーサー |
-
-> `guard_server.py` は絶対パスで指定してください。サーバーは自身の位置から残りを解決する
-> ので、特別な cwd は不要です。
-
-## 互換性とグレースフルデグラデーション
-
-ホストの能力に応じて一段ずつ降級します——検証の静默スキップはしません：
-
-| ホスト能力 | 得られるもの | セットアップ |
-| --- | --- | --- |
-| フル Agent Plugins | 置くだけ：skill + MCP 自動検出、`${PLUGIN_DATA}` 設定有効 | プラグインディレクトリをコピー |
-| MCP 対応クライアント | 全 7 ツール（登録必要） | 下記の正確なスニペット |
-| スキルのみのクライアント | skill ワークフロー；**検証は shell 経由の `guard_cli.py` に降級**（skill 内にフォールバック手順あり） | `skills/verify-before-code` をフラットコピー |
-| 端末のみ / CI / エージェントなし | CLI ゲート + 終了コード | `python server/guard_cli.py check . --ci` |
-
-## プラットフォーム対応
-
-| クライアント | Agent Plugins 1.0.0 | 状態 | 備考 |
-| --- | --- | --- | --- |
-| Claude Code | skills + MCP config | verified | skills は `~/.claude/skills`、サーバーは `claude mcp add`、オプションの強制フックは `guard_hook.py register --client claude` |
-| opencode | skills + MCP config | verified | `~/.config/opencode/opencode.json`、スニペットは下記 |
-| Cursor | skills + mcp.json | untested* | プロジェクトにコピー；安定したプラグインディレクトリはまだ無し |
-| VS Code (+Copilot) | MCP サポート展開中 | untested* | mcp.json フィールドをそのまま使用 |
-| Cline / Windsurf | MCP config 互換 | untested* | stdio サーバーエントリがそのまま対応 |
-
-\* 正直なステータス：形式は仕様互換で動作見込みですが、開発者自身では未検証です。
-verified = メンテナーが実際に確認済み。検証したら PR でこの表を更新してください。
-
-フルスペックのクライアントは `${PLUGIN_DATA}` も設定します。AgentSeed はそこから
-`agentseed.config.json` を読みます。
-
-### 設定リファレンス（`agentseed.config.json`）
-
-| キー | 型 | 効果 |
-| --- | --- | --- |
-| `allowlist` | `string[]` | スキャン除外（内蔵テストイディオム一覧を置き換え） |
-| `severities` | `{group: error\|warning\|info}` | グループ別重大度オーバーライド |
-| `timeout` | `int` | `sandbox_run` の既定タイムアウト秒（1–120 にクランプ） |
-| `extra_tokens` | `{group: string[]}` | 幻覚語彙プールを実行時に拡張 |
-| `suppress_symbols` | `string[]` | `verify_code` が決してフラグしない名前（`suppressed` に表示） |
-| `sandbox_allowed_prefixes` | `string[]` | `sandbox_run` が起動できる**実行ファイル許可リスト**（未設定 = 無制限）。パス区切りなしのエントリは PATH 解決後の basename と一致（`python` は `python.exe` も許容）；区切りありのエントリは解決後の絶対パスと一致またはそのディレクトリプレフィックス（区切り境界を強制） |
-| `sandbox_env` | `"inherit"` \| `"scrub"` | 子プロセス環境ポリシー：`scrub` は起動前に認証情報っぽい変数名（TOKEN/SECRET/PASSWORD/API_KEY/…）を落とす —— ベストエフォートの拒否リストであり、セキュリティ境界ではない |
-
-未知のキーは stderr に警告 —— タイプミスのキーが静黙に無視されることはありません。
+| `record_verification` | 証跡の永続化欠如 | `PLUGIN_DATA` 配下の JSONL 監査トレイル |
 
 ### 言語カバレッジ（正直な範囲）
 
 | 言語 | `verify_code` 解析 |
 | --- | --- |
-| Python | フル AST スコープウォーク（pyflakes インストール時はマージ）、行番号付き |
+| Python | フル AST スコープウォーク（pyflakes 時はマージ）、行番号付き |
 | TypeScript / JavaScript | 語彙正規表現パス（誤検出クラスを明記） |
-| Go / Rust / Java / C / C++ / C# / PHP / Ruby / Kotlin / Swift | 設定駆動の汎用語彙パス（言語レジストリ） |
-| その他の言語 | 拡張可能 —— `LangSpec` レジストリに追加するだけで、エンジン変更は不要 |
+| Go · Rust · Java · C · C++ · C# · PHP · Ruby · Kotlin · Swift | 設定駆動の汎用語彙パス |
+| その他の言語 | `LangSpec` レジストリに追加するだけ——エンジン変更不要 |
 
-汎用パスはコメント/文字列をマスクし、言語ごとの定義・インポートを収集した上で、
-未定義の裸呼び出し・`new` 式を検出します。**正直な限界**：属性呼び出し（`obj.m()`）、
-マクロ、ファイル横断シンボルは解析しません。Ruby の括弧なし呼び出しは対応済み。
-各言語はキーワード/グローバル名のホワイトリストを同梱。
+正直な限界：属性呼び出し（`obj.m()`）、マクロ、ファイル横断シンボルは解析しません。
+Ruby の括弧なし呼び出しは対応済み。
 
-> ⚠️ **セキュリティ注記**：`sandbox_run` はあなたのユーザー権限で実際のプロセスを実行します。
-> クライアントは必ずユーザー承認のゲートを置いてください；共有/CI 環境では
-> `sandbox_allowed_prefixes` を設定してください。許可リスト設定時、コマンドは実行前に
-> `PATH` 経由で絶対パスへ解決されます —— 悪意ある作業ディレクトリが同名の実行ファイルを
-> 置いて許可リスト項目になりすますことはできず、不一致・未解決のコマンドは実行せず拒否
-> （exit -10）されます。
+## クライアント強制 Hook モード
 
-## 変更履歴
-
-[CHANGELOG.md](./CHANGELOG.md) を参照。
-
-## クライアント設定（正確なスニペット）
-
-AgentSeed は二つの要素で構成され、完全なゲートには両方が必要です：
-
-1. **スキル**（`skills/verify-before-code/`）— エージェントにワークフローを教える。
-2. **MCP サーバー**（`server/guard_server.py`）— 7 ツールを提供。
-
-インストーラーが 1 を配置し、2 の登録手順を表示します。手動設定：
-
-**Claude Code**
+Skill は「説得」、**Hook はクライアント境界で「強制」**します。AgentSeed を
+Claude Code hook として登録すると、すべての `Write`/`Edit`/`MultiEdit` が
+自動スキャンされます——どのプロンプトもスキップできません：
 
 ```bash
-# スキル：フラットにコピー（SKILL.md が直接フォルダ直下に）
-cp -R skills/verify-before-code ~/.claude/skills/verify-before-code
-# MCP サーバー：
-claude mcp add agentseed -- python /path/to/AgentSeed/server/guard_server.py
+python3 server/guard_hook.py register --client claude   # 冪等、settings にマージ
+python3 server/guard_hook.py --file path/to/source.py   # 任意のファイルを直接スキャン
 ```
 
-**opencode** — `skills/verify-before-code/` を
-`~/.config/opencode/skill/verify-before-code` にコピーし、`opencode.json` に追加：
+- **PreToolUse** は内容がディスクに書かれる**前**に検査。ブロック検出は終了コード
+  `2` で、エージェントは指摘された行を直す必要があります。
+- **PostToolUse** はインライン内容のない書き込みパスで保存後ファイルを再検査。
+- **失敗ポリシー（正直な範囲）：** インフラ問題（stdin 不正・ファイル不可読・
+  未知のツール形状）は決して作業をブロックしません（fail-open）。ブロックするのは
+  検出結果だけです。
 
-```json
-{
-  "mcp": {
-    "agentseed": {
-      "type": "local",
-      "command": ["python", "/path/to/AgentSeed/server/guard_server.py"],
-      "enabled": true
-    }
-  }
-}
+## プラットフォーム対応
+
+| クライアント | 状態 | 備考 |
+| --- | --- | --- |
+| Claude Code | ✅ 検証済み | skills + MCP + 任意の強制 Hook |
+| opencode | ✅ 検証済み | `~/.config/opencode/opencode.json` |
+| Cursor | ⚪ 仕様互換* | プロジェクトへコピー；安定プラグインディレクトリ未確定 |
+| VS Code (+Copilot) | ⚪ 仕様互換* | MCP サポートは展開中 |
+| Cline / Windsurf | ⚪ 仕様互換* | stdio サーバーエントリをそのままマッピング |
+
+\* 正直な注記：形式は仕様互換・動作見込みですが、メンテナー未実測。
+検証できたら PR でこの表を更新してください。
+
+## オプション依存
+
+```bash
+pip install -r server/requirements.txt
 ```
 
-**Cursor / その他の MCP クライアント** — stdio サーバーを登録：
-`command: python`、`args: ["/path/to/AgentSeed/server/guard_server.py"]`、
-スキルフォルダは各クライアントの技能場所へフラットコピー。
+| 拡張 | アップグレード内容 | 未導入時 |
+| --- | --- | --- |
+| `jsonschema` | `schema_validate` → 完全 Draft 2020-12 | 内蔵サブセット検証 |
+| `pyflakes` | `verify_code` → pyflakes F821 解析 | 内蔵 AST ウォーク |
+| `pyyaml` | SKILL.md frontmatter → 完全 YAML | 内蔵ライトパーサー |
 
-> `guard_server.py` は絶対パスで指定してください。サーバーは自身の位置から残りを解決する
-> ので、特別な cwd は不要です。
+## 設定（`agentseed.config.json`）
 
-## 内蔵ガードレールライブラリ（日本語 / EN / 中文）
-
-| リソース | 内容 |
+| キー | 効果 |
 | --- | --- |
-| `PROMPT-POOL` | 20+ のコピペ用プロンプト：完了証拠、先検証、不確実性、API 検証、引用規則 |
-| `HALLUCINATION-PATTERNS` | 失敗モードカタログ：5 分類法 + SoK 知見 + 実在の法律/対話事例 |
-| `VERIFICATION-CHECKLIST` | 実行可能チェックリスト：リスク分類 → 契約 → 証拠 → 言語監査 |
-| `SDD-CONTRACT` | すべてのタスクが満たすべき契約 |
-| `VENDOR-SOLUTIONS` | ベンダー技術導入マップ（Anthropic、OpenAI、AWS、NVIDIA、IBM、Guardrails AI、Vectara） |
+| `allowlist` | スキャン除外（内蔵のテスト慣用句リストを置換） |
+| `severities` | グループ別の重大度上書き（`error` \| `warning` \| `info`） |
+| `timeout` | デフォルト `sandbox_run` タイムアウト（秒、1–120） |
+| `extra_tokens` | 実行時に幻覚ワードプールを拡張 |
+| `suppress_symbols` | `verify_code` が決してフラグしない名前（`suppressed` に表示） |
+| `sandbox_allowed_prefixes` | `sandbox_run` が起動できる**実行ファイルのホワイトリスト**；PATH 解決・区切り境界強制（省略=無制限） |
+| `sandbox_env` | `"inherit"` \| `"scrub"` —— `scrub` は認証情報らしき環境変数を起動前に除去 |
 
-## ゲートの仕組み
+未知キーは stderr に警告——タイポは決して黙殺されません。
 
-1. **コーディング前** — SDD 契約を読み、1 文で述べる。
-2. **実装** — 実コードのみ：プレースホルダー・API 捏造禁止。
-3. **「完了」の前** — `verify_code` + `scan_hallucination` を呼ぶ；実行主張は
-   `sandbox_run` で実証；構造は `schema_validate` で検証。
-4. **言語監査** — 完了報告に証拠添付；誇大語彙は禁止。
-5. 全チェック通過時のみ完了とみなす。
+> ⚠️ **セキュリティ注記：** `sandbox_run` はユーザーの権限で実プロセスを実行します。
+> クライアントはユーザー承認の後ろに置いてください。共有/CI 環境では
+> `sandbox_allowed_prefixes` を設定。コマンドは実行前に `PATH` 解決され、悪意ある
+> `cwd` がホワイトリスト名を偽装できません。未解決・未一致のコマンドは実行せず
+> 拒否（終了コード -10）。
 
-## 強制される規範（AI の制約方法）
+## 互換性とグレースフルデグラデーション
 
-スキルは単なる「提案」ではありません —— 各規範は観測可能なゲートに対応します
-（完全な表は
-[`DEFAULT-NORMS.md`](./skills/verify-before-code/references/DEFAULT-NORMS.md)。
-出典は AGENTS.md オープン標準、Anthropic Claude Code 公式ベストプラクティス、
-FerroxLabs/agents-md 等のコミュニティ規律。違いはそこでは散文であり、ここでは
-各規範に実行ツールか終了コードが伴うこと）：
-
-| 規範 | 実行者 |
+| ホスト能力 | 得られるもの |
 | --- | --- |
-| 契約を先に、コードは後 | Gate 1 |
-| API の捏造・未定義シンボル禁止 | `verify_code` |
-| プレースホルダー禁止、実装のみ | `scan_hallucination` |
-| 主張の前に検証 | Gate 3 + `sandbox_run` |
-| 完了報告には証拠を添付 | Gate 4 + `record_verification` |
+| フル Agent Plugins | ドロップイン：skill + MCP 自動発見、`${PLUGIN_DATA}` 設定尊重 |
+| MCP 対応クライアント | 登録で 7 ツールすべて |
+| skill のみのクライアント | skill ワークフロー；検証は `guard_cli.py` を shell 経由で実行 |
+| ターミナル / CI | 終了コード付き CLI ゲート |
 
-## エージェント設定ファイルとの共存
+## 内蔵ガードレールライブラリ（EN / 中文 / 日本語）
 
-AgentSeed は既存の AI 設定ファイル（`CLAUDE.md` / `AGENTS.md` / `.cursor/rules/` /
-`.github/copilot-instructions.md`）を置き換えず補完します：それらは**プロジェクトの
-事実**（スタック・コマンド・構成）を担う「軟らかな」散文。AgentSeed は**行動契約と
-強制力** —— 幻覚検出・検証ゲート・証拠チェーンという、静かに無視できないハードな
-MCP ツールと CI 終了コードを担います。
+`PROMPT-POOL`（20+ のコピペ即使用プロンプト）· `HALLUCINATION-PATTERNS`
+（5 クラス失敗モードカタログ）· `VERIFICATION-CHECKLIST`（実行可能な完了
+チェックリスト）· `SDD-CONTRACT`（全タスクが満たすべき契約）·
+`VENDOR-SOLUTIONS`（ベンダー手法の導入マップ）。
 
-## 比較
+## 代替案との比較
 
-| | プロンプト専用 skill（superpowers…） | 静的 import linter | **AgentSeed** |
+| | プロンプト専用 skill | 静的 import linter（MCP） | **AgentSeed** |
 | --- | --- | --- | --- |
-| コードに触れる | ❌ プロンプトのみ | ✅ import グラフ解析 | ✅ AST + 語彙解析 |
-| 検証ツール実行 | ❌ | lint ゲート | ✅ sandbox 込み 6 種 MCP ツール |
-| 幻覚言語スキャン | ❌ | ❌ | ✅ stub / 誇大 / 捏造信号（EN + CJK） |
-| 強制 | 弱い（skill 文章） | CI ゲート | **ハードゲート**：skill + MCP + CLI 終了コード |
-| 1.0.0 linter | ❌ | ❌ | ✅ 初 |
+| コードに触れる | ❌ プロンプトのみ | ✅ import グラフ | ✅ AST + 語彙（12+ 言語） |
+| 検証ツールを実行 | ❌ | lint ゲート | ✅ 7 MCP ツール（sandbox 含む） |
+| 幻覚言語スキャン | ❌ | ❌ | ✅ stub/oversold/fabricated、EN + CJK |
+| 強制力 | 軟（skill 文面） | CI ゲート | **硬**：skill + MCP + hook + CLI 終了コード |
+| 1.0.0 適合 linter | ❌ | ❌ | ✅ 最初 |
 
 ## FAQ
 
-**特定の LLM が必要ですか？** いいえ — クライアント・モデル非依存。ゲートはスキル +
-MCP サーバーが強制し、モデルには依存しません。
+**特定の LLM が必要？** いいえ——クライアント非依存・モデル非依存。ゲートは
+skill + MCP + hook + CI が実行するもので、モデルには依存しません。
 
-**ゼロ依存？** コアは依存ゼロです — 何もインストールせずに完全動作します。server/requirements.txt（jsonschema / pyflakes / pyyaml）を入れると schema_validate が Draft 2020-12 フル検証に、verify_code が pyflakes F821 分析のマージに、frontmatter 解析がフル YAML にアップグレードされます（未インストール時は内蔵実装へ自動フォールバック）。
+**ゼロ依存？** はい。MCP サーバーは純 Python 標準ライブラリです。
 
-**適合していますか？** `check_plugin` が 1.0.0 §5/§6/§7 に照らして検証 — AgentSeed は
-自身の linter を通過します（`ok: true`）。
+**既存の AGENTS.md / CLAUDE.md と共存できる？** できます——補完関係です。
+あちらはプロジェクト事実（散文・説得力）、AgentSeed は行動契約とハード強制を
+担います。
 
-## コントリビュート
+**新しい言語にどう拡張する？** `server/engine/symbols.py` に `LangSpec` を
+1 件追加するだけ——設定のみ、エンジン変更なし。
 
-Issue・PR・アイデア歓迎。未収録の幻覚パターンを見つけたら Issue を開いてください。
+## コントリビューション
+
+Issue・PR・アイデア歓迎——未収録の幻覚パターンも issue でどうぞ。
+詳細は [CONTRIBUTING.md](./CONTRIBUTING.md)。
 
 ## ライセンス
 
-Apache-2.0 © AgentSeed。[LICENSE](./LICENSE) を参照。
+Apache-2.0 © AgentSeed。 [LICENSE](./LICENSE)。
 
 ---
 
 <div align="center">
 
-⭐ **AgentSeed が幻覚コードの出荷を防いだなら、スターをお願いします — ガードレールが
-重要だという最良のシグナルです。**
+⭐ **AgentSeed が幻覚コードの出荷を防いだなら、Star を——それは「ガードレールは
+役に立つ」という最良のシグナルです。**
 
 </div>

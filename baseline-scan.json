@@ -82,28 +82,31 @@
    "stub_code|xxx": 1
   },
   "README.ja.md": {
-   "oversold|all tests pass": 2,
+   "fabricated|fabricated": 1,
+   "oversold|all tests pass": 1,
    "oversold|production ready": 2,
    "oversold|trust me": 1,
    "stub_code|stub": 1
   },
   "README.md": {
-   "fabricated|fabricated": 2,
+   "fabricated|fabricated": 4,
    "fabricated|invented": 4,
    "oversold|all tests pass": 2,
    "oversold|production ready": 2,
    "oversold|trust me": 1,
-   "stub_code|fake": 1,
+   "stub_code|fake": 2,
    "stub_code|placeholder": 1,
-   "stub_code|stub": 3
+   "stub_code|stub": 2
   },
   "README.zh.md": {
+   "fabricated|fabricated": 1,
    "fabricated|编造": 5,
    "fabricated|虚构": 2,
-   "oversold|all tests pass": 2,
+   "oversold|all tests pass": 1,
    "oversold|production ready": 2,
    "oversold|trust me": 1,
-   "stub_code|占位": 5
+   "stub_code|stub": 1,
+   "stub_code|占位": 4
   },
   "scripts/bench_detection.py": {
    "fabricated|fabricated": 1,

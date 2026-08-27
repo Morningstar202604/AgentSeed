@@ -1,6 +1,6 @@
 {
   "name": "agentseed-mcp",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Anti-hallucination guardrails for AI coding agents: hybrid Skill + MCP server that forces spec-driven development and verifies code before it is marked done.",
   "license": "Apache-2.0",
   "mcpName": "io.gitcode.badhope/agentseed",
