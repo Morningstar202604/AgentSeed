@@ -1,13 +1,23 @@
 """AgentSeed CLI — zero-dependency command-line entry point.
 
-Enables CI gating for human PRs as well as agent sessions:
+Enables CI gating for human PRs as well as agent sessions. One subcommand per
+MCP tool:
 
-    python guard_cli.py verify  [source_or_path] [--language LANG]
-    python guard_cli.py scan    [source_or_path] [--strict]
-    python guard_cli.py check   [plugin_dir] [--ci]
-    python guard_cli.py sandbox -- <command> [args...]
+    python guard_cli.py verify   SOURCE_OR_PATH [--language LANG] [--strict]
+    python guard_cli.py contract SOURCE_OR_PATH --contract FILE [--language LANG]
+    python guard_cli.py imports  SOURCE_OR_PATH [--known PKG]...
+    python guard_cli.py scan     SOURCE_OR_PATH [--strict] [--baseline FILE]
+    python guard_cli.py check    [plugin_dir] [--ci]
+    python guard_cli.py gate     [--root DIR] [--baseline FILE]
+    python guard_cli.py sandbox  -- COMMAND [args...]
+    python guard_cli.py record   TASK [--check TOOL=STATUS]... [--note TEXT]
 
-Exit codes: 0 = pass, 1 = findings/errors, 2 = usage error.
+``SOURCE_OR_PATH`` is either inline source text or an existing file path; a
+tree is only swept through ``scan --baseline DIR``. A path that does not exist
+is a usage error, never silently treated as empty source.
+
+Exit codes: 0 = pass, 1 = findings/errors, 2 = usage error (bad flags, a
+directory passed where a file was expected, or a missing path).
 """
 
 from __future__ import annotations
@@ -18,17 +28,58 @@ import os
 import sys
 
 import guard_engine as engine  # noqa: E402
-from engine.symbols import SUPPORTED_LANGUAGES  # noqa: E402
+from engine.symbols import SUPPORTED_LANGUAGES, language_for_file, source_extensions  # noqa: E402
+
+# Prose/config formats worth hallucination-scanning. They belong to no language
+# in the registry, so they live here; language suffixes do not.
+TEXT_EXTENSIONS = (".md", ".json", ".yaml", ".yml", ".toml")
+
+# Derived from the language registry: a language added to the engine becomes
+# recognizable here (path-vs-inline heuristic + tree walking) with no edit.
+SOURCE_SUFFIXES: tuple[str, ...] = tuple(source_extensions()) + TEXT_EXTENSIONS
+
+
+def _usage_error(message: str) -> None:
+    """Reject the invocation the same way argparse does: stderr + exit 2."""
+    print(f"agentseed: {message}", file=sys.stderr)
+    raise SystemExit(2)
+
+
+def _looks_like_path(text: str) -> bool:
+    """True when the argument was clearly meant to name a file on disk.
+
+    Inline source is what the CLI also accepts, so the two have to be told
+    apart: real code rarely looks like a bare relative path, while a typo'd
+    or missing path must never be scanned as if it were source (a guardrail
+    that reports ``clean`` for a file that does not exist is worse than one
+    that crashes).
+    """
+    if "\n" in text or "\r" in text:
+        return False  # multi-line: inline source
+    stripped = text.strip()
+    if not stripped:
+        return False
+    if "/" in text or "\\" in text or os.sep in text:
+        return True
+    if stripped.startswith((".", "~", "/")):
+        return True
+    return stripped.lower().endswith(SOURCE_SUFFIXES)
 
 
 def _read_source(path_or_source: str) -> str:
     if os.path.isdir(path_or_source):
-        raise SystemExit(
-            f"agentseed: '{path_or_source}' is a directory, pass a file path or inline source text"
+        _usage_error(
+            f"'{path_or_source}' is a directory; pass a file path, inline source "
+            f"text, or use 'scan <dir> --baseline FILE' to sweep a tree"
         )
     if os.path.isfile(path_or_source):
         with open(path_or_source, encoding="utf-8", errors="replace") as fh:
             return fh.read()
+    if _looks_like_path(path_or_source):
+        _usage_error(
+            f"'{path_or_source}' does not exist; pass an existing file path or "
+            f"inline source text (a missing path is never scanned as empty source)"
+        )
     return path_or_source
 
 
@@ -42,12 +93,23 @@ def _warn_unknown_config(config: dict) -> None:
         )
 
 
+def _resolve_language(args: argparse.Namespace) -> str:
+    """Explicit ``--language`` wins; otherwise pick the language from the file
+    the argument names, falling back to python for inline source text."""
+    explicit = getattr(args, "language", None)
+    if explicit:
+        return explicit
+    return language_for_file(args.source) or "python"
+
+
 def cmd_verify(args: argparse.Namespace) -> int:
     config = engine.load_config(args.config)
     _warn_unknown_config(config)
     suppress = args.suppress or engine.config_str_list(config, "suppress_symbols")
     source = _read_source(args.source)
-    result = engine.detect_undefined_symbols(source, args.language, suppress=suppress)
+    result = engine.detect_undefined_symbols(
+        source, _resolve_language(args), suppress=suppress
+    )
     print(json.dumps(result, ensure_ascii=False, indent=2))
     if result.get("note", "").startswith("Cannot parse"):
         # syntax error is reported, not a finding — unless gating strictly
@@ -59,7 +121,7 @@ def cmd_contract(args: argparse.Namespace) -> int:
     """Contract gate: exit 1 unless every `requires` symbol is defined and
     no `prohibits` token appears."""
     source = _read_source(args.source)
-    result = engine.check_contract(source, args.contract, args.language)
+    result = engine.check_contract(source, args.contract, _resolve_language(args))
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result["contract_ok"] else 1
 
@@ -81,7 +143,7 @@ def _iter_source_files(root: str):
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = sorted(d for d in dirnames if d not in skip_dirs)
         for fn in sorted(filenames):
-            if fn.endswith((".py", ".ts", ".tsx", ".js", ".jsx", ".md", ".json", ".yaml", ".yml")):
+            if fn.lower().endswith(SOURCE_SUFFIXES):
                 yield os.path.join(dirpath, fn)
 
 
@@ -107,11 +169,17 @@ def cmd_scan_baseline(args: argparse.Namespace) -> int:
 
         def rel(p: str) -> str:
             return os.path.relpath(p, target).replace(os.sep, "/")
-    else:
+    elif os.path.isfile(target):
         files = [target]
 
         def rel(p: str) -> str:
             return os.path.basename(p)
+    else:
+        _usage_error(
+            f"'{args.source}' is neither an existing file nor a directory; "
+            f"'scan --baseline' sweeps a file or a tree, not inline text"
+        )
+        return 2
 
     # never fingerprint the baseline file itself: its own content would
     # re-enter every comparison as "new" signals (self-reference recursion)
@@ -335,7 +403,10 @@ def main(argv: list[str] | None = None) -> int:
     p_verify = sub.add_parser("verify", help="flag possibly-hallucinated symbols")
     p_verify.add_argument("source", help="source code or a file path")
     p_verify.add_argument(
-        "--language", default="python", choices=list(SUPPORTED_LANGUAGES)
+        "--language",
+        default=None,
+        choices=list(SUPPORTED_LANGUAGES),
+        help="default: inferred from the file extension, else python",
     )
     p_verify.add_argument(
         "--strict", action="store_true", help="exit 1 when the source cannot be parsed at all"
@@ -359,7 +430,10 @@ def main(argv: list[str] | None = None) -> int:
         help='JSON: {"requires": [...], "prohibits": [...]}',
     )
     p_contract.add_argument(
-        "--language", default="python", choices=list(SUPPORTED_LANGUAGES)
+        "--language",
+        default=None,
+        choices=list(SUPPORTED_LANGUAGES),
+        help="default: inferred from the file extension, else python",
     )
     p_contract.set_defaults(func=cmd_contract)
 

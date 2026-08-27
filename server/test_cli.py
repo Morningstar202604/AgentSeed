@@ -74,8 +74,45 @@ class TestCli(unittest.TestCase):
 
     def test_verify_directory_gives_clean_error(self):
         r = run_cli("verify", PLUGIN_ROOT)  # a directory
-        self.assertEqual(r.returncode, 1)
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
         self.assertIn("directory", r.stderr)
+
+    def test_missing_path_is_usage_error_not_clean_scan(self):
+        """A path that does not exist must never be scanned as inline text.
+
+        The old fallback treated any unreadable argument as source code, so
+        `scan src/ --strict` on a typo'd path reported clean / exit 0 — a
+        guardrail that gives a false green is the one failure mode this
+        project exists to prevent.
+        """
+        for cmd in ("verify", "scan", "imports"):
+            with self.subTest(cmd=cmd):
+                r = run_cli(cmd, "does_not_exist_xyz.py")
+                self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+                self.assertIn("does not exist", r.stderr)
+                self.assertNotIn('"clean": true', r.stdout)
+                self.assertNotIn('"imports_ok": true', r.stdout)
+
+    def test_missing_path_with_separator_is_also_a_path(self):
+        for arg in ("./src", "src/app.py", "~/code/x.py"):
+            with self.subTest(arg=arg):
+                r = run_cli("scan", arg)
+                self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+
+    def test_baseline_scan_missing_path_is_usage_error(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as d:
+            r = run_cli(
+                "scan", os.path.join(d, "nope"), "--baseline", os.path.join(d, "b.json")
+            )
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assertIn("neither an existing file nor a directory", r.stderr)
+
+    def test_multiline_inline_source_still_accepted(self):
+        # the path heuristic must not swallow genuine inline source
+        r = run_cli("verify", "import math\nprint(math.sqrt(4))\n")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
     def test_scan_string_allowlist_does_not_suppress_all(self):
         sys.path.insert(0, HERE)
