@@ -52,6 +52,10 @@ metadata:
 
 在告诉用户任务完成之前，对最终源码**同时调用**两个工具：
 
+对磁盘上已存在的文件，优先用 `verify_file(path=..., engine="auto")`：项目
+工具链已安装时（ruff、pyflakes、tsc、go vet、cargo check）用真实的编译器
+级引擎验证，否则回退内置分析器。
+
 ```
 verify_code(source=<最终源码>, language="python")
 scan_hallucination(source=<最终源码>)
@@ -101,7 +105,9 @@ python <agentseed插件根>/server/guard_cli.py scan  "<最终源码或文件>"
 - 无证据时不使用夸大词汇（`guaranteed`、`fully tested`、`production ready`、
   `should work`、`trust me` 等）。
 - 不确定性被如实表达；引用与统计数字真实。
-- 完成报告必须附证据：跑过的命令、输出、读过的文件。"Done, all tests pass"
+- 完成报告必须附证据：跑过的命令、输出、读过的文件。重要任务请引用凭据：
+  `guard_cli receipt <任务> --check verify_code=pass --file <改动文件>` 把
+  检查项与文件哈希冻结成可复核的工件。"Done, all tests pass"
   却没有日志，只是声明，不是结果。
 
 ## 可选 —— 校验插件自身

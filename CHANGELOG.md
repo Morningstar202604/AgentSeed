@@ -3,6 +3,93 @@
 All notable changes to AgentSeed are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com); versioning follows [SemVer](https://semver.org).
 
+## [0.4.0] — 2026-08-29
+
+### Added
+- **`verify_file` (ninth MCP tool) and toolchain verifier adapters.** The
+  built-in lexical passes are honest but shallow; `verify_file` runs the
+  project's own tools — ruff/pyflakes (Python), tsc (TypeScript), eslint
+  (JavaScript), go vet (Go), cargo check (Rust) — through the same bounded
+  execution channel and reports only the undefined-name class in the same
+  `suspects` shape. `engine=auto` picks the first installed adapter and
+  falls back to the built-in analyzer with a note; an explicit engine that
+  is missing or fails to run is a loud error, never a silent degrade.
+- **Hook gate profiles.** `guard_hook.py` now has three profiles (config
+  `hook_profile` or `--profile`): `advisory` reports findings and never
+  blocks (default), `diff` blocks only signals NEW relative to the file's
+  previous content, `strict` is the old blocking behavior. The verdict's
+  `blocking` field is the profile's decision, and `status` gains `flagged`.
+- **Evidence receipts.** `guard_cli receipt <task> --check TOOL=STATUS
+  --file PATH` builds a self-verifying completion record: checks, SHA256 of
+  every verified file, and the digest of the receipt itself, linked from
+  the JSONL audit log. A named file that does not exist fails the receipt
+  loudly.
+- **Plugin toolchain.** `guard_cli plugin init|validate|pack|doctor`:
+  scaffolding that must pass its own conformance linter or be deleted, a
+  deterministic `plugin pack` zip sharing the release packer's skip rules
+  (fallback constants pinned by a drift test), and a `doctor` environment
+  report including a live MCP handshake.
+- **`guard_cli gate` now works on any repo.** Without a `plugin.json` the
+  conformance stage skips (enforce it with `--require-conformance`), and a
+  missing baseline is created on the first run instead of failing.
+
+- **Cross-file project symbol index.** The built-in analyzer no longer
+  judges a file blind: a project symbol index (cached under
+  `.agentseed/`, keyed by content hash, rebuilt incrementally) lets it
+  split raw suspects into two verdicts — `suspects` (defined nowhere in
+  the project: high-confidence hallucination) and `missing_imports`
+  (defined elsewhere but not imported here: a real bug with a different
+  fix, listed with the defining files). Both still gate. Disable with
+  config `project_index: false`.
+- **`guard_cli init` — one command from clone to working gate.** Writes a
+  starter `agentseed.config.json`, generates `.github/workflows/agentseed.yml`
+  (clones the plugin in CI and runs the gate), runs the first gate to
+  bootstrap the baseline, and prints the exact MCP snippet (`command` +
+  `args` with absolute paths) to point any client at the plugin you cloned,
+  plus the Claude Code CLI one-liner.
+- **One-key noise decay: `guard_cli suppress NAME` / `guard_cli allow
+  WORD`.** Suppress stops `verify_code` flagging a project symbol (still
+  reported in `suppressed`); allow writes `extra_allowlist`, which merges
+  AFTER the built-in test-idiom defaults, so allowing one word never drops
+  the defaults the way replacing `allowlist` would. Both edit the
+  project's `agentseed.config.json` atomically and refuse to clobber a
+  config that fails to parse.
+- **Did-you-mean suggestions.** Undefined-symbol findings now carry the
+  closest real names (in-file or project-wide), turning a flagged symbol
+  into a seconds-long fix.
+### Fixed
+- TypeScript/JavaScript array destructuring was not collected, so every
+  React hook setter (`setCount`) was flagged as a hallucinated symbol.
+- Ruby local-variable assignments (`sum += i`, `x ||= y`) and block
+  parameters (`each { |i| ... }`) were not collected, so under `bare_calls`
+  every ordinary local read was a false suspect.
+- A Python wildcard import (`from x import *`) now honestly disables
+  undefined-name detection for that module instead of flagging most real
+  code as hallucinated.
+
+- **A one-shot pipe client no longer loses the final response.** The
+  documented `printf ... | guard_server.py` pattern closes stdin right
+  after the last request; the read loop exited at EOF while worker
+  threads (daemons) were still running, killing the final tools/call
+  reply. main() now drains pending requests for a bounded window before
+  exiting.
+- **npm publishing is operator-switchable, and mirrors sync automatically.**
+  The release workflow's npm steps honor the repository variable
+  `NPM_PUBLISH_ENABLED` (default enabled; `false` is an explicit operator
+  decision reported loudly in the run summary — never a silent skip; with
+  the variable enabled, a missing `NPM_TOKEN` still fails the run as
+  before). A new `sync-mirrors` job force-pushes main and the release tag
+  to the Gitee and GitCode mirrors from the `MIRROR_GITEE_TOKEN` /
+  `MIRROR_GITCODE_TOKEN` secrets, so every future release lands on all
+  three forges in one run.
+### Changed
+- **The hook defaults to `advisory`.** The pre-0.4 default blocked every
+  write with an error-severity word hit or any undefined-symbol suspect —
+  measured on real code (React components, ordinary comments) that meant
+  blocking legitimate work. Blocking still exists: `diff` for growth-only,
+  `strict` for maintainers who tuned their config. Tests pin the new
+  contract.
+
 ## [0.3.2] — 2026-08-28
 
 Everything below is the delta against the *published* 0.3.1 artifact, not

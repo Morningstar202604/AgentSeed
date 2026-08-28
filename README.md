@@ -12,7 +12,7 @@ a zero-dependency plugin that verifies code *before* it is marked done, so
 "done" means *observed fact*, not self-report.
 
 [![License](https://img.shields.io/badge/license-Apache_2.0-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.3.2-blue)](https://github.com/Morningstar202604/agentseed-mcp/releases)
+[![Version](https://img.shields.io/badge/version-0.4.0-blue)](https://github.com/Morningstar202604/agentseed-mcp/releases)
 [![CI](https://github.com/Morningstar202604/agentseed-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Morningstar202604/agentseed-mcp/actions/workflows/ci.yml)
 [![Platforms](https://img.shields.io/badge/platform-Cursor%20%7C%20VS%20Code%20%7C%20Claude%20Code%20%7C%20Copilot-blue)](https://agent-plugins.org)
 
@@ -47,7 +47,7 @@ promises:
 | --- | --- |
 | **🚫 No invented APIs** | `verify_code` parses your code in **17 languages** and flags any symbol that is called but never defined or imported |
 | **🚫 No fake "done"** | `scan_hallucination` catches stubs, overclaims, and fabricated claims in **English and CJK**; `sandbox_run` proves runtime claims by actually running them |
-| **🚫 No skipped verification** | the Skill gates the workflow, the **client hook** blocks `Write`/`Edit` on files that don't pass, and `guard_cli gate` enforces the same rules in CI with exit codes |
+| **🚫 No skipped verification** | the Skill gates the workflow, the **client hook** reports every `Write`/`Edit` (blocks on new signals under `diff`, or on demand under `strict`), and `guard_cli gate` enforces the rules in CI with exit codes |
 
 It also fills the two gaps the 1.0.0 spec deliberately leaves open:
 
@@ -131,16 +131,32 @@ git clone https://github.com/Morningstar202604/agentseed-mcp.git
 3. **That's it.** Every coding task is now gated: contract → implement →
    verify → evidence.
 
+**Using it on YOUR project** (the one you cloned it for) — one command:
+
+```bash
+python3 /path/to/agentseed-mcp/server/guard_cli.py init --root /your/project
+```
+
+That writes a starter `agentseed.config.json`, generates a CI workflow that
+clones the plugin and runs the gate, runs the first gate to bootstrap the
+baseline, and prints the exact MCP snippet to point your client at the
+plugin — no hand-editing.
+
 Run it standalone or gate a human PR with the same rules:
 
 ```bash
 python3 server/guard_engine.py                       # self-check demo
 python3 -m unittest discover -s server               # full unit-test suite
-python3 server/guard_cli.py gate --root .            # CI-equivalent hard gate
+python3 server/guard_cli.py gate --root .            # composite CI gate (any repo:
+                                                     #   first run bootstraps the baseline,
+                                                     #   conformance skips without plugin.json)
 python3 server/guard_cli.py check . --ci             # plugin conformance only
+python3 server/guard_cli.py verify src/app.ts --engine auto  # toolchain verifier if installed
 python3 server/guard_cli.py verify src/app.go        # language inferred from the suffix
 python3 server/guard_cli.py scan src/app.py --strict # inline or file, hallucination signals
 python3 server/guard_cli.py scan . --baseline baseline-scan.json  # tree sweep, new signals only
+python3 server/guard_cli.py receipt "task #42" --check sandbox_run=pass --file src/app.py
+python3 server/guard_cli.py plugin init my-plugin    # scaffold → validate → pack → doctor
 ```
 
 > **Windows note:** `mcp.json` may only name one literal interpreter, and it
@@ -151,7 +167,7 @@ python3 server/guard_cli.py scan . --baseline baseline-scan.json  # tree sweep, 
 > belongs to `args`. `npx agentseed-mcp` needs no editing at all: the npm shim
 > picks the interpreter per platform.
 
-## The 8 MCP tools
+## The 9 MCP tools
 
 Zero *required* dependencies — pure Python standard library; optional extras
 upgrade two tools to industry-standard engines (see below).
@@ -159,6 +175,7 @@ upgrade two tools to industry-standard engines (see below).
 | Tool | Catches | Technique |
 | --- | --- | --- |
 | `verify_code` | Invented APIs / undefined symbols | Python AST + config-driven lexical passes (17 languages) |
+| `verify_file` | The same class, on real files | Runs the project's own toolchain (ruff, pyflakes, tsc, eslint, go vet, cargo check) when installed; built-in analyzer as fallback |
 | `check_contract` | Code violates a written spec | requires/prohibits contract check |
 | `check_imports` | Hallucinated packages (slopsquatting) | stdlib + known-packages allowlist check |
 | `scan_hallucination` | Placeholder code, overclaims, fabricated content | 28+ signals in 3 groups, EN + CJK |
@@ -178,10 +195,61 @@ upgrade two tools to industry-standard engines (see below).
 | any other language | add a `LangSpec` registry entry — no engine change |
 
 Honest limits: attribute calls (`obj.m()`), macros, and cross-file symbols
-are not analyzed; Ruby's paren-less calls are supported.
+are not analyzed; Ruby's paren-less calls are supported. For framework code
+that lexical passes cannot scope (React hook destructuring, star imports),
+`verify_file` upgrades the same check to a real toolchain verifier when one
+is installed — see "Toolchain verifiers" below.
 
-Honest limits: attribute calls (`obj.m()`), macros, and cross-file symbols
-are not analyzed; Ruby's paren-less calls are supported.
+### Toolchain verifiers (adapters)
+
+The built-in analyzers are deliberately zero-dependency. When your project
+already has the real tools, `verify_file` runs them through the same bounded
+execution channel (no shell, capped output, timeout) and reports only the
+undefined-name class in the same shape:
+
+```bash
+python3 server/guard_cli.py verifiers                     # which adapters are installed
+python3 server/guard_cli.py verify src/app.ts --engine auto   # tsc if present, built-in otherwise
+python3 server/guard_cli.py verify src/app.py --engine builtin # force the built-in analyzer
+```
+
+| Adapter | Language | Runs |
+| --- | --- | --- |
+| `ruff` / `pyflakes` | Python | `ruff check --select F821` / `python -m pyflakes` |
+| `tsc` | TypeScript | `tsc --noEmit` (TS2304/TS2552) |
+| `eslint` | JavaScript | `no-undef` rule |
+| `govet` | Go | `go vet` (`undefined:`) |
+| `cargo` | Rust | `cargo check --message-format json` (E0425) |
+
+`--engine auto` picks the first installed adapter and falls back to the
+built-in analyzer; an explicit `--engine <name>` fails loudly when missing.
+
+### Project symbol index (cross-file judgment)
+
+A single file cannot say whether a symbol exists anywhere in your project —
+so the built-in analyzer now consults a cached, incrementally rebuilt index
+of every defined symbol across the repo and splits raw suspects into two
+verdicts:
+
+- `suspects` — defined **nowhere** in the project: high-confidence
+  hallucination, with did-you-mean suggestions of the closest real names;
+- `missing_imports` — defined elsewhere but not imported in this file: a
+  real bug with a different fix (the defining files are listed).
+
+Both still gate. The index lives under `.agentseed/`, never ships in an
+artifact, and turns itself off with `project_index: false` in config.
+
+### The noise-decay loop
+
+A gate only survives if it gets quieter as you use it:
+
+```bash
+python3 server/guard_cli.py suppress legacy_helper    # verify stops flagging it (still reported in 'suppressed')
+python3 server/guard_cli.py allow works-on-my-machine # scan stops flagging it (merged after built-in defaults)
+```
+
+Both write your project's `agentseed.config.json` atomically and refuse to
+clobber a config that fails to parse.
 
 ### It really catches other languages — live-tested
 
@@ -207,20 +275,28 @@ positives**.
 
 ## Client-enforced hook mode
 
-Skills persuade; **hooks enforce at the client boundary**. Register AgentSeed
-as a Claude Code hook and every `Write`/`Edit`/`MultiEdit` is scanned
-automatically — no prompt can skip it:
+Skills persuade; **hooks observe at the client boundary and block by
+choice, not by accident**. Register AgentSeed as a Claude Code hook and
+every `Write`/`Edit`/`MultiEdit` is scanned automatically — no prompt can
+skip the scan:
 
 ```bash
 python3 server/guard_hook.py register --client claude   # idempotent, merges settings
 python3 server/guard_hook.py --file path/to/source.py   # scan any file directly
 ```
 
-- **PreToolUse** inspects the incoming content *before* it lands on disk; a
-  blocking finding exits `2`, and the agent must fix the flagged lines.
+- **PreToolUse** inspects the incoming content *before* it lands on disk.
 - **PostToolUse** re-checks saved files on write paths without inline content.
+- **Gate profiles** (config `hook_profile`, or `--profile` on the CLI):
+  | Profile | Behavior |
+  | --- | --- |
+  | `advisory` (default) | findings are reported (status `flagged`) and the write proceeds — evidence and visibility, zero interruption |
+  | `diff` | blocks only when the edit **adds** new signals relative to the file's previous content (hook-level `--baseline`) |
+  | `strict` | blocks (exit `2`) on any error-severity hit or undefined-symbol suspect, for maintainers who tuned their allowlist |
 - **Failure policy (honest):** infrastructure problems (bad stdin, unreadable
-  files) never block work — fail-open; only positive scan findings block.
+  files) never block work — fail-open; under `advisory`, nothing blocks at
+  all. A gate that cries wolf gets disabled; one that reports honestly gets
+  upgraded to `strict` on purpose.
 
 ## Platform support
 
@@ -259,6 +335,7 @@ pip install -r server/requirements.txt
 | `known_packages` | packages `check_imports` treats as known (stdlib + common + this list) |
 | `sandbox_allowed_prefixes` | **allowlist of executables** `sandbox_run` may launch; PATH-resolved, separator-boundary enforced (absent = unrestricted) |
 | `sandbox_env` | `"inherit"` \| `"scrub"` — `scrub` drops credential-looking env vars |
+| `hook_profile` | guard_hook gate profile: `advisory` (default, report only) \| `diff` (block only new signals) \| `strict` |
 
 Unknown keys are warned on stderr — a typo is never silently ignored.
 
@@ -273,7 +350,7 @@ Unknown keys are warned on stderr — a typo is never silently ignored.
 | Host capability | What you get |
 | --- | --- |
 | Full Agent Plugins | drop-in: skill + MCP auto-discovered, `${PLUGIN_DATA}` config honored |
-| MCP-capable client | all 8 tools via registration |
+| MCP-capable client | all 9 tools via registration |
 | Skills-only client | skill workflow; verification degrades to `guard_cli.py` via shell |
 | Plain terminal / CI | CLI gates with exit codes |
 
@@ -292,9 +369,9 @@ techniques). Every library lives under
 | | Prompt-only guardrail skills | Static import linters (MCP) | **AgentSeed** |
 | --- | --- | --- | --- |
 | Touches code | ❌ prompt only | ✅ import graphs | ✅ AST + lexical (registry-wide) |
-| Runs verification tools | ❌ | lint gates | ✅ 8 MCP tools incl. sandbox |
+| Runs verification tools | ❌ | lint gates | ✅ 9 MCP tools incl. sandbox |
 | Hallucination-language scan | ❌ | ❌ | ✅ stub/oversold/fabricated, EN + CJK |
-| Enforcement | soft (skill text) | CI gate | **hard**: skill + MCP + hook + CLI exit codes |
+| Enforcement | soft (skill text) | CI gate | **tiered**: skill + MCP + CI exit codes + hook profiles (advisory → diff → strict) |
 | 1.0.0 conformance linter | ❌ | ❌ | ✅ first |
 
 ## FAQ
@@ -304,12 +381,24 @@ gate is enforced by skill + MCP + hooks + CI, not by any model.
 
 **Zero dependencies?** Yes. The MCP server is pure Python standard library.
 
+**Does the hook block my edits by default?** No. The default profile is
+`advisory`: every write is scanned and the findings land in the verdict
+(evidence you can act on), but nothing is interrupted. Use `diff` to block
+only *new* signals, or `strict` to block every error-severity finding.
+
+**What is an evidence receipt?** A machine-checkable completion record: the
+checks you ran (tool + status), the SHA256 of every file verified, and a
+digest of the receipt itself, linked from the audit log. `guard_cli receipt`
+builds one; the skill's Gate 4 says a completion report cites it.
+
 **Does it work with our existing AGENTS.md / CLAUDE.md?** Yes — it
 complements them. Those files carry project facts (prose, persuasive);
 AgentSeed carries the behavior contract and the hard enforcement.
 
 **How do I extend it to another language?** Add a `LangSpec` registry entry in
-`server/engine/symbols.py` — one config, no engine change.
+`server/engine/symbols.py` — one config, no engine change. If a toolchain
+verifier exists for your language, an adapter in `server/engine/verifiers.py`
+buys you compiler-grade analysis for the same one-entry cost.
 
 ## Contributing
 

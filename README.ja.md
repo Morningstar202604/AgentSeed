@@ -12,7 +12,7 @@ AI は存在しない API を捏造し、何も実行せずに「テスト全部
 「完了」にします。「完了」= **観測された事実**であり、自己申告ではありません。
 
 [![License](https://img.shields.io/badge/license-Apache_2.0-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.3.2-blue)](https://github.com/Morningstar202604/agentseed-mcp/releases)
+[![Version](https://img.shields.io/badge/version-0.4.0-blue)](https://github.com/Morningstar202604/agentseed-mcp/releases)
 [![CI](https://github.com/Morningstar202604/agentseed-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Morningstar202604/agentseed-mcp/actions/workflows/ci.yml)
 [![Platforms](https://img.shields.io/badge/platform-Cursor%20%7C%20VS%20Code%20%7C%20Claude%20Code%20%7C%20Copilot-blue)](https://agent-plugins.org)
 
@@ -131,6 +131,43 @@ git clone https://github.com/Morningstar202604/agentseed-mcp.git
    `agentseed` MCP サーバーを自動発見。
 3. **これだけ。** 以降すべてのコーディングタスクがゲートされます：
    契約 → 実装 → 検証 → 証拠。
+
+**あなたのプロジェクト**（クローンした理由となったもの）で使う——コマンド一つ：
+
+```bash
+python3 /path/to/agentseed-mcp/server/guard_cli.py init --root /your/project
+```
+
+起動設定 `agentseed.config.json` の生成、プラグインをクローンしてゲートを実行
+する CI workflow の生成、最初の gate 実行によるベースラインのブートストラップ、
+クライアントへ plugin を向ける MCP スニペットの出力——手編集は不要です。
+
+### プロジェクトシンボルインデックス（ファイル横断判定）
+
+単一ファイルでは、シンボルがプロジェクトのどこかに存在するか判定できません。
+内蔵アナライザはキャッシュされ増分再構築されるプロジェクト全体のシンボル
+インデックスを参照し、容疑を二つの判定に分けます：
+
+- `suspects` — プロジェクトの**どこにも**定義がない：高信頼の幻覚。最も近い
+  実在シンボルの提案付き；
+- `missing_imports` — 別ファイルで定義済みだがこのファイルで未インポート：
+  実在のバグ、修正方法が違う（定義ファイルを列挙）。
+
+どちらもゲート対象。インデックスは `.agentseed/` 配下で成果物には決して
+入らず、設定 `project_index: false` で無効化できます。
+
+### ノイズ減衰ループ
+
+ゲートが生き残る条件は、使うほど静かになることです：
+
+```bash
+python3 server/guard_cli.py suppress legacy_helper    # verify がマークしなくなる（suppressed には残る）
+python3 server/guard_cli.py allow works-on-my-machine # scan が報告しなくなる（内蔵デフォルトの後に統合）
+```
+
+どちらもプロジェクトの `agentseed.config.json` を原子的に書き換え、パースに
+失敗する設定の上書きは拒否します。
+
 
 単体実行、または人間の PR にも同じ CI ゲート：
 
@@ -271,7 +308,7 @@ pip install -r server/requirements.txt
 | ホスト能力 | 得られるもの |
 | --- | --- |
 | フル Agent Plugins | ドロップイン：skill + MCP 自動発見、`${PLUGIN_DATA}` 設定尊重 |
-| MCP 対応クライアント | 登録で 8 ツールすべて |
+| MCP 対応クライアント | 登録で 9 ツールすべて |
 | skill のみのクライアント | skill ワークフロー；検証は `guard_cli.py` を shell 経由で実行 |
 | ターミナル / CI | 終了コード付き CLI ゲート |
 
@@ -289,7 +326,7 @@ pip install -r server/requirements.txt
 | | プロンプト専用 skill | 静的 import linter（MCP） | **AgentSeed** |
 | --- | --- | --- | --- |
 | コードに触れる | ❌ プロンプトのみ | ✅ import グラフ | ✅ AST + 語彙（17 言語） |
-| 検証ツールを実行 | ❌ | lint ゲート | ✅ 8 MCP ツール（sandbox 含む） |
+| 検証ツールを実行 | ❌ | lint ゲート | ✅ 9 MCP ツール（sandbox 含む） |
 | 幻覚言語スキャン | ❌ | ❌ | ✅ stub/oversold/fabricated、EN + CJK |
 | 強制力 | 軟（skill 文面） | CI ゲート | **硬**：skill + MCP + hook + CLI 終了コード |
 | 1.0.0 適合 linter | ❌ | ❌ | ✅ 最初 |

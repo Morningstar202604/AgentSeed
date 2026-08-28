@@ -70,16 +70,16 @@ AgentSeed 填补：**代码级 + 真跑工具 + Skill/MCP 闭环强制**。`chec
 
 ## 4. MCP 接口契约
 
-传输：基于 stdio 的逐行 JSON-RPC 2.0。服务器名 `agentseed`，版本 `0.3.2`，
+传输：基于 stdio 的逐行 JSON-RPC 2.0。服务器名 `agentseed`，版本 `0.4.0`，
 协议 `2024-11-05`。
 
 | 方法 | 说明 |
 | --- | --- |
 | `initialize` | 握手，返回 protocolVersion / capabilities / serverInfo |
-| `tools/list` | 返回 8 个工具 |
-| `tools/call` | 调用 `verify_code` / `check_contract` / `check_imports` / `scan_hallucination` / `check_plugin` / `sandbox_run` / `schema_validate` / `record_verification` |
+| `tools/list` | 返回 9 个工具 |
+| `tools/call` | 调用 `verify_code` / `verify_file` / `check_contract` / `check_imports` / `scan_hallucination` / `check_plugin` / `sandbox_run` / `schema_validate` / `record_verification` |
 
-工具签名：见英文版 §4.2。
+工具签名：见英文版 §4.2。`verify_file` 在已安装时运行项目自带工具链（ruff/pyflakes/tsc/eslint/go vet/cargo check），否则回退内置分析器，详见 §10.1。
 
 ## 5. 关键算法
 
@@ -135,7 +135,7 @@ AgentSeed 填补：**代码级 + 真跑工具 + Skill/MCP 闭环强制**。`chec
 | | 纯 prompt 技能（superpowers…） | 静态 import 检查器 | **AgentSeed** |
 | --- | --- | --- | --- |
 | 碰代码 | ❌ | ✅ import 图 | ✅ AST + 词法 |
-| 跑工具 | ❌ | lint 门禁 | ✅ 8 个 MCP 工具含沙箱 |
+| 跑工具 | ❌ | lint 门禁 | ✅ 9 个 MCP 工具含沙箱 |
 | 强制 | 软 | CI 门禁 | **硬闸门** |
 | 1.0.0 linter | ❌ | ❌ | ✅ |
 
@@ -165,3 +165,65 @@ printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize",...}' \
             '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
   | python3 server/guard_server.py
 ```
+
+## 10. 适配器、门禁分级、证据凭据与插件工具链
+
+### 10.1 工具链验证适配器（`engine/verifiers.py`）
+
+注册表证明"廉价且广"；适配器证明"关键处深"。一个 `VerifierSpec`
+（名称、语言、二进制、固定参数、解析器）通过 `sandbox_run` 运行项目自带的
+工具链——无 shell、输出封顶、超时、进程树终结——并只提取未定义符号类
+（F821 / TS2304 / `undefined:` / E0425 / no-undef），归一化为内置分析器
+相同的 `suspects` 形状。策略：
+
+- `auto` = 第一个已安装的适配器，否则回退内置分析器（在 note 中说明）；
+  显式指定的适配器缺失或运行失败时大声报错，绝不静默降级——把坏掉的
+  适配器解析成"干净"正是本项目要消灭的假绿。
+- 适配器二进制经 PATH 解析为绝对路径；`sandbox_allowed_prefixes`
+  有意不约束适配器（调用 AgentSeed 本身就意味着运行项目声明的工具链）。
+- 新增适配器 = 一个 `VerifierSpec` 条目 + 一个解析函数。
+
+### 10.2 Hook 门禁分级（`guard_hook.py`）
+
+词法扫描器的误报必须永远不能拦截正常工作——一个狼来了的门禁会被关闭，
+被关闭的门禁什么也管不了。因此 hook 给自己的权力分级：
+
+| 分级 | 阻断 | 理由 |
+| --- | --- | --- |
+| `advisory`（默认） | 从不 | 证据与可见性；零打断 |
+| `diff` | 仅当 `group\|word` 计数或嫌疑符号相对文件原有磁盘内容**新增** | hook 层的 `scan --baseline` 等价物 |
+| `strict` | 任何 error 级命中或嫌疑符号 | 0.4 之前的行为，显式开启 |
+
+裁决中的 `blocking` 字段是分级的决定而非原始扫描结果；`status` 取值
+`pass` / `flagged` / `blocked` / `skipped`。
+
+### 10.3 证据凭据（`engine/receipt.py`）
+
+凭据把一个已完成任务的验证状态冻结下来：检查项（工具 + 结论）、每个被
+验证文件的 SHA256 与大小、agentseed/python/平台版本，以及凭据文件自身的
+摘要——重新哈希即可发现任何后续篡改。审计日志追加一行与之关联。被点名的
+文件不存在时整个凭据大声失败。这是完成报告引用的工件，而不是散文。
+
+### 10.4 插件工具链（`guard_cli plugin …`）
+
+`init` 生成最小插件脚手架，随后用真实的合规检查器自检，不能通过则删除
+整棵树（过不了自家 linter 的脚手架不配留在磁盘上）；`validate` 重跑
+linter；`pack` 构建确定性 zip（跳过规则与发布打包器共享，经
+`engine/artifact.py`，回退常量由漂移测试钉住）；`doctor` 报告解释器、
+可选依赖、适配器在位情况、配置告警、真实 MCP 握手（tools/list 数）与
+合规结论。
+
+## 11. 项目符号索引（`engine/index.py`）
+
+单文件作用域分析诚实但对项目视而不见。索引让内置分析器获得跨文件判定，
+而无需类型检查器：
+
+- 符号收集复用 `defined_symbols` 背后的逐语言收集器——没有第二套解析器可漂移。
+- 条目按文件缓存在 `<root>/.agentseed/index.json`，以内容哈希为键；未变动的
+  文件永不重扫，大仓库的 gate 也在秒级。
+- 差分判定：索引中存在的嫌疑被重分类为 `missing_imports`（定义在别处、本文件
+  未导入——真实缺陷，修复方式不同，列出定义文件）；索引中不存在的嫌疑仍是
+  `suspects`，并从全项目符号池给出"你是不是想用"建议。
+- 两类判定都拦截；`verify_file`（builtin 路径）、`guard_cli verify`、`gate`
+  的符号阶段都会查询；配置 `project_index: false` 关闭；检测不到项目根时行为
+  与 0.3.x 的单文件分析完全一致。

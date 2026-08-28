@@ -86,18 +86,26 @@ AgentSeed fills: **code-level + real tooling + Skill/MCP closed-loop enforcement
 | `references/VERIFICATION-CHECKLIST.md` | executable end-of-task checklist (EN/ZH/JA) |
 | `references/VENDOR-SOLUTIONS.md` | vendor technique adoption map (EN/ZH/JA) |
 | `server/guard_engine.py` | pure-stdlib checks behind every tool |
+| `server/engine/symbols.py` | undefined-symbol detection: Python AST, TS/JS lexical, config-driven registry |
+| `server/engine/verifiers.py` | toolchain verifier adapters (ruff/pyflakes/tsc/eslint/go vet/cargo) behind `verify_file` |
+| `server/engine/hallucination.py` | grouped word-pool scanner (EN + CJK), severity model |
+| `server/engine/sandbox.py` | bounded execution channel (no shell, tree kill, env scrub) |
+| `server/engine/audit.py` | JSONL verification audit trail |
+| `server/engine/receipt.py` | evidence receipts: checks + file SHA256s + self digest |
+| `server/engine/artifact.py` | generic plugin packer behind `plugin pack` |
 | `server/guard_server.py` | hand-written JSON-RPC stdio MCP server |
+| `server/guard_hook.py` | client-enforcement hook with gate profiles (advisory/diff/strict) |
 
 ## 4. MCP interface contract
 
 Transport: line-delimited JSON-RPC 2.0 over stdio. Server name `agentseed`,
-version `0.3.2`, protocol `2024-11-05`.
+version `0.4.0`, protocol `2024-11-05`.
 
 ### 4.1 `initialize` → result
 ```json
 { "protocolVersion": "2024-11-05",
   "capabilities": { "tools": {} },
-  "serverInfo": { "name": "agentseed", "version": "0.3.2" } }
+  "serverInfo": { "name": "agentseed", "version": "0.4.0" } }
 ```
 
 ### 4.2 `tools/list` → tools
@@ -105,6 +113,11 @@ version `0.3.2`, protocol `2024-11-05`.
   — `language` defaults to `python`; the accepted set is enumerated by
   `canonical_languages()` / `SUPPORTED_LANGUAGES` and the schema `enum` is
   generated from it, so registering a language updates `tools/list` too.
+- `verify_file(path: string, language?: string, engine?: string)` →
+  `{ok, path, language, engine, suspects[], findings[], note}` — runs a
+  project toolchain verifier when installed (engine `auto`), the built-in
+  analyzer (`builtin`), or the named adapter; an explicit missing adapter
+  fails loudly instead of degrading silently.
 - `check_contract(source: string, contract: string, language?: string)` →
   `{language, contract_ok, missing[], prohibited_hits[], note}`
 - `check_imports(source: string, language?: string)` →
@@ -193,7 +206,7 @@ Returns `ok`, `errors[]`, `warnings[]`.
 | | Prompt-only skills (superpowers…) | Static import linters | **AgentSeed** |
 | --- | --- | --- | --- |
 | Touches code | ❌ | ✅ import graphs | ✅ AST + lexical |
-| Runs tools | ❌ | lint gates | ✅ 8 MCP tools incl. sandbox |
+| Runs tools | ❌ | lint gates | ✅ 9 MCP tools incl. sandbox |
 | Enforcement | soft | CI gate | **hard gate** |
 | 1.0.0 linter | ❌ | ❌ | ✅ |
 
@@ -227,3 +240,77 @@ printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize",...}' \
             '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
   | python3 server/guard_server.py
 ```
+
+## 10. Adapters, gate profiles, receipts, and the plugin toolchain
+
+### 10.1 Verifier adapters (`engine/verifiers.py`)
+
+The registry proves "cheap and broad"; the adapters prove "deep where it
+matters". A `VerifierSpec` (name, languages, binary, fixed args, parser id)
+runs the project's own toolchain through `sandbox_run` — no shell, capped
+output, timeout, tree kill — and extracts only the undefined-name class
+(F821 / TS2304 / `undefined:` / E0425 / no-undef) into the same `suspects`
+shape the built-in analyzer returns. Policy:
+
+- `auto` = first installed adapter, else the built-in analyzer (noted);
+  an explicit adapter name that is missing or fails to run is a loud error,
+  never a silent degrade — a broken adapter parsed as "clean" would be the
+  exact false-green this project exists to prevent.
+- Adapters are PATH-resolved absolute binaries; `sandbox_allowed_prefixes`
+  intentionally does not gate them (running AgentSeed already implies
+  running the project's declared toolchain).
+- Adding an adapter is one `VerifierSpec` entry plus one parser function.
+
+### 10.2 Hook gate profiles (`guard_hook.py`)
+
+A lexical scanner's false positives must never be able to block legitimate
+work — a gate that cries wolf is disabled, and a disabled gate enforces
+nothing. The hook therefore profiles its own power:
+
+| Profile | Blocks | Rationale |
+| --- | --- | --- |
+| `advisory` (default) | never | evidence and visibility; zero interruption |
+| `diff` | only new `group\|word` counts or new suspect names vs the file's previous on-disk content | hook-level analogue of `scan --baseline` |
+| `strict` | any error-severity hit or suspect | pre-0.4 behavior, opt-in |
+
+The verdict's `blocking` field is the profile's decision, not the raw scan;
+`status` is `pass` / `flagged` / `blocked` / `skipped`.
+
+### 10.3 Evidence receipts (`engine/receipt.py`)
+
+A receipt freezes the verification state of a completed task: checks
+(tool + status), SHA256 + size of every verified file, agentseed/python/
+platform versions, and the digest of the receipt file itself — re-hash it
+to detect any later edit. One JSONL audit line links to it. A named file
+that does not exist fails the whole receipt loudly. This is the artifact a
+completion report cites instead of prose.
+
+### 10.4 Plugin toolchain (`guard_cli plugin …`)
+
+`init` scaffolds a minimal plugin and then lints it with the real
+conformance checker, deleting the tree if it cannot pass (a scaffold that
+fails its own linter must not be left behind); `validate` re-runs the
+linter; `pack` builds a deterministic zip (skip rules shared with the
+release packer via `engine/artifact.py`, fallback constants pinned by a
+drift test); `doctor` reports interpreter, optional deps, adapter presence,
+config warnings, a live MCP handshake (tools/list count), and conformance.
+
+## 11. Project symbol index (`engine/index.py`)
+
+Single-file scope analysis is honest but blind to the project. The index
+gives the built-in analyzer a cross-file judgment without a type checker:
+
+- Collection reuses the exact per-language collectors behind
+  `defined_symbols` — no second parser to drift.
+- Entries are cached per file under `<root>/.agentseed/index.json`, keyed by
+  content hash; unchanged files are never re-scanned, so a gate costs
+  seconds on large repos.
+- Differential judgment: a raw suspect that exists in the index is
+  reclassified as `missing_imports` (defined elsewhere, not imported here —
+  a real bug with a different fix, listing the defining files); a suspect
+  absent from the index stays a suspect with did-you-mean suggestions drawn
+  from the whole project's symbol pool.
+- Both verdicts still gate; `verify_file` (builtin path), `guard_cli
+  verify`, and the `gate` symbols stage all consult it; config
+  `project_index: false` turns it off, and outside a detectable project
+  root the behavior is exactly the 0.3.x single-file analysis.

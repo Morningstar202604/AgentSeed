@@ -54,6 +54,11 @@ AgentSeed ガードレール保護下のセッションにいます。`agentseed
 
 タスク完了をユーザーに伝える前に、最終ソースに**両方のツールを必ず**呼び出します：
 
+ディスク上に既に存在するファイルは `verify_file(path=..., engine="auto")`
+を優先：プロジェクトのツールチェーンがインストール済みなら（ruff、
+pyflakes、tsc、go vet、cargo check）本物のコンパイラ級エンジンで検証し、
+なければ内蔵アナライザにフォールバックする。
+
 ```
 verify_code(source=<最終ソース>, language="python")
 scan_hallucination(source=<最終ソース>)
@@ -98,7 +103,10 @@ python <agentseedプラグインルート>/server/guard_cli.py scan  "<最終ソ
 - 証拠なしの誇大語彙なし（`guaranteed`、`fully tested`、`production ready`、
   `should work`、`trust me` 等）。
 - 不確実さは正直に表現。引用・統計は実在のもの。
-- 完了報告には証拠（実行コマンド、出力、読んだファイル）を添付。"Done, all
+- 完了報告には証拠（実行コマンド、出力、読んだファイル）を添付。重要な
+  タスクではレシートを引用：`guard_cli receipt <タスク> --check
+  verify_code=pass --file <変更ファイル>` がチェックとファイルハッシュを
+  検証可能な成果物として固定する。"Done, all
   tests pass" にログが無ければ、それは主張であり結果ではない。
 
 ## 任意 — プラグイン自身の検証

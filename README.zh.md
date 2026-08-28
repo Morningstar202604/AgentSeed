@@ -11,7 +11,7 @@ AI 会编造不存在的 API，会不跑任何测试就说"全部通过"，会�
 在任务被标记为"完成"之前先验证代码，让"完成"= **可观测事实**，而非自说自话。
 
 [![License](https://img.shields.io/badge/license-Apache_2.0-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.3.2-blue)](https://github.com/Morningstar202604/agentseed-mcp/releases)
+[![Version](https://img.shields.io/badge/version-0.4.0-blue)](https://github.com/Morningstar202604/agentseed-mcp/releases)
 [![CI](https://github.com/Morningstar202604/agentseed-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Morningstar202604/agentseed-mcp/actions/workflows/ci.yml)
 [![Platforms](https://img.shields.io/badge/platform-Cursor%20%7C%20VS%20Code%20%7C%20Claude%20Code%20%7C%20Copilot-blue)](https://agent-plugins.org)
 
@@ -125,6 +125,41 @@ git clone https://github.com/Morningstar202604/agentseed-mcp.git
    与 `agentseed` MCP 服务器。
 3. **完事。** 从此每个编码任务都被闸门约束：契约 → 实现 → 验证 → 证据。
 
+**用在 你自己的项目**（你克隆它是为了它）——一条命令：
+
+```bash
+python3 /path/to/agentseed-mcp/server/guard_cli.py init --root /你的/项目
+```
+
+它会写入起始配置 `agentseed.config.json`、生成会克隆本插件并运行闸门的 CI
+workflow、跑第一次 gate 自举基线，并打印把客户端指向本插件的 MCP 片段——
+不用手工编辑。
+
+### 项目符号索引（跨文件判定）
+
+单个文件无法判断一个符号是否存在于项目任何地方——内置分析器现在会查询一个
+缓存式、增量重建的项目符号索引，把原始嫌疑分成两类判定：
+
+- `suspects` —— 项目里**任何地方**都没有定义：高置信幻觉，附最接近真实符号
+  的建议；
+- `missing_imports` —— 定义在别的文件但本文件没有导入：真实缺陷，修复方式
+  不同（会列出定义所在文件）。
+
+两类都会拦截。索引存放在 `.agentseed/` 下、永不进入发布物，配置
+`project_index: false` 可关闭。
+
+### 噪音衰减闭环
+
+门禁只有越用越安静才能活下去：
+
+```bash
+python3 server/guard_cli.py suppress legacy_helper   # verify 不再标记（仍在 suppressed 中可见）
+python3 server/guard_cli.py allow works-on-my-machine # scan 不再报告（合并在内置默认之后）
+```
+
+两者都原子写入你项目的 `agentseed.config.json`，且拒绝覆盖解析失败的配置。
+
+
 独立运行，或用人机同规的 CI 门禁：
 
 ```bash
@@ -144,7 +179,7 @@ python3 server/guard_cli.py scan . --baseline baseline-scan.json  # 目录扫描
 > `command` 是字符串，数组属于 `args`。用 `npx agentseed-mcp` 则完全不用改：
 > npm shim 会按平台自己挑解释器。
 
-## 8 个 MCP 工具
+## 9 个 MCP 工具
 
 零**必需**依赖——纯 Python 标准库；可选依赖把两个工具升级为行业标准引擎
 （见下）。
@@ -260,7 +295,7 @@ pip install -r server/requirements.txt
 | 宿主能力 | 得到什么 |
 | --- | --- |
 | 完整 Agent Plugins | 即插即用：skill + MCP 自动发现，`${PLUGIN_DATA}` 配置生效 |
-| 支持 MCP 的客户端 | 注册即得全部 8 个工具 |
+| 支持 MCP 的客户端 | 注册即得全部 9 个工具 |
 | 仅支持 skill 的客户端 | skill 流程；验证降级为 shell 调用 `guard_cli.py` |
 | 纯终端 / CI | 带退出码的 CLI 门禁 |
 
@@ -277,7 +312,7 @@ pip install -r server/requirements.txt
 | | 纯提示词护栏 skill | 静态 import linter（MCP） | **AgentSeed** |
 | --- | --- | --- | --- |
 | 触碰代码 | ❌ 仅提示 | ✅ import 图 | ✅ AST + 词法（17 语言） |
-| 跑验证工具 | ❌ | lint 门禁 | ✅ 8 个 MCP 工具含沙箱 |
+| 跑验证工具 | ❌ | lint 门禁 | ✅ 9 个 MCP 工具含沙箱 |
 | 幻觉语言扫描 | ❌ | ❌ | ✅ stub/oversold/fabricated，中英双语 |
 | 强制力 | 软（skill 文本） | CI 门禁 | **硬**：skill + MCP + hook + CLI 退出码 |
 | 1.0.0 合规 linter | ❌ | ❌ | ✅ 首个 |

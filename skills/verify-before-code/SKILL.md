@@ -10,7 +10,7 @@ license: Apache-2.0
 compatibility: Requires Python 3.9+ for the MCP server. Zero required dependencies; optional extras (jsonschema, pyflakes, pyyaml) upgrade analysis engines with automatic fallback.
 metadata:
   author: AgentSeed
-  version: "0.3.0"
+  version: "0.4.0"
   spec: agent-plugins-1.0.0
 ---
 
@@ -68,6 +68,11 @@ verify_code(source=<final source>, language="python")
 scan_hallucination(source=<final source>)
 ```
 
+For a file that already exists on disk, prefer `verify_file(path=..., engine="auto")`:
+when the project's toolchain is installed (ruff, pyflakes, tsc, go vet,
+cargo check) it verifies with the real compiler-grade engine and falls back
+to the built-in analyzer otherwise.
+
 **If the `agentseed` MCP tools are not available in this session**, do NOT
 skip verification — degrade to the CLI equivalents via the shell:
 
@@ -123,6 +128,9 @@ Even when the gates pass, run the language audit (PROMPT-POOL C/D/G/J):
 - Uncertainty is expressed honestly; citations and statistics are real.
 - Your completion report attaches evidence: the command run, the output, the
   file read. "Done, all tests pass" without the log is a claim, not a result.
+- For non-trivial tasks, cite a receipt: `guard_cli receipt <task> --check
+  verify_code=pass --file <changed file>` freezes the checks and file hashes
+  into a digest-linked artifact the user can re-verify.
 
 ## Optional — Validate the plugin itself
 
