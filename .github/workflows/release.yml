@@ -202,13 +202,39 @@ jobs:
             echo "::notice::No mirror tokens configured (MIRROR_GITEE_TOKEN / MIRROR_GITCODE_TOKEN) — mirrors were not synced."
             exit 0
           fi
+          sync_one() {
+            local name="$1" url="$2" attempt
+            for attempt in 1 2 3; do
+              if git push --force "$url" \
+                  "HEAD:refs/heads/main" "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"; then
+                echo "::notice::Mirror ${name} synced to ${RELEASE_TAG}."
+                return 0
+              fi
+              echo "Mirror ${name} push attempt ${attempt} failed; retrying after backoff..."
+              sleep $((attempt * 15))
+            done
+            return 1
+          }
+          failed=0
           if [ -n "${GITEE_TOKEN:-}" ]; then
             echo "Syncing Gitee mirror..."
-            git push --force "https://badhope:${GITEE_TOKEN}@gitee.com/badhope/agentseed-mcp.git" \
-              "HEAD:refs/heads/main" "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
+            sync_one gitee "https://badhope:${GITEE_TOKEN}@gitee.com/badhope/agentseed-mcp.git" || failed=1
           fi
           if [ -n "${GITCODE_TOKEN:-}" ]; then
             echo "Syncing GitCode mirror..."
-            git push --force "https://badhope:${GITCODE_TOKEN}@gitcode.com/badhope/agentseed-mcp.git" \
-              "HEAD:refs/heads/main" "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
+            sync_one gitcode "https://badhope:${GITCODE_TOKEN}@gitcode.com/badhope/agentseed-mcp.git" || failed=1
           fi
+          if [ "$failed" -ne 0 ]; then
+            # Mirror hosts apply risk control to datacenter IPs (observed:
+            # Gitee rejects the exact same credentials that succeed from a
+            # maintainer machine), so a runner-side mirror push can fail
+            # purely on network reputation. Mirrors are downstream copies —
+            # the canonical repo, tag, GitHub Release and npm artifact are
+            # already published — so this degrades to a LOUD warning instead
+            # of painting every release red and paging the maintainer for a
+            # copy that is one local command away.
+            echo "::warning::One or more mirrors failed to sync from the runner. Sync from a trusted network: git push --force https://badhope:<TOKEN>@gitee.com/badhope/agentseed-mcp.git HEAD:refs/heads/main refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG} (same for gitcode.com)."
+            echo "mirror-sync: PARTIAL FAILURE (see warning above)" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "mirror-sync: all mirrors at ${RELEASE_TAG}" >> "$GITHUB_STEP_SUMMARY"
