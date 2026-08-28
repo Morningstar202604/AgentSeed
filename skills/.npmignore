@@ -1,0 +1,26 @@
+# Generated from scripts/pack.py ARTIFACT_SKIP_* via a one-shot audit edit
+# (do not hand-edit without mirroring the change into pack.py).
+#
+# The npm channel is governed by package.json "files" (which whitelists this
+# whole directory) plus THIS file: `npm pack` never runs pack.py, so these
+# rules are what keeps maintainer-local runtime state out of the tarball.
+# Drift in either direction fails server/test_manifests.py::TestArtifactHygiene.
+
+
+.agentseed/
+.agentseed_cache/
+.git/
+.idea/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.venv/
+.vscode/
+__pycache__/
+venv/
+verification-log.jsonl
+*.log
+*.pyc
+
+# editor/system residue pack.py does not cover (zip channel never walks it)
+.DS_Store

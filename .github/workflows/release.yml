@@ -115,6 +115,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          LEAKS="$(npm pack --dry-run --json 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const files=(JSON.parse(s)[0]?.files)||[];const bad=files.filter(f=>/(^|\/)(\.agentseed|\.agentseed_cache|__pycache__|\.pytest_cache|\.mypy_cache|\.ruff_cache)(\/|$)|(^|\/)verification-log\.jsonl$|\.pyc$|\.log$/.test(f.path)).map(f=>f.path);console.log(JSON.stringify(bad));});')"
+          if [ "$LEAKS" != "[]" ]; then
+            echo "::error::The npm artifact would ship maintainer-local state: ${LEAKS}"
+            echo "::error::Add a nested .npmignore in the owning directory, mirroring the scripts/pack.py skip lists, then re-run."
+            exit 1
+          fi
           NAME="$(node -p "require('./package.json').name")"
           VERSION="$(node -p "require('./package.json').version")"
           if [ -z "${NPM_TOKEN:-}" ]; then
@@ -130,6 +136,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          LEAKS="$(npm pack --dry-run --json 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const files=(JSON.parse(s)[0]?.files)||[];const bad=files.filter(f=>/(^|\/)(\.agentseed|\.agentseed_cache|__pycache__|\.pytest_cache|\.mypy_cache|\.ruff_cache)(\/|$)|(^|\/)verification-log\.jsonl$|\.pyc$|\.log$/.test(f.path)).map(f=>f.path);console.log(JSON.stringify(bad));});')"
+          if [ "$LEAKS" != "[]" ]; then
+            echo "::error::The npm artifact would ship maintainer-local state: ${LEAKS}"
+            echo "::error::Add a nested .npmignore in the owning directory, mirroring the scripts/pack.py skip lists, then re-run."
+            exit 1
+          fi
           NAME="$(node -p "require('./package.json').name")"
           VERSION="$(node -p "require('./package.json').version")"
           if curl -fsS "https://registry.npmjs.org/${NAME}/${VERSION}" >/dev/null 2>&1; then

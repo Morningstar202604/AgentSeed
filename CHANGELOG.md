@@ -26,6 +26,12 @@ against its tag message.
   produced a green run that published nothing — the same class of false green as
   a scanner reporting `clean` for a file it never opened. The workflow now
   asserts the credential exists and fails with an actionable message otherwise.
+- **The npm artifact is hygiene-gated, not only the zip.** `npm pack`
+  whitelists whole directories (`bin/`, `server/`, `skills/`) and never runs
+  the packer, so a nested `.npmignore` per whitelisted directory is what keeps
+  maintainer-local state (verification logs, caches, garbage logs) out of what
+  users install. Their rules are pinned to `scripts/pack.py` by a drift test,
+  and the release workflow now fails if the tarball would ship any of it.
 - **`server/requirements.txt` is installable on the oldest interpreter we
   support.** The optional-dependency pins had drifted above the Python 3.9
   floor that the CI matrix and the bare-env job both claim to test, so a

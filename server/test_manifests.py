@@ -97,10 +97,37 @@ class TestArtifactHygiene(unittest.TestCase):
             self.assertIn(name, docs, f"{name} missing from the release artifact")
         for name in docs:
             self.assertTrue(
-                os.path.exists(os.path.join(ROOT, name)), f"ARTIFACT_EXTRA_DOCS entry missing: {name}"
+                os.path.exists(os.path.join(ROOT, name)),
+                f"ARTIFACT_EXTRA_DOCS entry missing: {name}",
             )
         overlap = set(docs) & set(_load("package.json").get("files", []))
         self.assertEqual(overlap, set(), "artifact docs duplicated in package.json files")
+
+    def test_npm_channel_ignores_the_same_state(self):
+        """The npm artifact is packed from package.json "files" alone: `npm
+        pack` never executes scripts/pack.py, so a whitelisted directory's
+        nested .npmignore is the only thing standing between a maintainer's
+        local runtime state (server/.agentseed/verification-log.jsonl,
+        __pycache__, *.log) and the tarball users install. Every whitelisted
+        directory must therefore express the same exclusions pack.py enforces
+        for the zip channel, or the npm artifact leaks what the zip does not.
+        """
+        files = _load("package.json").get("files", [])
+        dirs = [f.rstrip("/") for f in files if f.endswith("/")]
+        self.assertTrue(dirs, "no whitelisted directories to guard")
+        for d in dirs:
+            ignore_path = os.path.join(ROOT, d, ".npmignore")
+            with open(ignore_path, encoding="utf-8") as fh:
+                rules = {line.strip() for line in fh if line.strip() and not line.startswith("#")}
+            for skip_dir in self.pack.ARTIFACT_SKIP_DIRS:
+                self.assertIn(f"{skip_dir}/", rules, f"{d}/.npmignore must exclude {skip_dir}/")
+            for skip_file in self.pack.ARTIFACT_SKIP_FILES:
+                self.assertIn(skip_file, rules, f"{d}/.npmignore must exclude {skip_file}")
+            for suffix in self.pack.ARTIFACT_SKIP_SUFFIXES:
+                # pack.py filters with endswith(); npm needs a glob, so a rule
+                # covers a suffix when it appears bare or "*.suffix"-globbed.
+                covered = (suffix in rules) or (f"*{suffix}" in rules)
+                self.assertTrue(covered, f"{d}/.npmignore must exclude *{suffix}")
 
 
 if __name__ == "__main__":
