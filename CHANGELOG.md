@@ -3,6 +3,14 @@
 All notable changes to AgentSeed are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com); versioning follows [SemVer](https://semver.org).
 
+## [0.4.1] — 2026-08-28
+
+### Changed
+- **npm listing polish (packaging-only release).** Added `keywords` (14
+  search terms), `author`, and a description that states what 0.4.0
+  actually ships, so the package page and npm search present the project
+  accurately. Code is identical to 0.4.0 apart from manifest metadata.
+
 ## [0.4.0] — 2026-08-29
 
 ### Added

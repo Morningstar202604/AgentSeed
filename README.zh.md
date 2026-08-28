@@ -11,7 +11,7 @@ AI 会编造不存在的 API，会不跑任何测试就说"全部通过"，会�
 在任务被标记为"完成"之前先验证代码，让"完成"= **可观测事实**，而非自说自话。
 
 [![License](https://img.shields.io/badge/license-Apache_2.0-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.4.0-blue)](https://github.com/Morningstar202604/agentseed-mcp/releases)
+[![Version](https://img.shields.io/badge/version-0.4.1-blue)](https://github.com/Morningstar202604/agentseed-mcp/releases)
 [![CI](https://github.com/Morningstar202604/agentseed-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Morningstar202604/agentseed-mcp/actions/workflows/ci.yml)
 [![Platforms](https://img.shields.io/badge/platform-Cursor%20%7C%20VS%20Code%20%7C%20Claude%20Code%20%7C%20Copilot-blue)](https://agent-plugins.org)
 

@@ -1,7 +1,7 @@
 {
   "name": "agentseed-mcp",
-  "version": "0.4.0",
-  "description": "Anti-hallucination guardrails for AI coding agents: hybrid Skill + MCP server that forces spec-driven development and verifies code before it is marked done.",
+  "version": "0.4.1",
+  "description": "The anti-hallucination gate for AI coding agents: 9 MCP tools (undefined-symbol verification in 17 languages with real toolchain adapters, hallucination-word scan, sandboxed run, evidence receipts), a cross-client hook and a CI gate — so 'done' means observed fact.",
   "license": "Apache-2.0",
   "mcpName": "io.github.morningstar202604/agentseed-mcp",
   "bin": {
@@ -26,5 +26,25 @@
   },
   "engines": {
     "node": ">=16"
+  },
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "ai-agents",
+    "hallucination-detection",
+    "guardrails",
+    "code-verification",
+    "static-analysis",
+    "claude-code",
+    "cursor",
+    "opencode",
+    "agent-plugins",
+    "developer-tools",
+    "ci"
+  ],
+  "author": {
+    "name": "Morningstar202604",
+    "url": "https://github.com/Morningstar202604"
   }
 }
