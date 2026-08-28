@@ -4,11 +4,11 @@ on:
   push:
     tags: ["v*"]
   # Re-publish an existing tag after a transient failure, without moving a
-  # public tag: `gh workflow run release.yml -f tag=v0.3.1`.
+  # public tag: `gh workflow run release.yml -f tag=v0.3.2`.
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing release tag to (re)publish, e.g. v0.3.1"
+        description: "Existing release tag to (re)publish, e.g. v0.3.2"
         required: true
         type: string
 
@@ -106,12 +106,24 @@ jobs:
         with:
           node-version: 20
           registry-url: https://registry.npmjs.org/
-      # Skipped entirely when NPM_TOKEN is unset, so the provenance
-      # requirement can never break the (still-released) no-npm path.
+      # A release that skips its published artifact but reports success is the
+      # exact false green this plugin exists to prevent, so an unconfigured
+      # npm path fails the run instead of passing quietly.
+      - name: Require npm publishing to be configured
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          NAME="$(node -p "require('./package.json').name")"
+          VERSION="$(node -p "require('./package.json').version")"
+          if [ -z "${NPM_TOKEN:-}" ]; then
+            echo "::error::NPM_TOKEN is not configured on this repository, so ${NAME}@${VERSION} would never reach npm while this run still reported success. Add the secret (or switch this workflow to npm trusted publishing / OIDC) and re-run."
+            exit 1
+          fi
       # Provenance is only attested on a real tag push: that is the trigger
       # whose OIDC ref actually names the released tag.
-      - name: Publish to npm (skipped when NPM_TOKEN secret is unset)
-        if: env.NPM_TOKEN != ''
+      - name: Publish to npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           PROVENANCE: ${{ github.event_name == 'push' && '--provenance' || '' }}
