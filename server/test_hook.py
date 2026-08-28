@@ -1,4 +1,10 @@
-"""AgentSeed client-enforcement hook tests (stdlib unittest, subprocess)."""
+"""AgentSeed client-enforcement hook tests (stdlib unittest, subprocess).
+
+Gate-profile contract (0.4+): the hook defaults to `advisory` — findings are
+reported, never blocking. Blocking requires an explicit `strict` profile (or
+`diff` growth). Tests that exercise blocking therefore pass --profile strict
+explicitly; the default-profile tests pin the non-blocking contract.
+"""
 
 import json
 import os
@@ -15,7 +21,7 @@ PY = sys.executable
 OVERSOLD = "all tests pass, guaranteed"
 
 
-def run_hook(payload=None, *extra: str) -> subprocess.CompletedProcess:
+def run_hook(payload=None, *extra: str, env=None) -> subprocess.CompletedProcess:
     stdin = "" if payload is None else json.dumps(payload)
     return subprocess.run(
         [PY, HOOK, *extra],
@@ -26,7 +32,14 @@ def run_hook(payload=None, *extra: str) -> subprocess.CompletedProcess:
         errors="replace",
         timeout=60,
         cwd=PLUGIN_ROOT,
+        env=env,
     )
+
+
+def write(path: str, text: str) -> str:
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(text)
+    return path
 
 
 class TestHookMode(unittest.TestCase):
@@ -41,15 +54,18 @@ class TestHookMode(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         v = json.loads(r.stdout)
         self.assertEqual(v["status"], "pass")
+        self.assertEqual(v["profile"], "advisory")
         self.assertFalse(v["blocking"])
 
-    def test_pretooluse_blocks_oversold_write(self):
+    def test_pretooluse_strict_blocks_oversold_write(self):
         r = run_hook(
             {
                 "hook_event_name": "PreToolUse",
                 "tool_name": "Write",
                 "tool_input": {"file_path": "notes.md", "content": OVERSOLD + "\n"},
-            }
+            },
+            "--profile",
+            "strict",
         )
         self.assertEqual(r.returncode, 2, r.stdout)
         v = json.loads(r.stdout)
@@ -58,13 +74,15 @@ class TestHookMode(unittest.TestCase):
         self.assertTrue(v["hits"])
         self.assertIn(OVERSOLD.split(",")[0], r.stderr)
 
-    def test_pretooluse_blocks_hallucinated_symbol(self):
+    def test_pretooluse_strict_blocks_hallucinated_symbol(self):
         r = run_hook(
             {
                 "hook_event_name": "PreToolUse",
                 "tool_name": "Write",
                 "tool_input": {"file_path": "m.py", "content": "return magic_unknown()\n"},
-            }
+            },
+            "--profile",
+            "strict",
         )
         self.assertEqual(r.returncode, 2, r.stdout)
         v = json.loads(r.stdout)
@@ -76,7 +94,9 @@ class TestHookMode(unittest.TestCase):
                 "hook_event_name": "PreToolUse",
                 "tool_name": "Edit",
                 "tool_input": {"file_path": "a.md", "old_string": "x", "new_string": OVERSOLD},
-            }
+            },
+            "--profile",
+            "strict",
         )
         self.assertEqual(r.returncode, 2, r.stdout)
         v = json.loads(r.stdout)
@@ -91,7 +111,9 @@ class TestHookMode(unittest.TestCase):
                     "file_path": "a.md",
                     "edits": [{"old_string": "x", "new_string": OVERSOLD}],
                 },
-            }
+            },
+            "--profile",
+            "strict",
         )
         self.assertEqual(r.returncode, 2, r.stdout)
 
@@ -108,18 +130,18 @@ class TestHookMode(unittest.TestCase):
         self.assertFalse(v["blocking"])
         self.assertTrue(v["hits"])  # reported, just not blocking
 
-    def test_posttooluse_scans_file_from_disk(self):
+    def test_posttooluse_strict_scans_file_from_disk(self):
         with tempfile.TemporaryDirectory() as d:
-            path = os.path.join(d, "doc.md")
-            with open(path, "w", encoding="utf-8") as fh:
-                fh.write("this module is production ready now\n")
+            path = write(os.path.join(d, "doc.md"), "this module is production ready now\n")
             # no inline content key -> falls back to reading the file on disk
             r = run_hook(
                 {
                     "hook_event_name": "PostToolUse",
                     "tool_name": "NotebookSave",
                     "tool_input": {"file_path": path},
-                }
+                },
+                "--profile",
+                "strict",
             )
             self.assertEqual(r.returncode, 2, r.stdout)
             v = json.loads(r.stdout)
@@ -166,16 +188,172 @@ class TestHookMode(unittest.TestCase):
         self.assertEqual(v["status"], "skipped")
 
 
+class TestGateProfiles(unittest.TestCase):
+    """0.4 contract: advisory is the default and never blocks; diff blocks
+    only growth; strict is the only unconditional blocker."""
+
+    def test_advisory_is_the_default_and_never_blocks(self):
+        r = run_hook(
+            {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Write",
+                "tool_input": {"file_path": "notes.md", "content": OVERSOLD + "\n"},
+            }
+        )
+        self.assertEqual(r.returncode, 0, r.stdout)
+        v = json.loads(r.stdout)
+        self.assertEqual(v["profile"], "advisory")
+        self.assertEqual(v["status"], "flagged")
+        self.assertFalse(v["blocking"])
+        self.assertTrue(v["hits"])  # evidence is still reported
+
+    def test_advisory_reports_hallucinated_symbol_without_blocking(self):
+        r = run_hook(
+            {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Write",
+                "tool_input": {"file_path": "m.py", "content": "return magic_unknown()\n"},
+            }
+        )
+        self.assertEqual(r.returncode, 0, r.stdout)
+        v = json.loads(r.stdout)
+        self.assertEqual(v["status"], "flagged")
+        self.assertIn("magic_unknown", v["suspects"])
+
+    def test_diff_blocks_only_growth(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = write(os.path.join(d, "a.md"), "text " + OVERSOLD + "\n")
+            same = run_hook(
+                {
+                    "hook_event_name": "PreToolUse",
+                    "tool_name": "Write",
+                    "tool_input": {
+                        "file_path": path,
+                        "content": "rewritten " + OVERSOLD + " once more\n",
+                    },
+                },
+                "--profile",
+                "diff",
+            )
+            self.assertEqual(same.returncode, 0, same.stdout)
+            self.assertEqual(json.loads(same.stdout)["status"], "flagged")
+            grown = run_hook(
+                {
+                    "hook_event_name": "PreToolUse",
+                    "tool_name": "Write",
+                    "tool_input": {
+                        "file_path": path,
+                        "content": OVERSOLD + "\n" + OVERSOLD + "\nworks perfectly\n",
+                    },
+                },
+                "--profile",
+                "diff",
+            )
+            self.assertEqual(grown.returncode, 2, grown.stdout)
+            v = json.loads(grown.stdout)
+            self.assertEqual(v["status"], "blocked")
+            self.assertTrue(v["diff"]["grew"])
+
+    def test_diff_blocks_new_hallucinated_symbol(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = write(os.path.join(d, "m.py"), "import os\nprint(os.getcwd())\n")
+            r = run_hook(
+                {
+                    "hook_event_name": "PreToolUse",
+                    "tool_name": "Write",
+                    "tool_input": {
+                        "file_path": path,
+                        "content": "import os\nprint(os.getcwd())\nprint(new_unknown())\n",
+                    },
+                },
+                "--profile",
+                "diff",
+            )
+            self.assertEqual(r.returncode, 2, r.stdout)
+            v = json.loads(r.stdout)
+            self.assertEqual(v["diff"]["new_suspects"], ["new_unknown"])
+
+    def test_diff_without_inline_content_reports_without_blocking(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = write(os.path.join(d, "doc.md"), "this module is production ready now\n")
+            r = run_hook(
+                {
+                    "hook_event_name": "PostToolUse",
+                    "tool_name": "NotebookSave",
+                    "tool_input": {"file_path": path},
+                },
+                "--profile",
+                "diff",
+            )
+            self.assertEqual(r.returncode, 0, r.stdout)
+            v = json.loads(r.stdout)
+            self.assertEqual(v["status"], "flagged")
+            self.assertIn("diff needs", v["diff"]["note"])
+
+    def test_profile_from_config(self):
+        with tempfile.TemporaryDirectory() as d:
+            cfg = write(os.path.join(d, "cfg.json"), json.dumps({"hook_profile": "strict"}))
+            env = {**os.environ, "AGENTSEED_CONFIG": cfg}
+            r = run_hook(
+                {
+                    "hook_event_name": "PreToolUse",
+                    "tool_name": "Write",
+                    "tool_input": {"file_path": "notes.md", "content": OVERSOLD + "\n"},
+                },
+                env=env,
+            )
+            self.assertEqual(r.returncode, 2, r.stdout)
+            self.assertEqual(json.loads(r.stdout)["profile"], "strict")
+
+    def test_unknown_profile_in_config_falls_back_with_note(self):
+        with tempfile.TemporaryDirectory() as d:
+            cfg = write(os.path.join(d, "cfg.json"), json.dumps({"hook_profile": "yolo"}))
+            env = {**os.environ, "AGENTSEED_CONFIG": cfg}
+            r = run_hook(
+                {
+                    "hook_event_name": "PreToolUse",
+                    "tool_name": "Write",
+                    "tool_input": {"file_path": "notes.md", "content": OVERSOLD + "\n"},
+                },
+                env=env,
+            )
+            self.assertEqual(r.returncode, 0, r.stdout)
+            v = json.loads(r.stdout)
+            self.assertEqual(v["profile"], "advisory")
+            self.assertIn("unknown hook_profile", v.get("profile_note", ""))
+
+    def test_cli_flag_wins_over_config(self):
+        with tempfile.TemporaryDirectory() as d:
+            cfg = write(os.path.join(d, "cfg.json"), json.dumps({"hook_profile": "advisory"}))
+            env = {**os.environ, "AGENTSEED_CONFIG": cfg}
+            r = run_hook(
+                {
+                    "hook_event_name": "PreToolUse",
+                    "tool_name": "Write",
+                    "tool_input": {"file_path": "notes.md", "content": OVERSOLD + "\n"},
+                },
+                "--profile",
+                "strict",
+                env=env,
+            )
+            self.assertEqual(r.returncode, 2, r.stdout)
+
+
 class TestDirectFileScan(unittest.TestCase):
     def test_file_flag_scans_disk(self):
         with tempfile.TemporaryDirectory() as d:
-            path = os.path.join(d, "m.py")
-            with open(path, "w", encoding="utf-8") as fh:
-                fh.write("return magic_unknown()\n")
-            r = run_hook(None, "--file", path)
+            path = write(os.path.join(d, "m.py"), "return magic_unknown()\n")
+            r = run_hook(None, "--file", path, "--profile", "strict")
             self.assertEqual(r.returncode, 2, r.stdout)
             v = json.loads(r.stdout)
             self.assertIn("magic_unknown", v["suspects"])
+
+    def test_file_flag_advisory_reports_without_blocking(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = write(os.path.join(d, "m.py"), "return magic_unknown()\n")
+            r = run_hook(None, "--file", path)
+            self.assertEqual(r.returncode, 0, r.stdout)
+            self.assertEqual(json.loads(r.stdout)["status"], "flagged")
 
     def test_file_flag_missing_file_skips(self):
         r = run_hook(None, "--file", os.path.join(tempfile.gettempdir(), "no-such-file-xyz.py"))
@@ -315,7 +493,7 @@ class TestCursorProtocol(unittest.TestCase):
             "file_path": "report.md",
             "edits": [{"old_string": "x", "new_string": OVERSOLD}],
         }
-        r = run_hook(event)
+        r = run_hook(event, "--profile", "strict")
         self.assertEqual(r.returncode, 2, r.stdout)
         v = json.loads(r.stdout.split('{"continue"')[0])  # verdict JSON first
         self.assertEqual(v["protocol"], "cursor")
@@ -332,7 +510,7 @@ class TestCursorProtocol(unittest.TestCase):
             "tool_name": "Write",
             "tool_input": {"file_path": "m.md", "content": OVERSOLD},
         }
-        r = run_hook(event)
+        r = run_hook(event, "--profile", "strict")
         self.assertEqual(r.returncode, 2, r.stdout)
 
     def test_claude_payload_has_no_cursor_deny_json(self):
@@ -341,7 +519,9 @@ class TestCursorProtocol(unittest.TestCase):
                 "hook_event_name": "PreToolUse",
                 "tool_name": "Write",
                 "tool_input": {"file_path": "m.md", "content": OVERSOLD},
-            }
+            },
+            "--profile",
+            "strict",
         )
         self.assertEqual(r.returncode, 2)
         v = json.loads(r.stdout)

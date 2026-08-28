@@ -129,6 +129,24 @@ class TestArtifactHygiene(unittest.TestCase):
                 covered = (suffix in rules) or (f"*{suffix}" in rules)
                 self.assertTrue(covered, f"{d}/.npmignore must exclude *{suffix}")
 
+    def test_plugin_pack_fallback_constants_match_the_packer(self):
+        """engine/artifact.py ships fallback skip constants for installed
+        copies that do not include scripts/; they must equal the release
+        packer's constants, or `plugin pack` zips would silently diverge
+        from release-channel hygiene."""
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "artifact_under_test", os.path.join(ROOT, "server", "engine", "artifact.py")
+        )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        self.assertEqual(module._FALLBACK_SKIP_DIRS, self.pack.ARTIFACT_SKIP_DIRS)
+        self.assertEqual(module._FALLBACK_SKIP_FILES, self.pack.ARTIFACT_SKIP_FILES)
+        self.assertEqual(
+            module._FALLBACK_SKIP_SUFFIXES, tuple(self.pack.ARTIFACT_SKIP_SUFFIXES)
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

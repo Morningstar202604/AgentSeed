@@ -8,8 +8,9 @@ which MCP SDK version the client ships.
 
 Protocol: line-delimited JSON-RPC 2.0 over stdin/stdout (stdio transport).
 
-Tools (8 — one per `guard_cli.py` subcommand):
+Tools (9 — the 8 `guard_cli.py` subcommands plus `verify_file`):
   - verify_code         -> detect_undefined_symbols
+  - verify_file         -> run_verifier (toolchain adapters + builtin fallback)
   - check_contract      -> check_contract (source vs a written spec)
   - check_imports       -> imported-but-unknown packages (slopsquatting)
   - scan_hallucination  -> scan_hallucination_words
@@ -25,6 +26,7 @@ from __future__ import annotations
 import json
 import sys
 import threading
+import time
 
 import guard_engine as engine  # noqa: E402
 from engine.symbols import SUPPORTED_LANGUAGES, canonical_languages  # noqa: E402
@@ -54,6 +56,7 @@ _stdout_lock = threading.Lock()
 # agentseed.config.json (Agent Plugins v1.0.0 §9.1), or ./agentseed.config.json.
 CONFIG = engine.load_config()
 CONFIG_ALLOWLIST = engine.config_str_list(CONFIG, "allowlist")
+CONFIG_EXTRA_ALLOWLIST = engine.config_str_list(CONFIG, "extra_allowlist")
 CONFIG_SEVERITIES = engine.config_severities(CONFIG)
 CONFIG_TIMEOUT = engine.parse_timeout(CONFIG)
 CONFIG_EXTRA_TOKENS = engine.config_extra_tokens(CONFIG)
@@ -61,6 +64,7 @@ CONFIG_SUPPRESS = engine.config_str_list(CONFIG, "suppress_symbols")
 CONFIG_KNOWN_PACKAGES = engine.config_str_list(CONFIG, "known_packages")
 CONFIG_SANDBOX_ALLOW = engine.config_str_list(CONFIG, "sandbox_allowed_prefixes")
 CONFIG_SANDBOX_ENV = engine.sandbox_env_mode(CONFIG)
+CONFIG_PROJECT_INDEX = engine.config_bool(CONFIG, "project_index", True)
 
 for _warn_key in engine.unknown_config_keys(CONFIG):
     print(
@@ -105,6 +109,35 @@ TOOLS = [
             },
         },
         ["source"],
+    ),
+    _tool(
+        "verify_file",
+        "Verify a file that exists on disk with the best available engine. "
+        "engine='auto' (default) runs a project toolchain verifier when "
+        "installed — ruff or pyflakes for Python, tsc for TypeScript, eslint "
+        "for JavaScript, go vet for Go, cargo check for Rust — through the "
+        "bounded execution channel (no shell, capped output, timeout, tree "
+        "kill), and falls back to the built-in analyzer otherwise; "
+        "engine='builtin' forces the built-in analyzer; engine='<name>' "
+        "requires that verifier and fails loudly when it is missing. Only "
+        "undefined-name diagnostics are reported (the hallucinated-symbol "
+        "class); other findings stay the tool's own job. Prefer this over "
+        "verify_code for framework code that lexical analysis cannot scope "
+        "(React hook destructuring, star imports, cross-file symbols).",
+        {
+            "path": {"type": "string", "description": "Path to an existing source file."},
+            "language": {
+                "type": "string",
+                "description": "Source language; inferred from the file extension "
+                "when omitted.",
+            },
+            "engine": {
+                "type": "string",
+                "description": "'auto' (default), 'builtin', or an adapter name "
+                "listed by the CLI 'verifiers' subcommand.",
+            },
+        },
+        ["path"],
     ),
     _tool(
         "check_contract",
@@ -278,6 +311,13 @@ def _execute(name: str, args: dict) -> dict:
             args.get("language", "python"),
             suppress=CONFIG_SUPPRESS,
         )
+    if name == "verify_file":
+        return engine.run_verifier(
+            args.get("path", ""),
+            language=args.get("language") or None,
+            engine=args.get("engine") or "auto",
+            use_index=CONFIG_PROJECT_INDEX,
+        )
     if name == "check_contract":
         return engine.check_contract(
             args.get("source", ""),
@@ -294,7 +334,7 @@ def _execute(name: str, args: dict) -> dict:
         # explicit tool arguments win over config-file values
         allowlist = args.get("allowlist")
         if allowlist is None:
-            allowlist = CONFIG_ALLOWLIST
+            allowlist = engine.merge_allowlist(CONFIG_ALLOWLIST, CONFIG_EXTRA_ALLOWLIST)
         return engine.scan_hallucination_words(
             args.get("source", ""),
             allowlist,
@@ -479,6 +519,17 @@ def main() -> None:
         if is_notification:
             continue
         _write_response(resp)
+
+    # stdin EOF: a one-shot pipe client (printf ... | guard_server.py) closes
+    # stdin immediately after its last request. The workers are daemons, so
+    # without this drain the final response is killed mid-flight — a lost
+    # tools/call reply looks identical to a server that never ran the tool.
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+        with _pending_lock:
+            if not _pending:
+                break
+        time.sleep(0.05)
 
 
 if __name__ == "__main__":

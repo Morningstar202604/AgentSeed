@@ -5,10 +5,24 @@ Registered as a Claude Code hook, every Write/Edit/MultiEdit tool call is
 scanned here — PreToolUse inspects the incoming ``content``/``new_string``
 BEFORE anything lands on disk, PostToolUse re-checks the saved file.
 
+Gate profiles (config key ``hook_profile``, CLI flag ``--profile``):
+  advisory (default)  findings are REPORTED (verdict status "flagged") and
+                      the write proceeds: the hook's job is evidence and
+                      visibility, never interruption. A lexical scanner's
+                      false positives must not be able to block legitimate
+                      work, or users disable the hook and lose everything.
+  diff                block only when the edit ADDS new signals relative to
+                      the file's previous on-disk content (the hook-level
+                      analogue of `scan --baseline`); needs an existing file
+                      plus inline content, otherwise reports without blocking.
+  strict              block (exit 2) on any error-severity word hit or
+                      undefined-symbol suspect — the pre-0.4 behavior, for
+                      maintainers who have tuned their allowlist/severities.
+
 Modes:
   hook mode (default)  one event JSON on stdin -> JSON verdict on stdout.
                        Exit codes follow the Claude Code hook contract:
-                       0 = pass / skipped / warning-only,
+                       0 = pass / skipped / flagged / warning-only,
                        2 = blocking findings (stderr carries the reason).
   --file PATH          scan one file directly instead of reading stdin.
   register --client claude [--settings PATH]
@@ -22,8 +36,9 @@ Modes:
 
 Failure policy (honest scope): infrastructure problems — malformed stdin,
 unreadable files, unrecognized tool shapes — never block work (skipped,
-exit 0). Only positive scan findings block. Zero dependencies: stdlib plus
-the local guard_engine package.
+exit 0). Only positive scan findings can block, and only under the profile
+that allows blocking. Zero dependencies: stdlib plus the local guard_engine
+package.
 """
 
 from __future__ import annotations
@@ -35,6 +50,9 @@ import shutil
 import sys
 
 import guard_engine as engine
+
+PROFILES = ("advisory", "diff", "strict")
+DEFAULT_PROFILE = "advisory"
 
 SCAN_SUFFIXES = (
     ".py",
@@ -127,7 +145,10 @@ def _load_file(path: str) -> str:
 
 def scan_source(text: str, label: str, config: dict) -> dict:
     """Run the two detection engines over one source text."""
-    allowlist = engine.config_str_list(config, "allowlist") or engine.DEFAULT_ALLOWLIST
+    allowlist = engine.merge_allowlist(
+        engine.config_str_list(config, "allowlist"),
+        engine.config_str_list(config, "extra_allowlist"),
+    ) or engine.DEFAULT_ALLOWLIST
     severities = engine.config_severities(config)
     scan = engine.scan_hallucination_words(
         text, allowlist, severities, extra_tokens=engine.config_extra_tokens(config)
@@ -150,19 +171,67 @@ def scan_source(text: str, label: str, config: dict) -> dict:
     return {"suspects": suspects, "hits": hits, "blocking": blocking}
 
 
-def run_hook(event: dict, config_path: str | None = None) -> tuple[dict, int]:
+def _hit_counts(hits: list) -> dict:
+    """group|word -> count, deliberately line-free (same shape as the CLI
+    baseline fingerprint, so the two never disagree about what is 'new')."""
+    counts: dict[str, int] = {}
+    for h in hits:
+        key = f"{h.get('group', '?')}|{h.get('word', '?')}"
+        counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
+def _diff_decide(
+    findings: dict, path: str | None, inline: str | None, config: dict
+) -> tuple[bool, dict]:
+    """diff profile: block only when the edit ADDS new signals relative to
+    the file's previous on-disk content. Without both an existing file and
+    inline new content there is nothing to diff against, so the finding is
+    reported without blocking (a profile must never block MORE than strict
+    by accident — it exists to block LESS)."""
+    info: dict = {}
+    if path is None or inline is None or not os.path.isfile(path):
+        info["note"] = (
+            "diff needs an existing file on disk plus inline new content "
+            "(PreToolUse); reported without blocking"
+        )
+        return False, info
+    try:
+        old = scan_source(_load_file(path), path, config)
+    except OSError as exc:
+        info["note"] = f"cannot read previous content: {exc}; reported without blocking"
+        return False, info
+    new_counts, old_counts = _hit_counts(findings["hits"]), _hit_counts(old["hits"])
+    grew = sorted(k for k, v in new_counts.items() if v > old_counts.get(k, 0))
+    new_suspects = sorted(set(findings["suspects"]) - set(old["suspects"]))
+    info.update({"new": new_counts, "old": old_counts, "grew": grew, "new_suspects": new_suspects})
+    return bool(grew or new_suspects), info
+
+
+def run_hook(
+    event: dict, config_path: str | None = None, profile: str | None = None
+) -> tuple[dict, int]:
     """Evaluate one hook event; returns (verdict, exit_code)."""
     config = engine.load_config(config_path)
+    resolved = profile or config.get("hook_profile") or DEFAULT_PROFILE
     verdict: dict = {
         "event": event.get("hook_event_name"),
         "tool": event.get("tool_name"),
         "file": None,
         "protocol": _detect_protocol(event),
+        "profile": resolved,
         "status": "pass",
         "suspects": [],
         "hits": [],
         "blocking": False,
     }
+    if resolved not in PROFILES:
+        verdict["profile"] = DEFAULT_PROFILE
+        verdict["profile_note"] = (
+            f"unknown hook_profile {resolved!r}; using {DEFAULT_PROFILE!r} "
+            f"(valid: {', '.join(PROFILES)})"
+        )
+        resolved = DEFAULT_PROFILE
     path, inline = _extract_target(event)
     verdict["file"] = path
     if path is None and inline is None:
@@ -189,7 +258,20 @@ def run_hook(event: dict, config_path: str | None = None) -> tuple[dict, int]:
         return verdict, 0
     findings = scan_source(text, target, config)
     verdict.update(findings)
-    if not findings["blocking"]:
+
+    if resolved == "strict":
+        blocking = bool(findings["blocking"])
+    elif resolved == "diff":
+        blocking, info = _diff_decide(findings, path, inline, config)
+        verdict["diff"] = info
+    else:  # advisory: report everything, block nothing
+        blocking = False
+    # "blocking" in the verdict is the PROFILE'S DECISION, not the raw scan:
+    # an advisory verdict that said blocking=true would be a contradiction
+    verdict["blocking"] = blocking
+
+    if not blocking:
+        verdict["status"] = "flagged" if (findings["suspects"] or findings["hits"]) else "pass"
         return verdict, 0
     verdict["status"] = "blocked"
     reasons = []
@@ -377,6 +459,13 @@ def main(argv: list[str] | None = None) -> int:
         parser = argparse.ArgumentParser(prog="agentseed-hook", description=__doc__)
         parser.add_argument("--file", help="scan this file directly (skip stdin)")
         parser.add_argument("--config", help="explicit agentseed config path")
+        parser.add_argument(
+            "--profile",
+            choices=list(PROFILES),
+            default=None,
+            help="gate profile override (default: config hook_profile, else "
+            f"{DEFAULT_PROFILE}: report findings, never block)",
+        )
         ns = parser.parse_args(argv)
         if ns.file:
             event = {
@@ -393,7 +482,7 @@ def main(argv: list[str] | None = None) -> int:
                     json.dumps({"status": "skipped", "reason": "stdin is not valid JSON"}, indent=2)
                 )
                 return 0
-        verdict, code = run_hook(event, ns.config)
+        verdict, code = run_hook(event, ns.config, ns.profile)
         print(json.dumps(verdict, ensure_ascii=False, indent=2))
         if code == 2:
             reason = verdict.get("reason", "blocked by agentseed")

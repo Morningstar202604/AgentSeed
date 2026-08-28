@@ -25,6 +25,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
+import subprocess
 import sys
 
 import guard_engine as engine  # noqa: E402
@@ -93,6 +95,22 @@ def _warn_unknown_config(config: dict) -> None:
         )
 
 
+def _config_for_root(root: str | None, explicit: str | None) -> dict:
+    """Config discovery that respects the PROJECT being gated, not just the
+    process cwd: `agentseed.config.json` at/above the target root wins, then
+    the standard search (env / PLUGIN_DATA / cwd). `init` writes the project
+    config and gate/verify must actually read it."""
+    if explicit:
+        return engine.load_config(explicit)
+    if root:
+        proj_root = engine.find_project_root(root) or (root if os.path.isdir(root) else None)
+        if proj_root:
+            candidate = os.path.join(proj_root, "agentseed.config.json")
+            if os.path.isfile(candidate):
+                return engine.load_config(candidate)
+    return engine.load_config(None)
+
+
 def _resolve_language(args: argparse.Namespace) -> str:
     """Explicit ``--language`` wins; otherwise pick the language from the file
     the argument names, falling back to python for inline source text."""
@@ -103,18 +121,47 @@ def _resolve_language(args: argparse.Namespace) -> str:
 
 
 def cmd_verify(args: argparse.Namespace) -> int:
-    config = engine.load_config(args.config)
+    source_path_exists = os.path.isfile(args.source)
+    root = (
+        engine.find_project_root(args.source)
+        if source_path_exists and engine.config_bool(
+            _config_for_root(args.source, getattr(args, "config", None)), "project_index", True
+        )
+        else None
+    )
+    config = _config_for_root(root, getattr(args, "config", None))
     _warn_unknown_config(config)
     suppress = args.suppress or engine.config_str_list(config, "suppress_symbols")
+    language = _resolve_language(args)
+    engine_name = getattr(args, "engine", None) or "builtin"
+    if engine_name != "builtin" and os.path.isfile(args.source):
+        # adapters execute the project's own toolchain on-disk
+        result = engine.run_verifier(args.source, language=language, engine=engine_name)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        if not result.get("ok", True):
+            return 1
+        return 1 if result.get("suspects") else 0
     source = _read_source(args.source)
-    result = engine.detect_undefined_symbols(
-        source, _resolve_language(args), suppress=suppress
-    )
+    # cross-file judgment: a suspect defined elsewhere in the project becomes
+    # a missing-import finding (different bug, different fix); `root` is None
+    # for inline text, unknown languages, or project_index:false
+    if root is not None:
+        result = engine.verify_in_project(source, language, root, suppress=suppress)
+    else:
+        result = engine.detect_undefined_symbols(source, language, suppress=suppress)
+    result.setdefault("engine", "builtin")
+    if engine_name != "builtin":
+        # inline text has no file for an adapter to run against: degrade
+        # honestly instead of pretending the toolchain was consulted
+        result["note"] = (
+            "adapters verify on-disk files; inline source fell back to the "
+            "built-in analyzer. " + result.get("note", "")
+        )
     print(json.dumps(result, ensure_ascii=False, indent=2))
     if result.get("note", "").startswith("Cannot parse"):
         # syntax error is reported, not a finding — unless gating strictly
         return 1 if getattr(args, "strict", False) else 0
-    return 1 if result["suspects"] else 0
+    return 1 if (result["suspects"] or result.get("missing_imports")) else 0
 
 
 def cmd_contract(args: argparse.Namespace) -> int:
@@ -185,16 +232,16 @@ def cmd_scan_baseline(args: argparse.Namespace) -> int:
     # re-enter every comparison as "new" signals (self-reference recursion)
     files = [p for p in files if os.path.abspath(p) != base_abs]
 
-    config = engine.load_config(args.config)
+    config = _config_for_root(args.source, args.config)
     _warn_unknown_config(config)
     allowlist = (
         []
         if args.strict
-        else (
-            args.allowlist
-            or engine.config_str_list(config, "allowlist")
-            or engine.DEFAULT_ALLOWLIST
+        else engine.merge_allowlist(
+            args.allowlist or engine.config_str_list(config, "allowlist"),
+            engine.config_str_list(config, "extra_allowlist"),
         )
+        or engine.DEFAULT_ALLOWLIST
     )
     severities = (
         {"stub_code": "error"}
@@ -241,16 +288,16 @@ def cmd_scan_baseline(args: argparse.Namespace) -> int:
 def cmd_scan(args: argparse.Namespace) -> int:
     if getattr(args, "baseline", None):
         return cmd_scan_baseline(args)
-    config = engine.load_config(args.config)
+    config = _config_for_root(args.source, args.config)
     _warn_unknown_config(config)
     allowlist = (
         []
         if args.strict
-        else (
-            args.allowlist
-            or engine.config_str_list(config, "allowlist")
-            or engine.DEFAULT_ALLOWLIST
+        else engine.merge_allowlist(
+            args.allowlist or engine.config_str_list(config, "allowlist"),
+            engine.config_str_list(config, "extra_allowlist"),
         )
+        or engine.DEFAULT_ALLOWLIST
     )
     severities = (
         {"stub_code": "error"}
@@ -319,11 +366,396 @@ def cmd_record(args: argparse.Namespace) -> int:
     return 0 if result.get("ok") else 1
 
 
+def cmd_verifiers(args: argparse.Namespace) -> int:
+    """List the toolchain verifier adapters and whether each is installed."""
+    print(
+        json.dumps(
+            {"verifiers": engine.list_verifiers(getattr(args, "language", None))},
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    return 0
+
+
+def cmd_receipt(args: argparse.Namespace) -> int:
+    """Build one evidence receipt: checks + file hashes + self digest,
+    linked from the JSONL audit log. A completion report cites this."""
+    checks = []
+    for raw in args.check or []:
+        tool, _, status = raw.partition("=")
+        checks.append({"tool": tool or "manual", "status": status or "pass"})
+    result = engine.build_receipt(
+        args.task,
+        checks,
+        files=args.file,
+        summary="; ".join(args.note) if args.note else None,
+        data_dir=args.data_dir,
+    )
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0 if result.get("ok") else 1
+
+
+_PLUGIN_SCHEMA = "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"
+
+
+def cmd_plugin_init(args: argparse.Namespace) -> int:
+    """Scaffold a minimal conformant plugin, then lint it with the real
+    conformance checker — a scaffold that cannot pass its own linter must
+    not be left on disk."""
+    target = os.path.abspath(args.dir) if args.dir else os.path.join(os.getcwd(), args.name)
+    if os.path.exists(target):
+        _usage_error(f"refusing to overwrite an existing path: {target}")
+    if not _PLUGIN_NAME_OK.match(args.name) or "--" in args.name or ".." in args.name:
+        _usage_error(
+            f"plugin name {args.name!r} must be lowercase alphanumeric with - and . "
+            "only, start and end alphanumeric, no '--' or '..'"
+        )
+    description = args.description or (
+        f"{args.name}: describe in one sentence when a client should load this skill."
+    )
+    skill_md = (
+        f"---\nname: {args.name}\ndescription: >-\n  {description}\n"
+        "license: Apache-2.0\n---\n\n"
+        f"# {args.name}\n\n"
+        "Describe the workflow this skill enforces. Verification tooling is\n"
+        "available from the agentseed MCP server (verify_code, verify_file,\n"
+        "scan_hallucination, sandbox_run) and the guard_cli equivalents.\n"
+    )
+    try:
+        os.makedirs(os.path.join(target, "skills", args.name))
+        with open(os.path.join(target, "plugin.json"), "w", encoding="utf-8") as fh:
+            json.dump(
+                {
+                    "$schema": _PLUGIN_SCHEMA,
+                    "name": args.name,
+                    "version": "0.1.0",
+                    "description": description,
+                    "license": "Apache-2.0",
+                },
+                fh,
+                indent=2,
+            )
+            fh.write("\n")
+        with open(os.path.join(target, "skills", args.name, "SKILL.md"), "w", encoding="utf-8") as fh:
+            fh.write(skill_md)
+    except OSError as exc:
+        print(f"agentseed: cannot scaffold {target}: {exc}", file=sys.stderr)
+        return 1
+    result = engine.check_plugin_conformance(target)
+    if not result.get("ok"):
+        import shutil
+
+        shutil.rmtree(target, ignore_errors=True)
+        print(
+            json.dumps(
+                {"ok": False, "error": "scaffold failed its own linter; tree removed", **result},
+                indent=2,
+            )
+        )
+        return 1
+    print(
+        json.dumps(
+            {
+                "ok": True,
+                "plugin": target,
+                "created": ["plugin.json", f"skills/{args.name}/SKILL.md"],
+                "next": [
+                    f"agentseed plugin validate {target}",
+                    f"agentseed plugin pack {target}",
+                ],
+            },
+            indent=2,
+        )
+    )
+    return 0
+
+
+# plugin.json §5.5 name shape, checked up front so init fails before creating
+# files; '--'/'..' are checked separately (the regex admits single chars only
+# at the ends, but not consecutive doubles)
+_PLUGIN_NAME_OK = re.compile(r"^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$")
+
+
+def cmd_plugin_validate(args: argparse.Namespace) -> int:
+    """Conformance check under the toolchain name (`check` stays as-is)."""
+    path = os.path.abspath(args.plugin_dir)
+    if not os.path.isdir(path):
+        print(
+            json.dumps(
+                {"ok": False, "errors": [f"not a directory: {path}"], "warnings": []},
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 1
+    result = engine.check_plugin_conformance(path)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0 if result["ok"] else 1
+
+
+def cmd_plugin_pack(args: argparse.Namespace) -> int:
+    """Deterministic zip of a plugin root (skip rules shared with the release packer)."""
+    result = engine.pack_plugin(args.plugin_dir, args.out)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0 if result.get("ok") else 1
+
+
+def _mcp_smoke() -> dict:
+    """Spawn the real MCP server, initialize, and count tools/list entries."""
+    server = os.path.join(os.path.dirname(os.path.abspath(__file__)), "guard_server.py")
+    frames = "\n".join(
+        [
+            json.dumps(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "initialize",
+                    "params": {"protocolVersion": "2024-11-05"},
+                }
+            ),
+            json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized"}),
+            json.dumps({"jsonrpc": "2.0", "id": 2, "method": "tools/list"}),
+        ]
+    )
+    try:
+        proc = subprocess.run(
+            [sys.executable, server],
+            input=frames + "\n",
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=60,
+        )
+    except Exception as exc:  # noqa: BLE001 - diagnostics, never a crash
+        return {"ok": False, "tools": 0, "error": repr(exc)}
+    tools = 0
+    for line in proc.stdout.splitlines():
+        try:
+            msg = json.loads(line)
+        except ValueError:
+            continue
+        result = msg.get("result")
+        if isinstance(result, dict) and "tools" in result:
+            tools = len(result["tools"])
+    if tools:
+        return {"ok": True, "tools": tools, "error": None}
+    return {
+        "ok": False,
+        "tools": 0,
+        "error": (proc.stderr.strip()[:200] or "no tools/list response"),
+    }
+
+
+def cmd_plugin_doctor(args: argparse.Namespace) -> int:
+    """Environment report: interpreter, optional deps, adapters, config,
+    plugin conformance, and a live MCP handshake."""
+    import importlib.util
+    import platform as _platform
+
+    config = engine.load_config(None)
+    report: dict = {
+        "agentseed_version": engine.plugin_version(),
+        "python": {"version": sys.version.split()[0], "supported": sys.version_info >= (3, 9)},
+        "platform": _platform.platform(),
+        "optional_dependencies": {
+            name: importlib.util.find_spec(name) is not None
+            for name in ("jsonschema", "pyflakes", "yaml")
+        },
+        "toolchain_verifiers": engine.list_verifiers(),
+        "config": {"loaded": bool(config), "unknown_keys": engine.unknown_config_keys(config)},
+        "mcp_server": _mcp_smoke(),
+    }
+    root = os.path.abspath(args.plugin_dir or ".")
+    if os.path.isfile(os.path.join(root, "plugin.json")):
+        report["plugin"] = engine.check_plugin_conformance(root)
+    else:
+        report["plugin"] = None
+    ok = report["python"]["supported"] and (report["plugin"] is None or report["plugin"]["ok"])
+    print(json.dumps(report, ensure_ascii=False, indent=2))
+    return 0 if ok else 1
+
+
+_CI_WORKFLOW = """name: AgentSeed gate
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: Morningstar202604/agentseed-mcp
+          path: agentseed
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Optional extras (upgrade analyzer engines)
+        run: python -m pip install -r agentseed/server/requirements.txt
+      - name: Gate
+        run: python agentseed/server/guard_cli.py gate --root .
+"""
+
+
+def _write_file_atomic(path: str, text: str) -> None:
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    tmp = f"{path}.tmp-{os.getpid()}"
+    with open(tmp, "w", encoding="utf-8", newline="") as fh:
+        fh.write(text)
+    os.replace(tmp, path)
+
+
+def _edit_user_config(mutate, config_path: str | None) -> dict:
+    """Apply one mutation to the project's agentseed.config.json, atomically.
+    A config that exists but cannot be parsed fails loudly — silently
+    replacing a broken config with a fresh one would drop every deliberate
+    setting the user made."""
+    path = os.path.abspath(config_path or os.path.join(os.getcwd(), "agentseed.config.json"))
+    data: dict = {}
+    if os.path.isfile(path):
+        try:
+            with open(path, encoding="utf-8") as fh:
+                loaded = json.load(fh)
+        except (OSError, ValueError) as exc:
+            return {"ok": False, "error": f"cannot parse {path}: {exc} — fix it by hand"}
+        if isinstance(loaded, dict):
+            data = loaded
+    mutate(data)
+    try:
+        _write_file_atomic(
+            path, json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+        )
+    except OSError as exc:
+        return {"ok": False, "error": f"cannot write {path}: {exc}"}
+    return {"ok": True, "path": path}
+
+
+def cmd_init(args: argparse.Namespace) -> int:
+    """Wire AgentSeed into YOUR project: starter config, CI workflow, first
+    gate run (bootstraps the baseline), and the exact snippet to point your
+    client at the plugin you cloned."""
+    root = os.path.abspath(args.root)
+    if not os.path.isdir(root):
+        _usage_error(f"not a directory: {root}")
+    plugin_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    created: list[str] = []
+    skipped: list[str] = []
+
+    cfg_path = os.path.join(root, "agentseed.config.json")
+    if os.path.exists(cfg_path) and not args.force:
+        skipped.append("agentseed.config.json (exists; --force to overwrite)")
+    else:
+        _write_file_atomic(
+            cfg_path, json.dumps({"project_index": True}, indent=2, sort_keys=True) + "\n"
+        )
+        created.append("agentseed.config.json")
+
+    workflow_path = os.path.join(root, ".github", "workflows", "agentseed.yml")
+    if os.path.exists(workflow_path) and not args.force:
+        skipped.append(".github/workflows/agentseed.yml (exists; --force to overwrite)")
+    else:
+        _write_file_atomic(workflow_path, _CI_WORKFLOW)
+        created.append(".github/workflows/agentseed.yml")
+
+    if args.client and args.client != "none":
+        hook = os.path.join(plugin_root, "server", "guard_hook.py")
+        reg = subprocess.run(
+            [sys.executable, hook, "register", "--client", args.client],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=60,
+        )
+        if reg.returncode == 0:
+            created.append(f"{args.client} hook registered")
+        else:
+            skipped.append(
+                f"{args.client} hook registration failed: "
+                + (reg.stderr.strip()[:120] or reg.stdout.strip()[:120])
+            )
+
+    gate_ns = argparse.Namespace(
+        root=root, baseline=None, no_baseline=False, require_conformance=False, config=None
+    )
+    gate_rc = cmd_gate(gate_ns)
+    gate_note = (
+        "first gate run PASS — the baseline is now frozen and enforced"
+        if gate_rc == 0
+        else "first gate run FAIL — fix the findings or refresh the baseline deliberately (scan --update-baseline)"
+    )
+
+    server_py = os.path.join(plugin_root, "server", "guard_server.py")
+    print(
+        json.dumps(
+            {
+                "ok": True,
+                "project": root,
+                "created": created,
+                "skipped": skipped,
+                "gate": gate_note,
+                "wire_your_client": {
+                    "mcp_json": {"agentseed": {"command": sys.executable, "args": [server_py]}},
+                    "claude_code_cli": f'claude mcp add agentseed -- "{sys.executable}" "{server_py}"',
+                    "feedback_loop": "guard_cli suppress NAME (verify stops flagging a project symbol) · guard_cli allow WORD (scan stops flagging a word; merged after the built-in defaults)",
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    return 0 if gate_rc == 0 else 1
+
+
+def cmd_suppress(args: argparse.Namespace) -> int:
+    """One-key noise decay: verify_code stops flagging this project symbol.
+    The name is still reported (in 'suppressed'), never silently erased."""
+
+    def mutate(data: dict) -> None:
+        names = data.setdefault("suppress_symbols", [])
+        if args.name not in names:
+            names.append(args.name)
+
+    result = _edit_user_config(mutate, args.config)
+    result["effect"] = (
+        f"verify_code no longer flags {args.name!r}; it still appears in the "
+        "'suppressed' field so the omission stays visible"
+    )
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0 if result.get("ok") else 1
+
+
+def cmd_allow(args: argparse.Namespace) -> int:
+    """One-key noise decay: scan stops flagging this word. Written to
+    extra_allowlist, which merges AFTER the built-in test-idiom defaults —
+    allowing one word never drops the defaults."""
+
+    def mutate(data: dict) -> None:
+        words = data.setdefault("extra_allowlist", [])
+        if args.word not in words:
+            words.append(args.word)
+
+    result = _edit_user_config(mutate, args.config)
+    result["effect"] = (
+        f"scan_hallucination no longer reports {args.word!r} (merged after "
+        "the built-in defaults, which stay active)"
+    )
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0 if result.get("ok") else 1
+
+
 def cmd_gate(args: argparse.Namespace) -> int:
     """Composite CI gate — the hard layer behind the soft skill:
-    1) plugin conformance (spec linter)
+    1) plugin conformance (spec linter; skipped on non-plugin roots so the
+       gate works on ANY repo — enforce with --require-conformance)
     2) verify_code over every Python file (any suspect or unparseable file fails)
-    3) scan with baseline comparison (only NEW signals fail)
+    3) scan with baseline comparison (only NEW signals fail; a first run on a
+       repo creates the baseline and passes, enforcement starts on the next)
     Single exit code: 0 = all gates pass, 1 = any failure."""
     import time
 
@@ -333,30 +765,55 @@ def cmd_gate(args: argparse.Namespace) -> int:
     failed = False
 
     # -- 1. conformance ----------------------------------------------------
-    conf = engine.check_plugin_conformance(root)
-    ok = bool(conf.get("ok"))
-    summary["checks"]["conformance"] = {
-        "status": "pass" if ok else "fail",
-        "errors": conf.get("errors", []),
-    }
-    failed |= not ok
+    if os.path.isfile(os.path.join(root, "plugin.json")):
+        conf = engine.check_plugin_conformance(root)
+        ok = bool(conf.get("ok"))
+        summary["checks"]["conformance"] = {
+            "status": "pass" if ok else "fail",
+            "errors": conf.get("errors", []),
+        }
+        failed |= not ok
+    elif getattr(args, "require_conformance", False):
+        summary["checks"]["conformance"] = {
+            "status": "fail",
+            "errors": [f"no plugin.json in {root} (--require-conformance)"],
+        }
+        failed = True
+    else:
+        summary["checks"]["conformance"] = {
+            "status": "skipped",
+            "note": f"no plugin.json in {root}: not an Agent Plugins root "
+            "(use --require-conformance to enforce)",
+        }
 
-    # -- 2. symbols over all Python sources --------------------------------
+    # -- 2. symbols over all Python sources, judged against the project ----
     py_files = [p for p in _iter_source_files(root) if p.endswith(".py")]
+    gate_config = _config_for_root(root, args.config)
+    use_index = engine.config_bool(gate_config, "project_index", True)
+    sym_map = engine.symbol_map(engine.build_index(root)) if use_index else None
     suspects_total: dict[str, list] = {}
+    missing_total: dict[str, list] = {}
     unparseable: list[str] = []
     for path in py_files:
         with open(path, encoding="utf-8", errors="replace") as fh:
-            res = engine.detect_undefined_symbols(fh.read())
+            text = fh.read()
+        if sym_map is not None:
+            res = engine.verify_in_project(text, "python", root, sym_map=sym_map)
+        else:
+            res = engine.detect_undefined_symbols(text)
+        rel = os.path.relpath(path, root)
         if res.get("note", "").startswith("Cannot parse"):
-            unparseable.append(os.path.relpath(path, root))
+            unparseable.append(rel)
         if res["suspects"]:
-            suspects_total[os.path.relpath(path, root)] = res["suspects"]
-    symbols_ok = not suspects_total and not unparseable
+            suspects_total[rel] = res["suspects"]
+        if res.get("missing_imports"):
+            missing_total[rel] = [m["name"] for m in res["missing_imports"]]
+    symbols_ok = not suspects_total and not unparseable and not missing_total
     summary["checks"]["symbols"] = {
         "status": "pass" if symbols_ok else "fail",
         "files_checked": len(py_files),
         "suspects": suspects_total,
+        "missing_imports": missing_total,
         "unparseable": unparseable,
     }
     failed |= not symbols_ok
@@ -364,17 +821,12 @@ def cmd_gate(args: argparse.Namespace) -> int:
     # -- 3. hallucination scan vs baseline ---------------------------------
     baseline = args.baseline
     if baseline is None and not args.no_baseline:
-        candidate = os.path.join(root, "baseline-scan.json")
-        baseline = candidate if os.path.isfile(candidate) else None
+        # always resolved (not only when the file exists): cmd_scan_baseline
+        # creates a missing baseline and passes, so a repo's first gate run
+        # bootstraps instead of dead-failing on a file that cannot exist yet
+        baseline = os.path.join(root, "baseline-scan.json")
     if args.no_baseline:
         scan_status = "skipped"
-    elif baseline is None:
-        scan_status = "fail"
-        summary["checks"]["scan"] = {
-            "status": scan_status,
-            "error": "no baseline provided (--baseline PATH or <root>/baseline-scan.json)",
-        }
-        failed = True
     else:
         ns = argparse.Namespace(
             source=root,
@@ -417,8 +869,23 @@ def main(argv: list[str] | None = None) -> int:
         metavar="NAME",
         help="symbol name never to flag (repeatable; default: config suppress_symbols)",
     )
+    p_verify.add_argument(
+        "--engine",
+        default=None,
+        metavar="ENGINE",
+        help="'auto' = best installed toolchain verifier (ruff/pyflakes/tsc/"
+        "eslint/go vet/cargo check; falls back to built-in), 'builtin' = the "
+        "zero-dependency analyzer (default), or one adapter name (list: "
+        "'verifiers'). Adapters need a file path, not inline source.",
+    )
     p_verify.add_argument("--config", help="explicit config file path")
     p_verify.set_defaults(func=cmd_verify)
+
+    p_verifiers = sub.add_parser(
+        "verifiers", help="list toolchain verifier adapters and install state"
+    )
+    p_verifiers.add_argument("--language", help="only adapters covering this language")
+    p_verifiers.set_defaults(func=cmd_verifiers)
 
     p_contract = sub.add_parser(
         "contract", help="verify source against a declared contract (requires/prohibits)"
@@ -486,6 +953,12 @@ def main(argv: list[str] | None = None) -> int:
         "--baseline", help="scan baseline JSON (default: <root>/baseline-scan.json when present)"
     )
     p_gate.add_argument("--no-baseline", action="store_true", help="skip the scan stage")
+    p_gate.add_argument(
+        "--require-conformance",
+        action="store_true",
+        help="fail when the root has no plugin.json instead of skipping the "
+        "conformance stage (for Agent Plugins repos)",
+    )
     p_gate.add_argument("--config", help="explicit config file path")
     p_gate.set_defaults(func=cmd_gate)
 
@@ -515,6 +988,83 @@ def main(argv: list[str] | None = None) -> int:
     p_record.add_argument("--note", action="append", help="free-text note (repeatable)")
     p_record.add_argument("--data-dir", help="override PLUGIN_DATA for the log")
     p_record.set_defaults(func=cmd_record)
+
+    p_receipt = sub.add_parser(
+        "receipt",
+        help="build an evidence receipt (checks + file SHA256s + self digest)",
+    )
+    p_receipt.add_argument("task", help="what was verified, e.g. 'fix #42 login bug'")
+    p_receipt.add_argument(
+        "--check",
+        action="append",
+        default=[],
+        metavar="TOOL=STATUS",
+        help="e.g. sandbox_run=pass (repeatable; default pass)",
+    )
+    p_receipt.add_argument(
+        "--file",
+        action="append",
+        metavar="PATH",
+        help="file to hash into the receipt (repeatable; a missing path fails loudly)",
+    )
+    p_receipt.add_argument("--note", action="append", help="free-text note (repeatable)")
+    p_receipt.add_argument("--data-dir", help="override PLUGIN_DATA for the receipt")
+    p_receipt.set_defaults(func=cmd_receipt)
+
+    p_plugin = sub.add_parser(
+        "plugin", help="Agent Plugins toolchain: init / validate / pack / doctor"
+    )
+    plugin_sub = p_plugin.add_subparsers(dest="plugin_cmd", required=True)
+    p_init = plugin_sub.add_parser("init", help="scaffold a minimal conformant plugin")
+    p_init.add_argument("name", help="plugin name (spec §5.5: lowercase, [a-z0-9.-])")
+    p_init.add_argument("--dir", help="target directory (default: ./<name>)")
+    p_init.add_argument("--description", help="one-sentence plugin description")
+    p_init.set_defaults(func=cmd_plugin_init)
+    p_pvalidate = plugin_sub.add_parser("validate", help="lint a plugin directory (spec §5/§6/§7)")
+    p_pvalidate.add_argument("plugin_dir", nargs="?", default=".")
+    p_pvalidate.set_defaults(func=cmd_plugin_validate)
+    p_ppack = plugin_sub.add_parser("pack", help="deterministic zip of a plugin root")
+    p_ppack.add_argument("plugin_dir", help="Agent Plugins root (must contain plugin.json)")
+    p_ppack.add_argument("--out", help="output directory (default: <plugin_dir>/dist)")
+    p_ppack.set_defaults(func=cmd_plugin_pack)
+    p_doctor = plugin_sub.add_parser(
+        "doctor", help="environment report: python, deps, adapters, MCP handshake, conformance"
+    )
+    p_doctor.add_argument("plugin_dir", nargs="?", default=".", help="optional plugin root to lint")
+    p_doctor.set_defaults(func=cmd_plugin_doctor)
+
+    p_init = sub.add_parser(
+        "init",
+        help="wire AgentSeed into YOUR project: config + CI workflow + first "
+        "gate run + the snippet to add the plugin to your client",
+    )
+    p_init.add_argument("--root", default=".", help="your project directory (default: cwd)")
+    p_init.add_argument(
+        "--client",
+        default="none",
+        choices=["none", "claude", "cursor", "opencode"],
+        help="also register the enforcement hook for this client",
+    )
+    p_init.add_argument(
+        "--force", action="store_true", help="overwrite an existing config/workflow"
+    )
+    p_init.set_defaults(func=cmd_init)
+
+    p_suppress = sub.add_parser(
+        "suppress",
+        help="verify_code stops flagging this symbol (writes agentseed.config.json)",
+    )
+    p_suppress.add_argument("name", help="symbol name to suppress")
+    p_suppress.add_argument("--config", help="explicit config path (default: ./agentseed.config.json)")
+    p_suppress.set_defaults(func=cmd_suppress)
+
+    p_allow = sub.add_parser(
+        "allow",
+        help="scan stops flagging this word (extra_allowlist, merged after the built-in defaults)",
+    )
+    p_allow.add_argument("word", help="word to stop reporting")
+    p_allow.add_argument("--config", help="explicit config path (default: ./agentseed.config.json)")
+    p_allow.set_defaults(func=cmd_allow)
 
     args = parser.parse_args(argv)
     if args.cmd == "sandbox" and args.command and args.command[0] == "--":

@@ -269,11 +269,15 @@
   "server/test_hook.py": {
    "oversold|all tests pass": 1,
    "oversold|guaranteed": 1,
-   "oversold|production ready": 1,
+   "oversold|production ready": 2,
    "stub_code|todo": 1
   },
   "server/test_server.py": {
    "stub_code|mock": 1
+  },
+  "server/test_toolchain.py": {
+   "oversold|all tests pass": 1,
+   "oversold|guaranteed": 1
   },
   "skills/verify-before-code/SKILL.ja.md": {
    "fabricated|fabricated": 1,

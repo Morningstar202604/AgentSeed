@@ -172,6 +172,21 @@ _HALLUCINATION_PATTERNS: list[tuple[re.Pattern, str]] = [
 ]
 
 
+def merge_allowlist(base: list[str] | None, extra: list[str] | None) -> list[str] | None:
+    """Effective scan exclusions: (config allowlist or the built-in defaults)
+    plus ``extra_allowlist`` entries merged AFTER them. ``allow`` writes into
+    extra_allowlist, so excluding one word never silently drops the built-in
+    test-idiom defaults the way replacing ``allowlist`` would."""
+    if base is None and not extra:
+        return None
+    effective = list(base if base is not None else DEFAULT_ALLOWLIST)
+    if extra:
+        for item in extra:
+            if isinstance(item, str) and item and item not in effective:
+                effective.append(item)
+    return effective
+
+
 def scan_hallucination_words(
     source: str,
     allowlist: list[str] | None = None,

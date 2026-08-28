@@ -13,6 +13,7 @@ VALID_GROUPS = {"stub_code", "oversold", "fabricated"}
 # callers should surface a warning (silently ignoring typos = silent no-op).
 KNOWN_CONFIG_KEYS = {
     "allowlist",
+    "extra_allowlist",
     "severities",
     "timeout",
     "extra_tokens",
@@ -20,6 +21,8 @@ KNOWN_CONFIG_KEYS = {
     "sandbox_allowed_prefixes",
     "sandbox_env",
     "known_packages",
+    "hook_profile",
+    "project_index",
 }
 
 SANDBOX_ENV_MODES = ("inherit", "scrub")
@@ -50,6 +53,16 @@ def load_config(explicit_path: str | None = None) -> dict:
                                     (project-local / trusted third-party), beyond stdlib
       sandbox_allowed_prefixes : list[str] - executable allowlist for sandbox_run
                                                  (absent/empty = unrestricted)
+      hook_profile             : str - guard_hook gate profile: advisory (default,
+                                       report only) | diff (block only new signals
+                                       vs the file's previous content) | strict
+                                       (block on any error-severity finding)
+      extra_allowlist          : list[str] - scan exclusions MERGED AFTER the built-in
+                                       test-idiom defaults ("allow" writes here, so
+                                       allowing one word never drops the defaults)
+      project_index            : bool - cross-file symbol index for the built-in
+                                       analyzer (default true; false = single-file
+                                       scope only)
 
     Returns {} when no config file exists or it cannot be parsed.
     """
@@ -93,6 +106,12 @@ def config_severities(config: dict) -> dict[str, str] | None:
     ):
         return value
     return None
+
+
+def config_bool(config: dict, key: str, default: bool = True) -> bool:
+    """Extract a validated boolean from config, or the default."""
+    value = config.get(key, default)
+    return value if isinstance(value, bool) else default
 
 
 def parse_timeout(config: dict, default: int = 30) -> int:

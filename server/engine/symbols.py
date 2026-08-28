@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import ast
 import builtins
+import difflib
 import os
 import re
 from dataclasses import dataclass
@@ -179,6 +180,15 @@ def _ts_defined_symbols(source: str) -> set[str]:
                 continue
             alias = re.search(r":\s*(" + _TS_IDENT + r")\s*$", p)
             defined.add(alias.group(1) if alias else p.split(":")[0].strip())
+    # const [count, setCount] = useState(0) — array destructuring from ANY
+    # initializer (the React hook idiom above all). Without this, every hook
+    # setter was flagged as a hallucinated call.
+    for m in re.finditer(r"\b(?:const|let|var)\s*\[([^\]]*)\]\s*=", source):
+        for part in m.group(1).split(","):
+            p = re.sub(r"^\.\.\.", "", part.strip())
+            p = p.split("=")[0].strip()
+            if re.fullmatch(_TS_IDENT, p):
+                defined.add(p)
     # function/class/interface/type declarations
     for m in re.finditer(
         r"\b(?:async\s+)?(?:function|class|interface|type|enum)\s+(" + _TS_IDENT + r")",
@@ -746,6 +756,12 @@ _register_lang(
             r"\bdef\s+(?:self\.)?([A-Za-z_]\w*)",
             r"\bclass\s+([A-Za-z_]\w*)",
             r"\bmodule\s+([A-Za-z_]\w*)",
+            # Local-variable assignments. bare_calls flags every bare
+            # identifier, so a missing assignment collector turned ordinary
+            # `sum += i` / `x = compute` locals into false suspects.
+            r"\b([A-Za-z_]\w*)\s*(?:&&|\|\||[+\-*/%])?=(?![=~])",
+            # Block parameters: each { |i| ... }, each do |acc, item| ... end
+            r"\|([^|\n]*)\|",
         ),
         import_patterns=(r"\brequire\s+['\"]([A-Za-z_]\w*)['\"]",),
         param_patterns=(r"\bdef\s+(?:self\.)?[A-Za-z_]\w*\s*\(([^)]*)\)",),
@@ -1141,6 +1157,24 @@ def detect_undefined_symbols(
 
     defined = _python_defined_symbols(tree)
 
+    # `from x import *` makes every module-level name potentially defined, so
+    # a single-file scope walk would flag most real code as hallucinated. An
+    # honest empty result beats an unreliable one; pyflakes does not help here
+    # either, because its star-import findings are a different message class
+    # than UndefinedName and never reach the merge below.
+    if any(
+        isinstance(node, ast.ImportFrom) and any(a.name == "*" for a in node.names)
+        for node in ast.walk(tree)
+    ):
+        return {
+            "language": "python",
+            "suspects": [],
+            "note": "Wildcard import (from x import *) present: single-file scope "
+            "analysis cannot resolve star-imported names, so undefined-name "
+            "detection is disabled for this module. Use verify_file with a "
+            "toolchain verifier (ruff/pyflakes) for star-import-aware analysis.",
+        }
+
     seen: set[str] = set()
     suspects: list[str] = []
     detail: list[dict] = []
@@ -1181,6 +1215,11 @@ def detect_undefined_symbols(
             suspects.append(name)
             detail.append({"name": name, "line": line})
         note += " Merged with pyflakes F821 scope analysis."
+
+    # did-you-mean: the closest real names, so a flagged symbol turns into a
+    # 2-second fix instead of a dead end (candidates include builtins).
+    for d in detail:
+        d["suggestions"] = difflib.get_close_matches(d["name"], defined, n=3, cutoff=0.6)
 
     return _apply_suppress(
         {
