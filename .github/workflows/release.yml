@@ -4,11 +4,11 @@ on:
   push:
     tags: ["v*"]
   # Re-publish an existing tag after a transient failure, without moving a
-  # public tag: `gh workflow run release.yml -f tag=v0.3.2`.
+  # public tag: `gh workflow run release.yml -f tag=v0.4.1`.
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing release tag to (re)publish, e.g. v0.3.2"
+        description: "Existing release tag to (re)publish, e.g. v0.4.1"
         required: true
         type: string
 
