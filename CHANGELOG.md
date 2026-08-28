@@ -3,6 +3,47 @@
 All notable changes to AgentSeed are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com); versioning follows [SemVer](https://semver.org).
 
+## [0.3.2] — 2026-08-28
+
+Everything below is the delta against the *published* 0.3.1 artifact, not
+against its tag message.
+
+### Fixed
+- **The published artifact no longer carries maintainer-local state.**
+  `server/.agentseed/verification-log.jsonl` was being packed into the release
+  zip, leaking absolute paths from the machine that built it. The packer's skip
+  rules are now module constants and its documentation set is explicit, so the
+  exclusions are auditable instead of emergent. This changes the contents of
+  what you download, which is why this is a release rather than a CI-only tweak.
+- **The release path can be replayed.** Re-running `release.yml` against an
+  existing tag used to fail on the GitHub Release step and on `npm publish`
+  with `E403 cannot publish over the previously published version`. Both are now
+  idempotent: an existing release is updated in place, and an existing npm
+  version is compared by `dist.shasum` against a local `npm pack` — identical
+  bytes exit green, differing bytes fail loudly rather than silently diverging.
+- **A release that cannot publish is now a failed release.** `release.yml` had
+  gated its npm step on `NPM_TOKEN` being set, so a repository with no token
+  produced a green run that published nothing — the same class of false green as
+  a scanner reporting `clean` for a file it never opened. The workflow now
+  asserts the credential exists and fails with an actionable message otherwise.
+- **`server/requirements.txt` is installable on the oldest interpreter we
+  support.** The optional-dependency pins had drifted above the Python 3.9
+  floor that the CI matrix and the bare-env job both claim to test, so a
+  documented install could not complete. Dependabot is now told to stop opening
+  bumps past that ceiling, which is what had been turning the queue red.
+
+### Changed
+- CI discovers test files instead of carrying a hard-coded list, installs from
+  `server/requirements.txt`, pins the linter, and verifies the exact artifact it
+  is about to publish before publishing it.
+
+### Infrastructure
+- The repository history was consolidated onto a single identity across all
+  three forges and rebuilt as one commit per meaningful change; the released
+  `v0.2.0` commit had never been tagged, so `v0.2.0` is added here and every
+  release tag is now annotated. File contents are unchanged by the
+  consolidation — each rebuilt commit reproduces the tree of an existing one.
+
 ## [0.3.1] — 2026-08-27
 
 A full audit of the 0.3.0 release. Everything below was reproduced against the

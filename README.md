@@ -12,7 +12,7 @@ a zero-dependency plugin that verifies code *before* it is marked done, so
 "done" means *observed fact*, not self-report.
 
 [![License](https://img.shields.io/badge/license-Apache_2.0-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.3.1-blue)](https://github.com/Morningstar202604/agentseed-mcp/releases)
+[![Version](https://img.shields.io/badge/version-0.3.2-blue)](https://github.com/Morningstar202604/agentseed-mcp/releases)
 [![CI](https://github.com/Morningstar202604/agentseed-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Morningstar202604/agentseed-mcp/actions/workflows/ci.yml)
 [![Platforms](https://img.shields.io/badge/platform-Cursor%20%7C%20VS%20Code%20%7C%20Claude%20Code%20%7C%20Copilot-blue)](https://agent-plugins.org)
 
