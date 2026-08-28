@@ -11,7 +11,8 @@
  *
  * Assertions (any failure => non-zero exit with a clear message):
  *   - the server responds to every request;
- *   - tools/list returns exactly 8 tools, including `verify_code`;
+ *   - tools/list covers every required tool (subset check, so future tool
+ *     additions do not break this smoke — missing ones still fail loudly);
  *   - verify_code reports an invented symbol as a suspect.
  *
  * Python detection is NOT duplicated here: we spawn the bin shim itself and
@@ -26,7 +27,19 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const TIMEOUT_MS = 90_000;
-const EXPECTED_TOOL_COUNT = 8;
+// The canonical tool surface. Subset assertion, not an exact count: a new
+// tool must not break the distribution smoke, but a MISSING one still fails.
+const REQUIRED_TOOLS = new Set([
+  "verify_code",
+  "verify_file",
+  "check_contract",
+  "check_imports",
+  "scan_hallucination",
+  "check_plugin",
+  "sandbox_run",
+  "schema_validate",
+  "record_verification",
+]);
 const INVENTED_SYMBOL = "agentseedSmokeZzqInvented_91827";
 
 const REPO_SHIM = path.join(
@@ -152,14 +165,15 @@ async function main() {
       JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) + "\n",
     );
 
-    // 3. tools/list — exactly 8 tools, must include verify_code
+    // 3. tools/list — every required tool present (subset check)
     const list = await request(2, { jsonrpc: "2.0", id: 2, method: "tools/list" });
     if (list.error) fail(`tools/list returned an error: ${JSON.stringify(list.error)}`);
     const tools = list.result && list.result.tools;
     if (!Array.isArray(tools)) fail(`tools/list result.tools is not an array: ${JSON.stringify(list.result)}`);
     const names = tools.map((t) => t.name);
-    if (tools.length !== EXPECTED_TOOL_COUNT) {
-      fail(`expected exactly ${EXPECTED_TOOL_COUNT} tools, got ${tools.length}: ${names.join(", ")}`);
+    const missing = [...REQUIRED_TOOLS].filter((n) => !names.includes(n));
+    if (missing.length) {
+      fail(`tools/list is missing required tools: ${missing.join(", ")} (got ${tools.length}: ${names.join(", ")})`);
     }
     if (!names.includes("verify_code")) fail(`tools/list is missing verify_code: ${names.join(", ")}`);
     console.log(`[smoke-npm] tools/list OK (${tools.length} tools: ${names.join(", ")})`);
