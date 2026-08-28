@@ -108,8 +108,12 @@ jobs:
           registry-url: https://registry.npmjs.org/
       # A release that skips its published artifact but reports success is the
       # exact false green this plugin exists to prevent, so an unconfigured
-      # npm path fails the run instead of passing quietly.
+      # npm path fails the run instead of passing quietly. The ONLY deliberate
+      # skip is the operator switch below (repository variable
+      # NPM_PUBLISH_ENABLED=false): an explicit decision, reported loudly in
+      # the run, never a missing-credential surprise.
       - name: Require npm publishing to be configured
+        if: ${{ vars.NPM_PUBLISH_ENABLED != 'false' }}
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         shell: bash
@@ -130,6 +134,7 @@ jobs:
       # Provenance is only attested on a real tag push: that is the trigger
       # whose OIDC ref actually names the released tag.
       - name: Publish to npm
+        if: ${{ vars.NPM_PUBLISH_ENABLED != 'false' }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           PROVENANCE: ${{ github.event_name == 'push' && '--provenance' || '' }}
@@ -158,3 +163,52 @@ jobs:
             exit 1
           fi
           npm publish --access public ${PROVENANCE}
+      - name: npm publish status (loud, never silent)
+        if: always()
+        env:
+          RELEASE_TAG: ${{ env.RELEASE_TAG }}
+        shell: bash
+        run: |
+          if [ "${{ vars.NPM_PUBLISH_ENABLED }}" = "false" ]; then
+            echo "::notice::npm publishing is DISABLED for this run by the repository variable NPM_PUBLISH_ENABLED=false — an explicit operator decision."
+            echo "::notice::The npm package stays at its currently published version. To publish: add the NPM_TOKEN secret, set NPM_PUBLISH_ENABLED=true, then run: gh workflow run release.yml -f tag=${RELEASE_TAG}"
+          else
+            echo "npm publishing enabled for this run."
+          fi
+
+  # Every release mirrors to Gitee and GitCode automatically. Tokens come from
+  # repository secrets (MIRROR_GITEE_TOKEN / MIRROR_GITCODE_TOKEN); an
+  # unconfigured mirror is a loud notice, not a failure — mirrors are
+  # downstream copies, and one missing credential must not block the release.
+  sync-mirrors:
+    needs: publish
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Fetch all tags for mirror push
+        run: git fetch --force --tags origin
+      - name: Push mirrors (force — the canonical history lives on GitHub)
+        env:
+          GITEE_TOKEN: ${{ secrets.MIRROR_GITEE_TOKEN }}
+          GITCODE_TOKEN: ${{ secrets.MIRROR_GITCODE_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${GITEE_TOKEN:-}" ] && [ -z "${GITCODE_TOKEN:-}" ]; then
+            echo "::notice::No mirror tokens configured (MIRROR_GITEE_TOKEN / MIRROR_GITCODE_TOKEN) — mirrors were not synced."
+            exit 0
+          fi
+          if [ -n "${GITEE_TOKEN:-}" ]; then
+            echo "Syncing Gitee mirror..."
+            git push --force "https://badhope:${GITEE_TOKEN}@gitee.com/badhope/agentseed-mcp.git" \
+              "HEAD:refs/heads/main" "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
+          fi
+          if [ -n "${GITCODE_TOKEN:-}" ]; then
+            echo "Syncing GitCode mirror..."
+            git push --force "https://badhope:${GITCODE_TOKEN}@gitcode.com/badhope/agentseed-mcp.git" \
+              "HEAD:refs/heads/main" "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
+          fi
