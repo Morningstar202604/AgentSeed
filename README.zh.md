@@ -11,8 +11,10 @@ AI 会编造不存在的 API，会不跑任何测试就说"全部通过"，会�
 在任务被标记为"完成"之前先验证代码，让"完成"= **可观测事实**，而非自说自话。
 
 [![License](https://img.shields.io/badge/license-Apache_2.0-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.4.1-blue)](https://github.com/Morningstar202604/agentseed-mcp/releases)
-[![CI](https://github.com/Morningstar202604/agentseed-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Morningstar202604/agentseed-mcp/actions/workflows/ci.yml)
+[![Version](https://img.shields.io/badge/version-0.4.1-blue)](https://github.com/Morningstar202604/AgentSeed/releases)
+[![CI](https://github.com/Morningstar202604/AgentSeed/actions/workflows/ci.yml/badge.svg)](https://github.com/Morningstar202604/AgentSeed/actions/workflows/ci.yml)
+[![MCP server score](https://glama.ai/mcp/servers/Morningstar202604/AgentSeed/badges/score.svg)](https://glama.ai/mcp/servers/Morningstar202604/AgentSeed)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Morningstar202604/AgentSeed)
 [![Platforms](https://img.shields.io/badge/platform-Cursor%20%7C%20VS%20Code%20%7C%20Claude%20Code%20%7C%20Copilot-blue)](https://agent-plugins.org)
 
 [English](./README.md) · **中文** · [日本語](./README.ja.md)
@@ -104,7 +106,7 @@ $ scan_hallucination(source=...)
 **方案 A —— 下载发布包（无需 git）：**
 
 ```bash
-# 从 https://github.com/Morningstar202604/agentseed-mcp/releases 取最新资产
+# 从 https://github.com/Morningstar202604/AgentSeed/releases 取最新资产
 # 或用安装器一键接入你的客户端：
 bash install.sh --client auto --hooks        # macOS / Linux
 ./install.ps1 -Client auto -Hooks            # Windows PowerShell
@@ -115,11 +117,11 @@ bash install.sh --client auto --hooks        # macOS / Linux
 **方案 B —— 克隆：**
 
 ```bash
-git clone https://github.com/Morningstar202604/agentseed-mcp.git
+git clone https://github.com/Morningstar202604/AgentSeed.git
 # 镜像：https://gitee.com/badhope/agentseed-mcp · https://gitcode.com/badhope/agentseed-mcp
 ```
 
-1. 把克隆出来的 `agentseed-mcp/` 目录**丢进**任意支持 Agent Plugins 的客户端
+1. 把克隆出来的 `AgentSeed/` 目录**丢进**任意支持 Agent Plugins 的客户端
    （Cursor、VS Code、Claude Code、Copilot…）。无需构建、无需安装。
 2. 客户端从 `plugin.json` + `mcp.json` 自动发现 `verify-before-code` skill
    与 `agentseed` MCP 服务器。
@@ -128,7 +130,7 @@ git clone https://github.com/Morningstar202604/agentseed-mcp.git
 **用在 你自己的项目**（你克隆它是为了它）——一条命令：
 
 ```bash
-python3 /path/to/agentseed-mcp/server/guard_cli.py init --root /你的/项目
+python3 /path/to/AgentSeed/server/guard_cli.py init --root /你的/项目
 ```
 
 它会写入起始配置 `agentseed.config.json`、生成会克隆本插件并运行闸门的 CI
