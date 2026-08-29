@@ -10,7 +10,7 @@ AI 会编造不存在的 API，会不跑任何测试就说"全部通过"，会�
 虚假代码。**AgentSeed 就是在"完成"之前拦截这一切的闸门**——一个零依赖插件，
 在任务被标记为"完成"之前先验证代码，让"完成"= **可观测事实**，而非自说自话。
 
-[![License](https://img.shields.io/badge/license-Apache_2.0-green)](LICENSE)
+[![License](https://img.shields.io/badge/license-PolyForm_NC_1.0.0-purple)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.4.1-blue)](https://github.com/Morningstar202604/AgentSeed/releases)
 [![CI](https://github.com/Morningstar202604/AgentSeed/actions/workflows/ci.yml/badge.svg)](https://github.com/Morningstar202604/AgentSeed/actions/workflows/ci.yml)
 [![MCP server score](https://glama.ai/mcp/servers/Morningstar202604/AgentSeed/badges/score.svg)](https://glama.ai/mcp/servers/Morningstar202604/AgentSeed)
@@ -339,7 +339,7 @@ hook + CI 执行，与具体模型无关。
 
 ## 许可证
 
-Apache-2.0 © AgentSeed。见 [LICENSE](./LICENSE)。
+PolyForm Noncommercial 1.0.0 © AgentSeed。学习、研究与个人使用免费；商用需另行获取授权。见 [LICENSE](./LICENSE)。
 
 ---
 

@@ -11,7 +11,7 @@ AI は存在しない API を捏造し、何も実行せずに「テスト全部
 それを止めるゲート**——ゼロ依存のプラグインで、コードを検証してから
 「完了」にします。「完了」= **観測された事実**であり、自己申告ではありません。
 
-[![License](https://img.shields.io/badge/license-Apache_2.0-green)](LICENSE)
+[![License](https://img.shields.io/badge/license-PolyForm_NC_1.0.0-purple)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.4.1-blue)](https://github.com/Morningstar202604/AgentSeed/releases)
 [![CI](https://github.com/Morningstar202604/AgentSeed/actions/workflows/ci.yml/badge.svg)](https://github.com/Morningstar202604/AgentSeed/actions/workflows/ci.yml)
 [![MCP server score](https://glama.ai/mcp/servers/Morningstar202604/AgentSeed/badges/score.svg)](https://glama.ai/mcp/servers/Morningstar202604/AgentSeed)
@@ -354,7 +354,7 @@ Issue・PR・アイデア歓迎——未収録の幻覚パターンも issue で
 
 ## ライセンス
 
-Apache-2.0 © AgentSeed。 [LICENSE](./LICENSE)。
+PolyForm Noncommercial 1.0.0 © AgentSeed。研究・学習・個人利用は無料；商用は別途許諾が必要。[LICENSE](./LICENSE)。
 
 ---
 

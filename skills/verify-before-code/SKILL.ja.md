@@ -5,7 +5,7 @@ description: >-
   プールを読み込み、agentseed MCP サーバーの verify_code と scan_hallucination
   を呼び出し、両方が合格し完了報告に証拠が添付された場合のみ完了とみなす。
   コードの作成・編集・完了宣言のすべての場面で使用する。
-license: Apache-2.0
+license: PolyForm-Noncommercial-1.0.0
 compatibility: MCP サーバーは Python 3.9+ が必要。依存ゼロで動作；オプション（jsonschema、pyflakes、pyyaml）で精度向上、未インストール時は自動フォールバック。
 metadata:
   author: AgentSeed

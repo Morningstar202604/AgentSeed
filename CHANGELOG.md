@@ -3,6 +3,19 @@
 All notable changes to AgentSeed are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com); versioning follows [SemVer](https://semver.org).
 
+## [0.5.0] — 2026-08-30
+
+### Changed
+- **License: Apache-2.0 → PolyForm Noncommercial 1.0.0.** Research,
+  learning, personal, and educational use remain free; selling the
+  software, selling services built on it, or bundling it into paid
+  products now requires a separate commercial license from the
+  maintainers. All manifests (`package.json` / `plugin.json` /
+  `server.json`), skill frontmatter, badges, and `LICENSE` updated —
+  the `examples/plugins/broken-plugin` fixture intentionally keeps its
+  old header. Sister project ScholarSeed switched to the same license
+  on the same day, keeping the anti-hallucination matrix consistent.
+
 ## [0.4.1] — 2026-08-28
 
 ### Changed

@@ -3,7 +3,12 @@
   "name": "good-demo",
   "version": "1.0.0",
   "description": "Conformant example plugin used as a check_plugin fixture.",
-  "author": { "name": "AgentSeed" },
-  "license": "Apache-2.0",
-  "keywords": ["example", "fixture"]
+  "author": {
+    "name": "AgentSeed"
+  },
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "keywords": [
+    "example",
+    "fixture"
+  ]
 }

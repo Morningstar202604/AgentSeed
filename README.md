@@ -11,7 +11,7 @@ They ship confident, fabricated code. **AgentSeed is the gate that stops it** �
 a zero-dependency plugin that verifies code *before* it is marked done, so
 "done" means *observed fact*, not self-report.
 
-[![License](https://img.shields.io/badge/license-Apache_2.0-green)](LICENSE)
+[![License](https://img.shields.io/badge/license-PolyForm_NC_1.0.0-purple)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.4.1-blue)](https://github.com/Morningstar202604/AgentSeed/releases)
 [![CI](https://github.com/Morningstar202604/AgentSeed/actions/workflows/ci.yml/badge.svg)](https://github.com/Morningstar202604/AgentSeed/actions/workflows/ci.yml)
 [![MCP server score](https://glama.ai/mcp/servers/Morningstar202604/AgentSeed/badges/score.svg)](https://glama.ai/mcp/servers/Morningstar202604/AgentSeed)
@@ -409,7 +409,7 @@ we haven't catalogued yet. See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## License
 
-Apache-2.0 © AgentSeed. See [LICENSE](./LICENSE).
+PolyForm Noncommercial 1.0.0 © AgentSeed. Free for research, learning, and personal use; commercial use requires a separate license. See [LICENSE](./LICENSE).
 
 ---
 
