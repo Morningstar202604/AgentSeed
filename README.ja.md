@@ -12,8 +12,10 @@ AI は存在しない API を捏造し、何も実行せずに「テスト全部
 「完了」にします。「完了」= **観測された事実**であり、自己申告ではありません。
 
 [![License](https://img.shields.io/badge/license-Apache_2.0-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.4.1-blue)](https://github.com/Morningstar202604/agentseed-mcp/releases)
-[![CI](https://github.com/Morningstar202604/agentseed-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Morningstar202604/agentseed-mcp/actions/workflows/ci.yml)
+[![Version](https://img.shields.io/badge/version-0.4.1-blue)](https://github.com/Morningstar202604/AgentSeed/releases)
+[![CI](https://github.com/Morningstar202604/AgentSeed/actions/workflows/ci.yml/badge.svg)](https://github.com/Morningstar202604/AgentSeed/actions/workflows/ci.yml)
+[![MCP server score](https://glama.ai/mcp/servers/Morningstar202604/AgentSeed/badges/score.svg)](https://glama.ai/mcp/servers/Morningstar202604/AgentSeed)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Morningstar202604/AgentSeed)
 [![Platforms](https://img.shields.io/badge/platform-Cursor%20%7C%20VS%20Code%20%7C%20Claude%20Code%20%7C%20Copilot-blue)](https://agent-plugins.org)
 
 [English](./README.md) · [中文](./README.zh.md) · **日本語**
@@ -110,7 +112,7 @@ $ scan_hallucination(source=...)
 **A — リリースをダウンロード（git 不要）：**
 
 ```bash
-# https://github.com/Morningstar202604/agentseed-mcp/releases から最新アセットを取得
+# https://github.com/Morningstar202604/AgentSeed/releases から最新アセットを取得
 # またはインストーラーでクライアントに配線：
 bash install.sh --client auto --hooks        # macOS / Linux
 ./install.ps1 -Client auto -Hooks            # Windows PowerShell
@@ -121,11 +123,11 @@ bash install.sh --client auto --hooks        # macOS / Linux
 **B — クローン：**
 
 ```bash
-git clone https://github.com/Morningstar202604/agentseed-mcp.git
+git clone https://github.com/Morningstar202604/AgentSeed.git
 # ミラー：https://gitee.com/badhope/agentseed-mcp · https://gitcode.com/badhope/agentseed-mcp
 ```
 
-1. クローンした `agentseed-mcp/` ディレクトリを Agent Plugins 対応クライアント（Cursor、
+1. クローンした `AgentSeed/` ディレクトリを Agent Plugins 対応クライアント（Cursor、
    VS Code、Claude Code、Copilot…）に**ドロップ**する。ビルドもインストールも不要。
 2. クライアントが `plugin.json` + `mcp.json` から `verify-before-code` skill と
    `agentseed` MCP サーバーを自動発見。
@@ -135,7 +137,7 @@ git clone https://github.com/Morningstar202604/agentseed-mcp.git
 **あなたのプロジェクト**（クローンした理由となったもの）で使う——コマンド一つ：
 
 ```bash
-python3 /path/to/agentseed-mcp/server/guard_cli.py init --root /your/project
+python3 /path/to/AgentSeed/server/guard_cli.py init --root /your/project
 ```
 
 起動設定 `agentseed.config.json` の生成、プラグインをクローンしてゲートを実行
