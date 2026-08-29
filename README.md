@@ -12,8 +12,10 @@ a zero-dependency plugin that verifies code *before* it is marked done, so
 "done" means *observed fact*, not self-report.
 
 [![License](https://img.shields.io/badge/license-Apache_2.0-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.4.1-blue)](https://github.com/Morningstar202604/agentseed-mcp/releases)
-[![CI](https://github.com/Morningstar202604/agentseed-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Morningstar202604/agentseed-mcp/actions/workflows/ci.yml)
+[![Version](https://img.shields.io/badge/version-0.4.1-blue)](https://github.com/Morningstar202604/AgentSeed/releases)
+[![CI](https://github.com/Morningstar202604/AgentSeed/actions/workflows/ci.yml/badge.svg)](https://github.com/Morningstar202604/AgentSeed/actions/workflows/ci.yml)
+[![MCP server score](https://glama.ai/mcp/servers/Morningstar202604/AgentSeed/badges/score.svg)](https://glama.ai/mcp/servers/Morningstar202604/AgentSeed)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Morningstar202604/AgentSeed)
 [![Platforms](https://img.shields.io/badge/platform-Cursor%20%7C%20VS%20Code%20%7C%20Claude%20Code%20%7C%20Copilot-blue)](https://agent-plugins.org)
 
 **English** · [中文](./README.zh.md) · [日本語](./README.ja.md)
@@ -109,7 +111,7 @@ regression test. Methodology and honest limits:
 **Option A — download a release (no git needed):**
 
 ```bash
-# grab the latest asset from https://github.com/Morningstar202604/agentseed-mcp/releases
+# grab the latest asset from https://github.com/Morningstar202604/AgentSeed/releases
 # or use the installer, which wires it into your client:
 bash install.sh --client auto --hooks        # macOS / Linux
 ./install.ps1 -Client auto -Hooks            # Windows PowerShell
@@ -120,11 +122,11 @@ bash install.sh --client auto --hooks        # macOS / Linux
 **Option B — clone:**
 
 ```bash
-git clone https://github.com/Morningstar202604/agentseed-mcp.git
+git clone https://github.com/Morningstar202604/AgentSeed.git
 # mirrors: https://gitee.com/badhope/agentseed-mcp · https://gitcode.com/badhope/agentseed-mcp
 ```
 
-1. **Drop** the cloned `agentseed-mcp/` directory into any Agent Plugins–capable client
+1. **Drop** the cloned `AgentSeed/` directory into any Agent Plugins–capable client
    (Cursor, VS Code, Claude Code, Copilot…). No build, no install.
 2. The client auto-discovers the `verify-before-code` skill and the
    `agentseed` MCP server from `plugin.json` + `mcp.json`.
@@ -134,7 +136,7 @@ git clone https://github.com/Morningstar202604/agentseed-mcp.git
 **Using it on YOUR project** (the one you cloned it for) — one command:
 
 ```bash
-python3 /path/to/agentseed-mcp/server/guard_cli.py init --root /your/project
+python3 /path/to/AgentSeed/server/guard_cli.py init --root /your/project
 ```
 
 That writes a starter `agentseed.config.json`, generates a CI workflow that
