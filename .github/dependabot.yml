@@ -1,4 +1,5 @@
 version: 2
+enable-auto-merge: true
 updates:
   # Keep actions/* pins (checkout, setup-python, setup-node, ...) fresh.
   - package-ecosystem: "github-actions"
