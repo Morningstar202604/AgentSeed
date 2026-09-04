@@ -24,7 +24,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com); versioning follo
   actually ships, so the package page and npm search present the project
   accurately. Code is identical to 0.4.0 apart from manifest metadata.
 
-## [0.4.0] — 2026-08-29
+## [0.4.0] — 2026-08-28
 
 ### Added
 - **`verify_file` (ninth MCP tool) and toolchain verifier adapters.** The
