@@ -79,7 +79,7 @@ jobs:
       - name: Build artifact + SHA256SUMS (manifest drift checked in verify)
         run: python scripts/pack.py
       - name: Upload workflow artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: dist
           path: dist/
