@@ -192,7 +192,7 @@ python3 server/guard_cli.py scan . --baseline baseline-scan.json  # 目录扫描
 | `check_plugin` | 不合规的插件打包 | 严格 1.0.0 linter |
 | `sandbox_run` | 什么都没跑就说"测试通过"、跑了但结果不符声称 | 确定性执行通道 + 行为断言（expected_exit / expect_output） |
 | `schema_validate` | 不合法的结构化输出 | JSON Schema 校验 |
-| `record_verification` | 没有持久化证据链 | `PLUGIN_DATA` 下 JSONL 审计轨迹 |
+| `record_verification` | 没有持久化证据链、改了却没验证的文件 | `PLUGIN_DATA` 下 JSONL 审计轨迹；`files` 条目供 gate 覆盖率阶段使用 |
 
 ### 语言覆盖（诚实范围）
 

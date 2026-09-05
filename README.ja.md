@@ -200,7 +200,7 @@ python3 server/guard_cli.py scan . --baseline baseline-scan.json  # ツリー検
 | `check_plugin` | 不適合なプラグイン | 厳格 1.0.0 linter |
 | `sandbox_run` | 実行せずに「テスト合格」、実行したが結果が不一致 | 決定的実行チャネル + 振る舞いアサーション（expected_exit / expect_output） |
 | `schema_validate` | 不正な構造化出力 | JSON Schema 検証 |
-| `record_verification` | 証跡の永続化欠如 | `PLUGIN_DATA` 配下の JSONL 監査トレイル |
+| `record_verification` | 証跡の永続化欠如、未検証の変更ファイル | `PLUGIN_DATA` 配下の JSONL 監査トレイル；`files` エントリは gate のカバレッジ段で利用 |
 
 ### 言語カバレッジ（正直な範囲）
 

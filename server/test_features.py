@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import time
@@ -334,6 +335,53 @@ class TestAuditTrail(unittest.TestCase):
 
     def test_record_rejects_blank_task(self):
         self.assertFalse(engine.record_verification("  ", [])["ok"])
+
+
+class TestVerificationCoverage(unittest.TestCase):
+    """Evidence coverage: changed files vs recorded verifications. Closes the
+    self-awareness gap — a receipt freezes what you CLAIM to verify; coverage
+    names what you changed but never verified."""
+
+    @staticmethod
+    def _git_repo(d: str) -> None:
+        subprocess.run(
+            ["git", "init", "-q"], cwd=d, capture_output=True, text=True, timeout=60
+        )
+
+    def test_changed_vs_unverified(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._git_repo(d)
+            for name in ("a.py", "b.py"):
+                with open(os.path.join(d, name), "w", encoding="utf-8") as fh:
+                    fh.write("x = 1\n")
+            cov = engine.coverage(d)
+            self.assertTrue(cov["computable"])
+            self.assertEqual(sorted(cov["changed"]), ["a.py", "b.py"])
+            self.assertEqual(sorted(cov["unverified"]), ["a.py", "b.py"])
+            engine.record_verification(
+                "task", files=["a.py"], data_dir=os.path.join(d, ".agentseed")
+            )
+            cov2 = engine.coverage(d)
+            self.assertEqual(cov2["verified"], ["a.py"])
+            self.assertEqual(cov2["unverified"], ["b.py"])
+
+    def test_abs_path_record_matches_git_rel_path(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._git_repo(d)
+            with open(os.path.join(d, "a.py"), "w", encoding="utf-8") as fh:
+                fh.write("x = 1\n")
+            engine.record_verification(
+                "task", files=[os.path.join(d, "a.py")], data_dir=os.path.join(d, ".agentseed")
+            )
+            cov = engine.coverage(d)
+            self.assertEqual(cov["unverified"], [])
+            self.assertEqual(cov["verified"], ["a.py"])
+
+    def test_non_git_root_is_honestly_incomputable(self):
+        with tempfile.TemporaryDirectory() as d:
+            cov = engine.coverage(d)
+            self.assertFalse(cov["computable"])
+            self.assertIn("cannot be computed", cov["note"])
 
 
 class TestExampleFixtures(unittest.TestCase):

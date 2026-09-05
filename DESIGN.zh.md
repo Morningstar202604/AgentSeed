@@ -203,14 +203,22 @@ printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize",...}' \
 裁决中的 `blocking` 字段是分级的决定而非原始扫描结果；`status` 取值
 `pass` / `flagged` / `blocked` / `skipped`。
 
-### 10.3 证据凭据（`engine/receipt.py`）
+### 10.3 验证覆盖率（`engine/audit.py`）
+
+凭据冻结的是你声称验证过的东西；覆盖率指名你改了却从未验证的文件——
+自我认知幻觉类。gate 的覆盖率阶段用 `git status --porcelain` 对照
+`record_verification(files=...)` 记录过的文件并列出缺口。默认只报告、
+`--coverage-strict` 才阻断；非 git 工作树降级为诚实的“无法计算”，
+绝不假绿。
+
+### 10.4 证据凭据（`engine/receipt.py`）
 
 凭据把一个已完成任务的验证状态冻结下来：检查项（工具 + 结论）、每个被
 验证文件的 SHA256 与大小、agentseed/python/平台版本，以及凭据文件自身的
 摘要——重新哈希即可发现任何后续篡改。审计日志追加一行与之关联。被点名的
 文件不存在时整个凭据大声失败。这是完成报告引用的工件，而不是散文。
 
-### 10.4 插件工具链（`guard_cli plugin …`）
+### 10.5 插件工具链（`guard_cli plugin …`）
 
 `init` 生成最小插件脚手架，随后用真实的合规检查器自检，不能通过则删除
 整棵树（过不了自家 linter 的脚手架不配留在磁盘上）；`validate` 重跑

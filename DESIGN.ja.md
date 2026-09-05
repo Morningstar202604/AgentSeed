@@ -198,7 +198,16 @@ printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize",...}' \
 判定の `blocking` フィールドはプロファイルの決定であり生スキャンでは
 ない。`status` は `pass` / `flagged` / `blocked` / `skipped`。
 
-### 10.3 エビデンスレシート（`engine/receipt.py`）
+### 10.3 検証カバレッジ（`engine/audit.py`）
+
+レシートは「検証したと主張するもの」を凍結する。カバレッジは「変更したが
+一度も検証していないファイル」を名指しする——自己認識幻覚クラスである。
+gate のカバレッジ段は `git status --porcelain` を
+`record_verification(files=...)` の記録と突き合わせ、欠落を列挙する。
+デフォルトは報告のみ、`--coverage-strict` で阻断。git ワークツリー外では
+偽グリーンではなく誠実な「計算不能」に劣化する。
+
+### 10.4 エビデンスレシート（`engine/receipt.py`）
 
 レシートは完了タスクの検証状態を凍結する：チェック項目（ツール + 判定）、
 検証済みファイルごとの SHA256 とサイズ、agentseed/python/プラットフォーム
@@ -207,7 +216,7 @@ printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize",...}' \
 指定されたファイルが存在しない場合、レシート全体が大音量で失敗する。
 完了報告が引用するのは散文ではなくこの成果物である。
 
-### 10.4 プラグインツールチェーン（`guard_cli plugin …`）
+### 10.5 プラグインツールチェーン（`guard_cli plugin …`）
 
 `init` は最小プラグインを足場生成し、本物の適合性チェッカで自己検査する——
 自前の linter を通れない足場はディスクに残さない。`validate` は linter を

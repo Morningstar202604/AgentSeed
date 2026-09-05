@@ -16,7 +16,14 @@ Public API only: internal helpers stay inside their modules.
 """
 
 from .artifact import pack_plugin
-from .audit import VALID_STATUSES, audit_path, record_verification
+from .audit import (
+    VALID_STATUSES,
+    audit_path,
+    changed_files,
+    coverage,
+    record_verification,
+    verified_files,
+)
 from .config import (
     CONFIG_FILENAME,
     KNOWN_CONFIG_KEYS,
@@ -61,6 +68,7 @@ __all__ = [
     "build_env",
     "build_index",
     "build_receipt",
+    "changed_files",
     "check_plugin_conformance",
     "check_imports",
     "check_manifest",
@@ -68,6 +76,7 @@ __all__ = [
     "config_extra_tokens",
     "config_severities",
     "config_str_list",
+    "coverage",
     "detect_undefined_symbols",
     "defined_symbols",
     "find_project_root",
@@ -88,5 +97,6 @@ __all__ = [
     "schema_validate",
     "symbol_map",
     "unknown_config_keys",
+    "verified_files",
     "verify_in_project",
 ]

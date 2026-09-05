@@ -387,6 +387,7 @@ def cmd_record(args: argparse.Namespace) -> int:
         checks,
         summary="; ".join(args.note) if args.note else None,
         data_dir=args.data_dir,
+        files=args.file or [],
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result.get("ok") else 1
@@ -782,6 +783,8 @@ def cmd_gate(args: argparse.Namespace) -> int:
     2) verify_code over every Python file (any suspect or unparseable file fails)
     3) scan with baseline comparison (only NEW signals fail; a first run on a
        repo creates the baseline and passes, enforcement starts on the next)
+    4) verification coverage (report only by default; --coverage-strict fails
+       when uncommitted changes have no record_verification(files=...) evidence)
     Single exit code: 0 = all gates pass, 1 = any failure."""
     import time
 
@@ -867,6 +870,28 @@ def cmd_gate(args: argparse.Namespace) -> int:
         scan_status = "pass" if rc == 0 else "fail"
         summary["checks"]["scan"] = {"status": scan_status, "baseline": os.path.abspath(baseline)}
         failed |= rc != 0
+
+    # -- 4. verification coverage (report by default, --coverage-strict blocks)
+    cov = engine.coverage(root)
+    if not cov["computable"]:
+        summary["checks"]["coverage"] = {"status": "skipped", "note": cov["note"]}
+    elif not cov["changed"]:
+        summary["checks"]["coverage"] = {
+            "status": "skipped",
+            "note": "no uncommitted changes: nothing to cover",
+        }
+    else:
+        strict = getattr(args, "coverage_strict", False)
+        unverified = cov["unverified"]
+        status = "pass" if not unverified else ("fail" if strict else "report")
+        summary["checks"]["coverage"] = {
+            "status": status,
+            "changed_files": len(cov["changed"]),
+            "verified_files": len(cov["verified"]),
+            "unverified": unverified,
+            "note": cov["note"] if unverified else "",
+        }
+        failed |= strict and bool(unverified)
 
     summary["verdict"] = "fail" if failed else "pass"
     summary["elapsed_s"] = round(time.perf_counter() - started, 2)
@@ -988,6 +1013,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     p_gate.add_argument("--no-baseline", action="store_true", help="skip the scan stage")
     p_gate.add_argument(
+        "--coverage-strict",
+        action="store_true",
+        help="fail when uncommitted changes have no record_verification "
+        "evidence (default: report the gap without failing)",
+    )
+    p_gate.add_argument(
         "--require-conformance",
         action="store_true",
         help="fail when the root has no plugin.json instead of skipping the "
@@ -1033,6 +1064,12 @@ def main(argv: list[str] | None = None) -> int:
         help="e.g. sandbox_run=pass (repeatable; default pass)",
     )
     p_record.add_argument("--note", action="append", help="free-text note (repeatable)")
+    p_record.add_argument(
+        "--file",
+        action="append",
+        metavar="PATH",
+        help="file verified for this task (repeatable; feeds the gate's coverage stage)",
+    )
     p_record.add_argument("--data-dir", help="override PLUGIN_DATA for the log")
     p_record.set_defaults(func=cmd_record)
 

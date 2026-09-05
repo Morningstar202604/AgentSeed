@@ -295,8 +295,9 @@ TOOLS = [
         "(verification-log.jsonl under PLUGIN_DATA). The SDD contract "
         "requires a completion report with attached evidence — call this "
         "after verify/scan/sandbox runs to persist what was checked, the "
-        "verdict, and a short summary. Returns the log path and total "
-        "entries.",
+        "verdict, and a short summary. Pass 'files' (paths verified for the "
+        "task) so the gate's coverage stage can name changed-but-unverified "
+        "files. Returns the log path and total entries.",
         {
             "task": {
                 "type": "string",
@@ -314,6 +315,12 @@ TOOLS = [
                     "required": ["tool", "status"],
                 },
                 "description": "Verification steps performed and their verdicts.",
+            },
+            "files": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Paths verified for this task (project-relative preferred); "
+                "consumed by the gate's coverage stage.",
             },
             "summary": {"type": "string", "description": "One-line overall conclusion."},
         },
@@ -385,6 +392,7 @@ def _execute(name: str, args: dict) -> dict:
             args.get("task", ""),
             args.get("checks") or [],
             summary=args.get("summary"),
+            files=args.get("files"),
         )
     return {"isError": True, "content": [{"type": "text", "text": f"Unknown tool: {name}"}]}
 

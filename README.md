@@ -181,7 +181,7 @@ upgrade two tools to industry-standard engines (see below).
 | `check_plugin` | Non-conformant plugin packaging | Strict 1.0.0 linter |
 | `sandbox_run` | "Tests pass" without running anything; ran but the result disagrees | Deterministic execution channel + behavioral assertions (expected_exit / expect_output) |
 | `schema_validate` | Invalid structured output | JSON Schema validation |
-| `record_verification` | No persistent evidence trail | JSONL audit trail under `PLUGIN_DATA` |
+| `record_verification` | No persistent evidence trail; changed-but-unverified files | JSONL audit trail under `PLUGIN_DATA`; `files` entries feed the gate coverage stage |
 
 ### Language coverage (honest scope)
 

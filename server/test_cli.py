@@ -203,6 +203,31 @@ class TestCli(unittest.TestCase):
         self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
         self.assertIn("does not exist", r.stderr)
 
+    def test_gate_coverage_report_then_strict(self):
+        import subprocess
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as d:
+            subprocess.run(["git", "init", "-q"], cwd=d, capture_output=True, timeout=60)
+            with open(os.path.join(d, "a.py"), "w", encoding="utf-8") as fh:
+                fh.write("x = 1\n")
+            # default: the gap is reported without failing
+            r = run_cli("gate", "--root", d)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertIn('"coverage"', r.stdout)
+            self.assertIn('"unverified"', r.stdout)
+            # strict: the gap fails the gate
+            r = run_cli("gate", "--root", d, "--coverage-strict")
+            self.assertEqual(r.returncode, 1, r.stdout)
+            self.assertIn('"status": "fail"', r.stdout)
+            # recording evidence for the changed file repairs the gap
+            r = run_cli("record", "task", "--file", "a.py", "--data-dir",
+                        os.path.join(d, ".agentseed"))
+            self.assertEqual(r.returncode, 0, r.stdout)
+            r = run_cli("gate", "--root", d, "--coverage-strict")
+            self.assertEqual(r.returncode, 0, r.stdout)
+            self.assertIn('"status": "pass"', r.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -282,7 +282,16 @@ nothing. The hook therefore profiles its own power:
 The verdict's `blocking` field is the profile's decision, not the raw scan;
 `status` is `pass` / `flagged` / `blocked` / `skipped`.
 
-### 10.3 Evidence receipts (`engine/receipt.py`)
+### 10.3 Verification coverage (`engine/audit.py`)
+
+A receipt freezes what you CLAIM to have verified; coverage names what you
+changed but never verified — the self-awareness hallucination class. The
+gate's coverage stage diffs `git status --porcelain` against the files
+recorded via `record_verification(files=...)` and lists the gap. It reports
+by default and blocks only under `--coverage-strict`; outside a git worktree
+it degrades to an honest "cannot compute", never a fake pass.
+
+### 10.4 Evidence receipts (`engine/receipt.py`)
 
 A receipt freezes the verification state of a completed task: checks
 (tool + status), SHA256 + size of every verified file, agentseed/python/
@@ -291,7 +300,7 @@ to detect any later edit. One JSONL audit line links to it. A named file
 that does not exist fails the whole receipt loudly. This is the artifact a
 completion report cites instead of prose.
 
-### 10.4 Plugin toolchain (`guard_cli plugin …`)
+### 10.5 Plugin toolchain (`guard_cli plugin …`)
 
 `init` scaffolds a minimal plugin and then lints it with the real
 conformance checker, deleting the tree if it cannot pass (a scaffold that
