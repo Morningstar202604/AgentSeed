@@ -38,7 +38,7 @@ from .hallucination import (
     merge_allowlist,
     scan_hallucination_words,
 )
-from .imports import check_imports
+from .imports import check_imports, check_manifest, manifest_kind_for_path
 from .index import build_index, find_project_root, symbol_map, verify_in_project
 from .plugin import check_plugin_conformance
 from .receipt import build_receipt
@@ -63,6 +63,7 @@ __all__ = [
     "build_receipt",
     "check_plugin_conformance",
     "check_imports",
+    "check_manifest",
     "config_bool",
     "config_extra_tokens",
     "config_severities",
@@ -73,6 +74,7 @@ __all__ = [
     "kill_tree",
     "list_verifiers",
     "load_config",
+    "manifest_kind_for_path",
     "merge_allowlist",
     "pack_plugin",
     "parse_timeout",

@@ -450,6 +450,75 @@ class TestCheckImports(unittest.TestCase):
         self.assertTrue(r["imports_ok"])
         self.assertIn("python", r["note"])
 
+
+class TestCheckManifest(unittest.TestCase):
+    """Manifest scanning — the slopsquatting FIRST CONTACT surface."""
+
+    def test_requirements_flags_phantom_package(self):
+        text = "numpy==1.26.0\n# comment\nslopsquat-utils>=1.0\n--index-url https://pypi.org/simple\n"
+        r = engine.check_manifest(text, kind="requirements")
+        self.assertFalse(r["manifest_ok"])
+        self.assertEqual([s["package"] for s in r["suspicious"]], ["slopsquat-utils"])
+        self.assertEqual(r["dependencies_checked"], 2)
+
+    def test_requirements_normalizes_pypi_names(self):
+        text = "PyYAML==6.0\npython_dateutil>=2.8\npre_commit==3.0\n"
+        r = engine.check_manifest(text, kind="requirements")
+        self.assertTrue(r["manifest_ok"], r["suspicious"])
+
+    def test_requirements_known_packages_allowlist(self):
+        text = "mycompany-core==1.0\n"
+        r = engine.check_manifest(text, kind="requirements", known_packages=["mycompany_core"])
+        self.assertTrue(r["manifest_ok"])
+
+    def test_pyproject_pep621_flags_phantom(self):
+        text = (
+            "[project]\n"
+            'name = "app"\n'
+            "dependencies = [\n"
+            '    "requests>=2.0",\n'
+            '    "uvicorn[standard]>=0.20",\n'
+            '    "phantom-tomllib>=1.0",\n'
+            "]\n"
+        )
+        r = engine.check_manifest(text, kind="pyproject")
+        self.assertEqual([s["package"] for s in r["suspicious"]], ["phantom-tomllib"])
+        self.assertEqual(r["dependencies_checked"], 3)
+
+    def test_pyproject_poetry_section_flags_phantom(self):
+        text = (
+            "[tool.poetry.dependencies]\n"
+            'python = "^3.9"\n'
+            'requests = "^2.0"\n'
+            'ghost-poetry-pkg = "^1.0"\n'
+        )
+        r = engine.check_manifest(text, kind="pyproject")
+        self.assertEqual([s["package"] for s in r["suspicious"]], ["ghost-poetry-pkg"])
+
+    def test_package_json_flags_phantom(self):
+        text = (
+            '{\n  "name": "app",\n  "dependencies": {\n    "express": "^4.0",\n'
+            '    "@babel/core": "^7.0"\n  },\n  "devDependencies": {\n'
+            '    "phantom-npm-pkg": "^1.0"\n  }\n}\n'
+        )
+        r = engine.check_manifest(text, kind="package.json")
+        self.assertEqual([s["package"] for s in r["suspicious"]], ["phantom-npm-pkg"])
+        self.assertEqual(r["dependencies_checked"], 3)
+
+    def test_kind_inference_from_content(self):
+        r = engine.check_manifest('{"dependencies": {"express": "^4.0"}}')
+        self.assertEqual(r["kind"], "package.json")
+        self.assertTrue(r["manifest_ok"], r["suspicious"])
+        r2 = engine.check_manifest("[project]\ndependencies = [\n  \"requests>=2.0\",\n]\n")
+        self.assertEqual(r2["kind"], "pyproject")
+        r3 = engine.check_manifest("numpy==1.0\n")
+        self.assertEqual(r3["kind"], "requirements")
+
+    def test_unknown_kind_fails_loudly(self):
+        r = engine.check_manifest("whatever", kind="cargo")
+        self.assertFalse(r["manifest_ok"])
+        self.assertIn("unsupported", r["note"])
+
     def test_new_research_tokens_flagged(self):
         # tokens added from 2025 research (slopsquatting + overclaim/fabrication)
         r = engine.scan_hallucination_words(

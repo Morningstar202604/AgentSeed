@@ -167,15 +167,28 @@ TOOLS = [
         "Flag top-level imports that are neither Python stdlib nor in the "
         "known-package set (stdlib + common third-party + config "
         "'known_packages') — a possible hallucinated package (slopsquatting, "
-        "USENIX Security 2025). Report, not a gate: verify the name exists in "
-        "the registry before installing. Python only; other languages return "
-        "an empty result.",
+        "USENIX Security 2025). With 'manifest' set, scans dependency "
+        "MANIFEST text instead of code (requirements/pyproject/package.json; "
+        "kind inferred or forced via 'manifest_kind') — the first surface a "
+        "hallucinated package touches. Report, not a gate: verify the name "
+        "exists in the registry before installing. Code mode is Python only; "
+        "other languages return an empty result.",
         {
             "source": {"type": "string", "description": "Source code to analyze."},
             "language": {
                 "type": "string",
                 "description": "Source language (python supported; others return empty).",
                 "default": "python",
+            },
+            "manifest": {
+                "type": "string",
+                "description": "Dependency-manifest text to scan instead of code "
+                "(requirements.txt / pyproject.toml / package.json content).",
+            },
+            "manifest_kind": {
+                "type": "string",
+                "enum": ["requirements", "pyproject", "package.json"],
+                "description": "Manifest kind; inferred from content when omitted.",
             },
         },
         ["source"],
@@ -327,6 +340,12 @@ def _execute(name: str, args: dict) -> dict:
             args.get("language", "python"),
         )
     if name == "check_imports":
+        if args.get("manifest"):
+            return engine.check_manifest(
+                args["manifest"],
+                kind=args.get("manifest_kind"),
+                known_packages=CONFIG_KNOWN_PACKAGES,
+            )
         return engine.check_imports(
             args.get("source", ""),
             args.get("language", "python"),

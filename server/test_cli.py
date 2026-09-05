@@ -164,6 +164,28 @@ class TestCli(unittest.TestCase):
             r = run_cli("scan", d, "--baseline", base)
             self.assertEqual(r.returncode, 0, r.stdout)
 
+    def test_imports_manifest_flags_phantom_package(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as d:
+            req = os.path.join(d, "requirements.txt")
+            with open(req, "w", encoding="utf-8") as fh:
+                fh.write("numpy==1.26.0\nphantom-req-pkg>=1.0\n")
+            r = run_cli("imports", "--manifest", req)
+            self.assertEqual(r.returncode, 1, r.stdout)
+            self.assertIn("phantom-req-pkg", r.stdout)
+            self.assertIn('"kind": "requirements"', r.stdout)
+            # clean manifest exits 0
+            with open(req, "w", encoding="utf-8") as fh:
+                fh.write("numpy==1.26.0\nrequests>=2.0\n")
+            r = run_cli("imports", "--manifest", req)
+            self.assertEqual(r.returncode, 0, r.stdout)
+
+    def test_imports_manifest_missing_file_is_usage_error(self):
+        r = run_cli("imports", "--manifest", "no_such_manifest.txt")
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assertIn("does not exist", r.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

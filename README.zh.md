@@ -187,7 +187,7 @@ python3 server/guard_cli.py scan . --baseline baseline-scan.json  # 目录扫描
 | --- | --- | --- |
 | `verify_code` | 编造的 API / 未定义符号 | Python AST + 配置驱动的通用词法扫描（17 语言） |
 | `check_contract` | 违反书面规范 | requires/prohibits 契约校验 |
-| `check_imports` | 幻觉包导入（slopsquatting 抢注） | stdlib + known_packages 白名单校验 |
+| `check_imports` | 幻觉包导入（slopsquatting 抢注） | stdlib + known_packages 白名单校验；`--manifest` 直接扫依赖清单（requirements/pyproject/package.json）——幻觉包的第一现场 |
 | `scan_hallucination` | 占位代码、夸大声称、虚构内容、幻觉域名 | 4 组 50+ 信号，中英双语 |
 | `check_plugin` | 不合规的插件打包 | 严格 1.0.0 linter |
 | `sandbox_run` | 什么都没跑就说"测试通过" | 确定性执行通道（有界内存输出） |

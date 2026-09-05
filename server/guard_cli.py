@@ -174,10 +174,28 @@ def cmd_contract(args: argparse.Namespace) -> int:
 
 
 def cmd_imports(args: argparse.Namespace) -> int:
-    """Slopsquatting gate: exit 1 when a top-level import is neither stdlib
-    nor in the known-package set (defaults + config known_packages + --known)."""
+    """Slopsquatting gate: exit 1 when a top-level import (or a manifest
+    dependency, with --manifest) is neither in the known-package set nor
+    resolvable another way (defaults + config known_packages + --known)."""
     config = engine.load_config(getattr(args, "config", None))
     known = args.known or engine.config_str_list(config, "known_packages")
+    manifest_path = getattr(args, "manifest", None)
+    if manifest_path:
+        if not os.path.isfile(manifest_path):
+            print(f"error: manifest does not exist: {manifest_path}", file=sys.stderr)
+            return 2
+        with open(manifest_path, encoding="utf-8", errors="replace") as fh:
+            text = fh.read()
+        result = engine.check_manifest(
+            text,
+            kind=engine.manifest_kind_for_path(manifest_path),
+            known_packages=known,
+        )
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0 if result["manifest_ok"] else 1
+    if not getattr(args, "source", None):
+        print("error: provide inline/file source or --manifest", file=sys.stderr)
+        return 2
     source = _read_source(args.source)
     result = engine.check_imports(source, known_packages=known)
     print(json.dumps(result, ensure_ascii=False, indent=2))
@@ -909,7 +927,15 @@ def main(argv: list[str] | None = None) -> int:
     p_imports = sub.add_parser(
         "imports", help="flag imports not in stdlib / known packages (slopsquatting)"
     )
-    p_imports.add_argument("source", help="source code or a file path")
+    p_imports.add_argument(
+        "source", nargs="?", default="", help="source code or a file path"
+    )
+    p_imports.add_argument(
+        "--manifest",
+        metavar="PATH",
+        help="scan a dependency manifest instead (requirements*.txt, "
+        "pyproject.toml, package.json; kind inferred from the filename)",
+    )
     p_imports.add_argument(
         "--known",
         action="append",
