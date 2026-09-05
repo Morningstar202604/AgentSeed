@@ -3,6 +3,64 @@
 All notable changes to AgentSeed are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com); versioning follows [SemVer](https://semver.org).
 
+## [0.6.0] — 2026-09-05
+
+Hardening release: every addition closes a gap named in the 2025
+hallucination literature (CodeHalu's executional verification, the
+slopsquatting first-contact surface, the agent-hallucination surveys'
+self-awareness class) while keeping the zero-required-dependency
+contract and the self-conformance gate green.
+
+### Added
+- **`resolve_symbol` — the 10th MCP tool (write-time prevention).**
+  verify_code judges code after it is written; `resolve_symbol` answers
+  "does this name exist?" BEFORE the call is written, against the project
+  symbol index plus stdlib/known packages, with did-you-mean suggestions
+  from real symbols.
+- **`fabricated_url` scan group (phantom squatting).** A structural
+  domain pass joins the three literal-token groups: placeholder stand-ins
+  (`api.yourdomain.com`), reserved TLDs used as if real (`myapp.test`),
+  and "example" fabricated into non-reserved domains. The RFC/IANA
+  example.com/net/org/edu set stays clean; default severity warning.
+- **Dependency-manifest scanning (`check_manifest`).** The slopsquatting
+  first-contact surface: `guard_cli imports --manifest` and the
+  `check_imports` tool's `manifest`/`manifest_kind` args scan
+  requirements*.txt, PEP 621 pyproject arrays, Poetry dependency sections
+  and package.json dependency objects (npm has its own curated known set).
+- **`sandbox_run` behavioral assertions.** Optional `expected_exit` and
+  `expect_output` upgrade "the command ran" to "it ran as expected"
+  (CodeHalu's executional verification, minimally); the result gains an
+  `expectations` verdict, and CLI `sandbox --expect-exit/--expect-output`
+  exits on the assertion verdict.
+- **Gate verification-coverage stage.** `record_verification` persists
+  `files`; the gate's coverage stage diffs `git status --porcelain`
+  against them and names changed-but-unverified files. Report-only by
+  default; `--coverage-strict` blocks; non-git roots degrade to an honest
+  "cannot compute". AgentSeed's own state never counts as work.
+- **`baseline audit` subcommand.** The review loop for the frozen scan
+  baseline: composition by group, loudest frozen signals, and the
+  prune-allow-freeze discipline. Report-only.
+- **mypy and javac toolchain adapters.** mypy joins the Python auto-chain
+  (`name-defined`); javac covers Java from its stderr stream
+  (`cannot find symbol` + symbol line).
+
+### Changed
+- **Oversold pool: unverified security and performance claims.**
+  "no vulnerabilities", "secure by design", "unhackable", "highly
+  optimized", "zero downtime" (and ZH counterparts) are the same
+  evidence-free class as "production ready"; legitimate hardening and
+  optimization descriptions stay clean (negative-tested).
+- **`--strict` severity promotion is registry-driven** — every
+  default-warning group (now stub_code and fabricated_url) blocks,
+  instead of a hardcoded stub_code entry.
+- **Non-zero adapter exits with zero extracted findings must show at
+  least one diagnostic-shaped line** — a tool that failed to run is never
+  parsed as clean; "ran but reported only other diagnostic classes" stays
+  an honest class-scoped pass.
+- **Tool count 9 → 10 and group count 3 → 4** across all three languages'
+  README/DESIGN/SKILL, with the adapter list and the ja README's stale
+  "8 tools" heading corrected along the way.
+
 ## [0.5.0] — 2026-08-30
 
 ### Changed
