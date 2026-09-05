@@ -475,6 +475,23 @@ class TestHallucinationScan(unittest.TestCase):
         groups = {h["group"] for h in r["hits"]}
         self.assertIn("oversold", groups)
 
+    def test_oversold_security_and_performance_claims(self):
+        # unverified security/performance claims fire as oversold (error)
+        r = engine.scan_hallucination_words(
+            "No vulnerabilities, secure by design, zero downtime. 高并发下超高性能，绝对安全。"
+        )
+        self.assertFalse(r["clean"])
+        self.assertIn("oversold", {h["group"] for h in r["hits"]})
+        self.assertTrue(r["blocking"])
+
+    def test_oversold_security_legitimate_usage_clean(self):
+        # describing the act of hardening is not an unverified claim
+        r = engine.scan_hallucination_words(
+            "The design review fixed two issues; we optimized the query with an index.\n"
+            "Encrypt the token before storing it.\n"
+        )
+        self.assertTrue(r["clean"], r["hits"])
+
     def test_fabricated_group(self):
         r = engine.scan_hallucination_words("this is a simulated example")
         self.assertFalse(r["clean"])

@@ -71,6 +71,15 @@ OVERSOLD_TOKENS = [
     "cannot fail",
     "guaranteed to pass",
     "impossible to break",
+    # security claims (unverified)
+    "no vulnerabilities",
+    "vulnerability free",
+    "secure by design",
+    "unhackable",
+    # performance claims (unverified)
+    "highly optimized",
+    "zero downtime",
+    "infinitely scalable",
 ]
 
 OVERSOLD_TOKENS_ZH = [
@@ -86,6 +95,12 @@ OVERSOLD_TOKENS_ZH = [
     "不可能失败",
     "绝对可靠",
     "稳过",
+    "绝对安全",
+    "毫无漏洞",
+    "零漏洞",
+    "永不停机",
+    "超高性能",
+    "安全无虞",
 ]
 
 FABRICATED_TOKENS = [
