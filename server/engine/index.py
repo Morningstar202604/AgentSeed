@@ -238,3 +238,70 @@ def index_payload_files(root: str) -> int:
             return len(json.load(fh).get("entries", {}))
     except (OSError, ValueError):
         return 0
+
+
+def resolve_symbols(
+    names: list[str],
+    root: str,
+    sym_map: dict[str, list[str]] | None = None,
+    known_packages: list[str] | None = None,
+) -> dict:
+    """Write-time prevention: do these names exist BEFORE the call is written?
+
+    verify_code/verify_file judge code after it is written; this query is the
+    complement — ask first, hallucinate never. A name is judged against:
+      1. the project symbol index (exists -> which files define it);
+      2. Python stdlib + the known-package set (importable without a
+         project definition);
+      3. nothing else — a name found nowhere is reported as a likely
+         hallucinated API, with did-you-mean suggestions from real symbols.
+    """
+    from .imports import _DEFAULT_COMMON, _pypi_normalize, _stdlib_modules
+
+    clean = []
+    seen = set()
+    for n in names if isinstance(names, list) else []:
+        if isinstance(n, str) and n.strip() and n.strip() not in seen:
+            seen.add(n.strip())
+            clean.append(n.strip())
+    if sym_map is None:
+        sym_map = symbol_map(load_or_build(root))
+    known = set(sym_map)
+
+    importable = set(_stdlib_modules()) | {_pypi_normalize(p) for p in _DEFAULT_COMMON}
+    for pkg in known_packages or []:
+        if isinstance(pkg, str) and pkg.strip():
+            importable.add(_pypi_normalize(pkg))
+
+    results = []
+    for name in clean:
+        if name in known:
+            results.append(
+                {
+                    "name": name,
+                    "exists": True,
+                    "defined_in": sym_map[name][:5],
+                    "stdlib_or_known_package": False,
+                    "suggestions": [],
+                }
+            )
+            continue
+        importable_hit = name in importable or _pypi_normalize(name) in importable
+        results.append(
+            {
+                "name": name,
+                "exists": False,
+                "defined_in": [],
+                "stdlib_or_known_package": importable_hit,
+                "suggestions": suggestions_for(name, known),
+            }
+        )
+    return {
+        "results": results,
+        "all_found": bool(results) and all(r["exists"] or r["stdlib_or_known_package"] for r in results),
+        "project_symbols": len(sym_map),
+        "note": "Write-time prevention: judged against the project symbol index and "
+        "the stdlib/known-package set only. A name found nowhere is a likely "
+        "hallucinated API — resolve it, import it, or drop the call before writing "
+        "the code. Attribute calls and dependency-internal symbols are not analyzed.",
+    }

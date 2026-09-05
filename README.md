@@ -166,7 +166,7 @@ python3 server/guard_cli.py plugin init my-plugin    # scaffold → validate →
 > belongs to `args`. `npx agentseed-mcp` needs no editing at all: the npm shim
 > picks the interpreter per platform.
 
-## The 9 MCP tools
+## The 10 MCP tools
 
 Zero *required* dependencies — pure Python standard library; optional extras
 upgrade two tools to industry-standard engines (see below).
@@ -174,6 +174,7 @@ upgrade two tools to industry-standard engines (see below).
 | Tool | Catches | Technique |
 | --- | --- | --- |
 | `verify_code` | Invented APIs / undefined symbols | Python AST + config-driven lexical passes (17 languages) |
+| `resolve_symbol` | Hallucinated APIs BEFORE the call is written | Project symbol index + stdlib/known-package lookup with did-you-mean suggestions |
 | `verify_file` | The same class, on real files | Runs the project's own toolchain (ruff, pyflakes, tsc, eslint, go vet, cargo check) when installed; built-in analyzer as fallback |
 | `check_contract` | Code violates a written spec | requires/prohibits contract check |
 | `check_imports` | Hallucinated packages (slopsquatting) | stdlib + known-packages allowlist check; `--manifest` scans requirements/pyproject/package.json — the package's first contact surface |
@@ -349,7 +350,7 @@ Unknown keys are warned on stderr — a typo is never silently ignored.
 | Host capability | What you get |
 | --- | --- |
 | Full Agent Plugins | drop-in: skill + MCP auto-discovered, `${PLUGIN_DATA}` config honored |
-| MCP-capable client | all 9 tools via registration |
+| MCP-capable client | all 10 tools via registration |
 | Skills-only client | skill workflow; verification degrades to `guard_cli.py` via shell |
 | Plain terminal / CI | CLI gates with exit codes |
 
@@ -368,7 +369,7 @@ techniques). Every library lives under
 | | Prompt-only guardrail skills | Static import linters (MCP) | **AgentSeed** |
 | --- | --- | --- | --- |
 | Touches code | ❌ prompt only | ✅ import graphs | ✅ AST + lexical (registry-wide) |
-| Runs verification tools | ❌ | lint gates | ✅ 9 MCP tools incl. sandbox |
+| Runs verification tools | ❌ | lint gates | ✅ 10 MCP tools incl. sandbox |
 | Hallucination-language scan | ❌ | ❌ | ✅ stub/oversold/fabricated/fabricated_url, EN + CJK |
 | Enforcement | soft (skill text) | CI gate | **tiered**: skill + MCP + CI exit codes + hook profiles (advisory → diff → strict) |
 | 1.0.0 conformance linter | ❌ | ❌ | ✅ first |

@@ -128,7 +128,7 @@ AgentSeed は「**コードレベル + 実ツール実行 + Skill/MCP クロー�
 | | プロンプト専用 skill（superpowers…） | 静的 import linter | **AgentSeed** |
 | --- | --- | --- | --- |
 | コードに触れる | ❌ | ✅ import グラフ | ✅ AST + 語彙解析 |
-| ツール実行 | ❌ | lint ゲート | ✅ sandbox 含む 9 MCP ツール |
+| ツール実行 | ❌ | lint ゲート | ✅ sandbox 含む 10 MCP ツール |
 | 強制 | 弱い | CI ゲート | **ハードゲート** |
 | 1.0.0 linter | ❌ | ❌ | ✅ |
 

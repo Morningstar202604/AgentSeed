@@ -46,7 +46,7 @@ AgentSeed ガードレール保護下のセッションにいます。`agentseed
 
 - `stub`/`mock`/`fake`/`placeholder`/`dummy`/`todo`/`fixme`/`tbd`/
   `not implemented`/`coming soon` を実ロジックの代わりに**使わない**。
-- このプロジェクトで定義・インポートされていないシンボルを**呼ばない**。
+- このプロジェクトで定義・インポートされていないシンボルを**呼ばない** — 書く前に `resolve_symbol(names=[...])` で存在を確認する。
 - インストール済みバージョンで検証していない API を**信頼しない**（PROMPT-POOL E1）。
 - 今ターンで読んでいないファイルの内容・行番号を**断言しない**（PROMPT-POOL F1）。
 

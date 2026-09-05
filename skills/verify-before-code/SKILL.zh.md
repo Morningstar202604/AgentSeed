@@ -44,7 +44,7 @@ metadata:
 
 - **绝不**用 `stub`/`mock`/`fake`/`placeholder`/`dummy`/`todo`/`fixme`/
   `tbd`/`not implemented`/`coming soon` 充当可运行逻辑。
-- **绝不**调用本项目内未定义或未导入的符号。
+- **绝不**调用本项目内未定义或未导入的符号——落笔之前，先用 `resolve_symbol(names=[...])` 预查该符号是否存在。
 - **绝不**相信未经"已安装版本"验证的 API（见提示池 E1 —— "绝不编造 API"）。
 - **绝不**不读文件就断言其内容或行号（见提示池 F1）。
 

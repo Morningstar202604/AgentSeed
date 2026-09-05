@@ -120,14 +120,18 @@ version `0.5.0`, protocol `2024-11-05`.
   fails loudly instead of degrading silently.
 - `check_contract(source: string, contract: string, language?: string)` →
   `{language, contract_ok, missing[], prohibited_hits[], note}`
-- `check_imports(source: string, language?: string)` →
-  `{language, imports_ok, suspicious[{package, line}], note}` — slopsquatting guard
+- `check_imports(source: string, language?: string, manifest?: string, manifest_kind?: string)` →
+  `{language, imports_ok, suspicious[{package, line}], note}` — slopsquatting guard;
+  with `manifest`, scans dependency-manifest text instead (requirements/pyproject/package.json)
+- `resolve_symbol(names: string[], root?: string)` →
+  `{results[{name, exists, defined_in[], stdlib_or_known_package, suggestions[]}], all_found, project_symbols, note}` —
+  write-time prevention; the complement of verify_code
 - `scan_hallucination(source: string)` → `{hits[{word,group,line}], clean: bool, groups{}}`
 - `check_plugin(path: string)` → `{ok: bool, errors[], warnings[]}`
 - `sandbox_run(command: string[], timeout?: int, cwd?: string, expected_exit?: int, expect_output?: string)` →
   `{exit_code, stdout, stderr, timed_out}`
 - `schema_validate(instance: any, schema: object)` → `{valid: bool, errors[]}`
-- `record_verification(task: string, checks?: [{tool, status, summary?}], summary?: string)` →
+- `record_verification(task: string, checks?: [{tool, status, summary?}], summary?: string, files?: string[])` →
   `{ok: bool, path: string, total: int, error?: string}` — `status` is
   `pass` | `fail` | `skipped`
 
@@ -212,7 +216,7 @@ Returns `ok`, `errors[]`, `warnings[]`.
 | | Prompt-only skills (superpowers…) | Static import linters | **AgentSeed** |
 | --- | --- | --- | --- |
 | Touches code | ❌ | ✅ import graphs | ✅ AST + lexical |
-| Runs tools | ❌ | lint gates | ✅ 9 MCP tools incl. sandbox |
+| Runs tools | ❌ | lint gates | ✅ 10 MCP tools incl. sandbox |
 | Enforcement | soft | CI gate | **hard gate** |
 | 1.0.0 linter | ❌ | ❌ | ✅ |
 

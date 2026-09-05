@@ -52,7 +52,7 @@ implementations over placeholders.
 
 - **Never** emit `stub`/`mock`/`fake`/`placeholder`/`dummy`/`todo`/`fixme`/
   `tbd`/`not implemented`/`coming soon` as a substitute for working logic.
-- **Never** call a symbol that is not defined or imported in this project.
+- **Never** call a symbol that is not defined or imported in this project — before writing the call, ask `resolve_symbol(names=[...])` whether it exists.
 - **Never** trust an API that you have not verified against the installed
   version (see PROMPT-POOL E1 — "never invent an API").
 - **Never** assert a file's content or line numbers without reading it in this

@@ -46,7 +46,13 @@ from .hallucination import (
     scan_hallucination_words,
 )
 from .imports import check_imports, check_manifest, manifest_kind_for_path
-from .index import build_index, find_project_root, symbol_map, verify_in_project
+from .index import (
+    build_index,
+    find_project_root,
+    resolve_symbols,
+    symbol_map,
+    verify_in_project,
+)
 from .plugin import check_plugin_conformance
 from .receipt import build_receipt
 from .sandbox import build_env, kill_tree, resolve_executable, sandbox_run
@@ -90,6 +96,7 @@ __all__ = [
     "plugin_version",
     "record_verification",
     "resolve_executable",
+    "resolve_symbols",
     "run_verifier",
     "sandbox_env_mode",
     "sandbox_run",

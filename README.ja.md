@@ -186,7 +186,7 @@ python3 server/guard_cli.py scan . --baseline baseline-scan.json  # ツリー検
 > （配列は `args` 側）。`npx agentseed-mcp` は shim が OS から解釈器を選ぶため
 > 編集不要です。
 
-## 8 つの MCP ツール
+## 10 個の MCP ツール
 
 必須依存**ゼロ**——純 Python 標準ライブラリ。オプション拡張で 2 ツールが
 業界標準エンジンにアップグレードされます（下記）。
@@ -194,6 +194,7 @@ python3 server/guard_cli.py scan . --baseline baseline-scan.json  # ツリー検
 | ツール | ブロックするもの | 技術 |
 | --- | --- | --- |
 | `verify_code` | 捏造 API / 未定義シンボル | Python AST + 設定駆動の汎用語彙パス（17 言語） |
+| `resolve_symbol` | 呼び出す**前**に幻覚 API を予防 | プロジェクト記号インデックス + stdlib/既知パッケージ照会、類似候補提示 |
 | `check_contract` | 仕様に違反するコード | requires/prohibits 契約チェック |
 | `check_imports` | 幻覚パッケージ（slopsquatting） | stdlib + known_packages ホワイトリスト検証；`--manifest` は依存マニフェスト（requirements/pyproject/package.json）を直接スキャン |
 | `scan_hallucination` | プレースホルダー、誇張、捏造、ファントムドメイン | 4 グループ 50+ シグナル、EN + CJK |
@@ -306,7 +307,7 @@ pip install -r server/requirements.txt
 | ホスト能力 | 得られるもの |
 | --- | --- |
 | フル Agent Plugins | ドロップイン：skill + MCP 自動発見、`${PLUGIN_DATA}` 設定尊重 |
-| MCP 対応クライアント | 登録で 9 ツールすべて |
+| MCP 対応クライアント | 登録で 10 ツールすべて |
 | skill のみのクライアント | skill ワークフロー；検証は `guard_cli.py` を shell 経由で実行 |
 | ターミナル / CI | 終了コード付き CLI ゲート |
 
@@ -324,7 +325,7 @@ pip install -r server/requirements.txt
 | | プロンプト専用 skill | 静的 import linter（MCP） | **AgentSeed** |
 | --- | --- | --- | --- |
 | コードに触れる | ❌ プロンプトのみ | ✅ import グラフ | ✅ AST + 語彙（17 言語） |
-| 検証ツールを実行 | ❌ | lint ゲート | ✅ 9 MCP ツール（sandbox 含む） |
+| 検証ツールを実行 | ❌ | lint ゲート | ✅ 10 MCP ツール（sandbox 含む） |
 | 幻覚言語スキャン | ❌ | ❌ | ✅ stub/oversold/fabricated/fabricated_url、EN + CJK |
 | 強制力 | 軟（skill 文面） | CI ゲート | **硬**：skill + MCP + hook + CLI 終了コード |
 | 1.0.0 適合 linter | ❌ | ❌ | ✅ 最初 |

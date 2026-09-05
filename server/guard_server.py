@@ -8,8 +8,10 @@ which MCP SDK version the client ships.
 
 Protocol: line-delimited JSON-RPC 2.0 over stdin/stdout (stdio transport).
 
-Tools (9 — the 8 `guard_cli.py` subcommands plus `verify_file`):
+Tools (10 — the 9 `guard_cli.py` subcommands plus `verify_file` and
+`resolve_symbol`):
   - verify_code         -> detect_undefined_symbols
+  - resolve_symbol      -> resolve_symbols (write-time existence check)
   - verify_file         -> run_verifier (toolchain adapters + builtin fallback)
   - check_contract      -> check_contract (source vs a written spec)
   - check_imports       -> imported-but-unknown packages (slopsquatting)
@@ -24,6 +26,7 @@ Tools (9 — the 8 `guard_cli.py` subcommands plus `verify_file`):
 from __future__ import annotations
 
 import json
+import os
 import sys
 import threading
 import time
@@ -109,6 +112,31 @@ TOOLS = [
             },
         },
         ["source"],
+    ),
+    _tool(
+        "resolve_symbol",
+        "Write-time prevention: check whether symbol/package names exist "
+        "BEFORE calling them — the complement of verify_code, which judges "
+        "code after it is written. A name defined nowhere in the project and "
+        "unknown to stdlib/the known-package set is a likely hallucinated "
+        "API: resolve it, import it, or drop the call before writing the "
+        "code. Returns per-name existence, defining files "
+        "('defined_in'), the stdlib/known-package flag, and did-you-mean "
+        "suggestions from real project symbols.",
+        {
+            "names": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Symbol or package names to resolve, e.g. "
+                "['process_data', 'numpy'].",
+            },
+            "root": {
+                "type": "string",
+                "description": "Project root directory (default: inferred from "
+                "the server's working directory).",
+            },
+        },
+        ["names"],
     ),
     _tool(
         "verify_file",
@@ -346,6 +374,13 @@ def _execute(name: str, args: dict) -> dict:
             args.get("source", ""),
             args.get("language", "python"),
             suppress=CONFIG_SUPPRESS,
+        )
+    if name == "resolve_symbol":
+        root = args.get("root") or engine.find_project_root(os.getcwd()) or os.getcwd()
+        return engine.resolve_symbols(
+            args.get("names") or [],
+            root,
+            known_packages=CONFIG_KNOWN_PACKAGES,
         )
     if name == "verify_file":
         return engine.run_verifier(

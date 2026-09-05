@@ -76,8 +76,8 @@ AgentSeed 填补：**代码级 + 真跑工具 + Skill/MCP 闭环强制**。`chec
 | 方法 | 说明 |
 | --- | --- |
 | `initialize` | 握手，返回 protocolVersion / capabilities / serverInfo |
-| `tools/list` | 返回 9 个工具 |
-| `tools/call` | 调用 `verify_code` / `verify_file` / `check_contract` / `check_imports` / `scan_hallucination` / `check_plugin` / `sandbox_run` / `schema_validate` / `record_verification` |
+| `tools/list` | 返回 10 个工具 |
+| `tools/call` | 调用 `verify_code` / `resolve_symbol` / `verify_file` / `check_contract` / `check_imports` / `scan_hallucination` / `check_plugin` / `sandbox_run` / `schema_validate` / `record_verification` |
 
 工具签名：见英文版 §4.2。`verify_file` 在已安装时运行项目自带工具链（ruff/pyflakes/tsc/eslint/go vet/cargo check），否则回退内置分析器，详见 §10.1。
 
@@ -141,7 +141,7 @@ AgentSeed 填补：**代码级 + 真跑工具 + Skill/MCP 闭环强制**。`chec
 | | 纯 prompt 技能（superpowers…） | 静态 import 检查器 | **AgentSeed** |
 | --- | --- | --- | --- |
 | 碰代码 | ❌ | ✅ import 图 | ✅ AST + 词法 |
-| 跑工具 | ❌ | lint 门禁 | ✅ 9 个 MCP 工具含沙箱 |
+| 跑工具 | ❌ | lint 门禁 | ✅ 10 个 MCP 工具含沙箱 |
 | 强制 | 软 | CI 门禁 | **硬闸门** |
 | 1.0.0 linter | ❌ | ❌ | ✅ |
 
