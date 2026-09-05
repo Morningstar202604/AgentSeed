@@ -362,8 +362,14 @@ def cmd_sandbox(args: argparse.Namespace) -> int:
         args.cwd,
         allowed_prefixes=engine.config_str_list(config, "sandbox_allowed_prefixes"),
         env_mode=env_mode,
+        expected_exit=getattr(args, "expect_exit", None),
+        expect_output=getattr(args, "expect_output", None),
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
+    if result.get("expectations"):
+        # with an assertion, the verdict is "matched the expectation", not
+        # "exited zero" — the child's real exit code stays in the JSON
+        return 0 if result["expectations"]["met"] else 1
     if result["timed_out"]:
         return 1
     if result["exit_code"] < 0:
@@ -1001,6 +1007,19 @@ def main(argv: list[str] | None = None) -> int:
         choices=engine.SANDBOX_ENV_MODES,
         default=None,
         help="environment policy (default: config sandbox_env / inherit)",
+    )
+    p_sandbox.add_argument(
+        "--expect-exit",
+        type=int,
+        default=None,
+        metavar="N",
+        help="behavioral assertion: child exit code must equal N (CLI exits 1 otherwise)",
+    )
+    p_sandbox.add_argument(
+        "--expect-output",
+        default=None,
+        metavar="STR",
+        help="behavioral assertion: STR must appear in stdout or stderr (CLI exits 1 otherwise)",
     )
     p_sandbox.set_defaults(func=cmd_sandbox)
 

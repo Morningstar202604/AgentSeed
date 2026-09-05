@@ -198,7 +198,7 @@ python3 server/guard_cli.py scan . --baseline baseline-scan.json  # ツリー検
 | `check_imports` | 幻覚パッケージ（slopsquatting） | stdlib + known_packages ホワイトリスト検証；`--manifest` は依存マニフェスト（requirements/pyproject/package.json）を直接スキャン |
 | `scan_hallucination` | プレースホルダー、誇張、捏造、ファントムドメイン | 4 グループ 50+ シグナル、EN + CJK |
 | `check_plugin` | 不適合なプラグイン | 厳格 1.0.0 linter |
-| `sandbox_run` | 実行せずに「テスト合格」 | 決定的実行チャネル（メモリ有界出力） |
+| `sandbox_run` | 実行せずに「テスト合格」、実行したが結果が不一致 | 決定的実行チャネル + 振る舞いアサーション（expected_exit / expect_output） |
 | `schema_validate` | 不正な構造化出力 | JSON Schema 検証 |
 | `record_verification` | 証跡の永続化欠如 | `PLUGIN_DATA` 配下の JSONL 監査トレイル |
 

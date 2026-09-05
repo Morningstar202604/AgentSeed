@@ -124,7 +124,7 @@ version `0.5.0`, protocol `2024-11-05`.
   `{language, imports_ok, suspicious[{package, line}], note}` — slopsquatting guard
 - `scan_hallucination(source: string)` → `{hits[{word,group,line}], clean: bool, groups{}}`
 - `check_plugin(path: string)` → `{ok: bool, errors[], warnings[]}`
-- `sandbox_run(command: string[], timeout?: int, cwd?: string)` →
+- `sandbox_run(command: string[], timeout?: int, cwd?: string, expected_exit?: int, expect_output?: string)` →
   `{exit_code, stdout, stderr, timed_out}`
 - `schema_validate(instance: any, schema: object)` → `{valid: bool, errors[]}`
 - `record_verification(task: string, checks?: [{tool, status, summary?}], summary?: string)` →

@@ -97,6 +97,52 @@ class TestSandboxAllowPolicy(unittest.TestCase):
         self.assertEqual(r["exit_code"], 0)
 
 
+class TestSandboxExpectations(unittest.TestCase):
+    """Behavioral assertions: 'the command ran' upgrades to 'it produced the
+    expected result' — executional verification without a second channel."""
+
+    def test_expectations_met(self):
+        r = engine.sandbox_run(
+            [sys.executable, "-c", "print('result-42')"],
+            expected_exit=0,
+            expect_output="result-42",
+        )
+        self.assertEqual(r["exit_code"], 0)
+        exp = r["expectations"]
+        self.assertTrue(exp["met"])
+        self.assertTrue(exp["exit_met"])
+        self.assertTrue(exp["output_met"])
+
+    def test_expect_exit_mismatch(self):
+        r = engine.sandbox_run(
+            [sys.executable, "-c", "raise SystemExit(3)"],
+            expected_exit=0,
+        )
+        self.assertEqual(r["exit_code"], 3)
+        self.assertFalse(r["expectations"]["met"])
+        self.assertFalse(r["expectations"]["exit_met"])
+        self.assertIsNone(r["expectations"]["output_met"])
+
+    def test_expect_output_matches_stderr(self):
+        r = engine.sandbox_run(
+            [sys.executable, "-c", "import sys; sys.stderr.write('boom-marker')"],
+            expect_output="boom-marker",
+        )
+        self.assertTrue(r["expectations"]["met"], r)
+
+    def test_expect_output_missing_fails(self):
+        r = engine.sandbox_run(
+            [sys.executable, "-c", "print('other')"],
+            expect_output="not-present-marker",
+        )
+        self.assertFalse(r["expectations"]["met"])
+        self.assertTrue(r["expectations"]["output_met"] is False)
+
+    def test_no_expectations_keeps_result_shape(self):
+        r = engine.sandbox_run([sys.executable, "-c", "print('plain')"])
+        self.assertNotIn("expectations", r)
+
+
 class TestSandboxAllowPolicyHardening(unittest.TestCase):
     """Regressions for the allowlist-bypass fixes: separator-boundary
     prefix matching and PATH-resolved execution (no cwd shadowing)."""

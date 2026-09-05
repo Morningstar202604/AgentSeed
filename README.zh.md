@@ -190,7 +190,7 @@ python3 server/guard_cli.py scan . --baseline baseline-scan.json  # 目录扫描
 | `check_imports` | 幻觉包导入（slopsquatting 抢注） | stdlib + known_packages 白名单校验；`--manifest` 直接扫依赖清单（requirements/pyproject/package.json）——幻觉包的第一现场 |
 | `scan_hallucination` | 占位代码、夸大声称、虚构内容、幻觉域名 | 4 组 50+ 信号，中英双语 |
 | `check_plugin` | 不合规的插件打包 | 严格 1.0.0 linter |
-| `sandbox_run` | 什么都没跑就说"测试通过" | 确定性执行通道（有界内存输出） |
+| `sandbox_run` | 什么都没跑就说"测试通过"、跑了但结果不符声称 | 确定性执行通道 + 行为断言（expected_exit / expect_output） |
 | `schema_validate` | 不合法的结构化输出 | JSON Schema 校验 |
 | `record_verification` | 没有持久化证据链 | `PLUGIN_DATA` 下 JSONL 审计轨迹 |
 

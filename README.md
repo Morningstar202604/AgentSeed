@@ -179,7 +179,7 @@ upgrade two tools to industry-standard engines (see below).
 | `check_imports` | Hallucinated packages (slopsquatting) | stdlib + known-packages allowlist check; `--manifest` scans requirements/pyproject/package.json — the package's first contact surface |
 | `scan_hallucination` | Placeholder code, overclaims, fabricated content, phantom domains | 50+ signals in 4 groups, EN + CJK |
 | `check_plugin` | Non-conformant plugin packaging | Strict 1.0.0 linter |
-| `sandbox_run` | "Tests pass" without running anything | Deterministic execution channel (bounded-memory output) |
+| `sandbox_run` | "Tests pass" without running anything; ran but the result disagrees | Deterministic execution channel + behavioral assertions (expected_exit / expect_output) |
 | `schema_validate` | Invalid structured output | JSON Schema validation |
 | `record_verification` | No persistent evidence trail | JSONL audit trail under `PLUGIN_DATA` |
 

@@ -235,8 +235,12 @@ TOOLS = [
         "sandbox_run",
         "Deterministic execution channel: run a command (no shell) in a "
         "subprocess with a timeout and captured output. Turns 'tests pass' "
-        "into an observed fact. Use to verify test suites, type checks, "
-        "linters, or any claim that requires running code. "
+        "into an observed fact. Optional behavioral assertions upgrade "
+        "'the command ran' to 'it produced the expected result': pass "
+        "expected_exit (integer) and/or expect_output (substring of stdout "
+        "or stderr) and the result gains an 'expectations' verdict. Use to "
+        "verify test suites, type checks, linters, or any claim that "
+        "requires running code. "
         "WARNING: this executes real processes on the user's machine — "
         "MUST be gated behind user approval in the client. Commands may be "
         "restricted by config 'sandbox_allowed_prefixes'.",
@@ -254,6 +258,16 @@ TOOLS = [
             "cwd": {
                 "type": "string",
                 "description": "Working directory (optional).",
+            },
+            "expected_exit": {
+                "type": "integer",
+                "description": "Behavioral assertion: the child's exit code must "
+                "equal this; judged in result 'expectations.exit_met'.",
+            },
+            "expect_output": {
+                "type": "string",
+                "description": "Behavioral assertion: this substring must appear "
+                "in stdout or stderr; judged in result 'expectations.output_met'.",
             },
         },
         ["command"],
@@ -403,6 +417,8 @@ def _run_call_async(msg_id, name: str, args: dict) -> threading.Thread:
                     allowed_prefixes=CONFIG_SANDBOX_ALLOW,
                     on_proc=lambda proc: entry.__setitem__("proc", proc),
                     env_mode=CONFIG_SANDBOX_ENV,
+                    expected_exit=args.get("expected_exit"),
+                    expect_output=args.get("expect_output"),
                 )
             else:
                 result = _execute(name, args)

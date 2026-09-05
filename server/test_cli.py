@@ -72,6 +72,23 @@ class TestCli(unittest.TestCase):
         r = run_cli("sandbox", "--", "definitely-not-a-real-cmd-xyz")
         self.assertEqual(r.returncode, 1, r.stdout)
 
+    def test_sandbox_expect_exit_matches(self):
+        r = run_cli("sandbox", "--expect-exit", "3", "--", PY, "-c", "raise SystemExit(3)")
+        self.assertEqual(r.returncode, 0, r.stdout)
+        self.assertIn('"met": true', r.stdout)
+
+    def test_sandbox_expect_exit_mismatch_fails(self):
+        r = run_cli("sandbox", "--expect-exit", "3", "--", PY, "-c", "print('fine')")
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertIn('"met": false', r.stdout)
+
+    def test_sandbox_expect_output_missing_fails(self):
+        r = run_cli(
+            "sandbox", "--expect-output", "wanted-marker", "--", PY, "-c", "print('other')"
+        )
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertIn('"met": false', r.stdout)
+
     def test_verify_directory_gives_clean_error(self):
         r = run_cli("verify", PLUGIN_ROOT)  # a directory
         self.assertEqual(r.returncode, 2, r.stdout + r.stderr)

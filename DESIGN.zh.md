@@ -98,8 +98,9 @@ AgentSeed 填补：**代码级 + 真跑工具 + Skill/MCP 闭环强制**。`chec
   静态检查、不跑运行时；TS 与通用通道是词法而非类型检查——属性调用
   （`obj.m()`、`a::b()`）、宏、跨文件符号不分析；动态/全局引用可能误报，
   解构边界情况可能漏报。
-- **`sandbox_run`**：无 shell 子进程执行（超时 1–120 秒、输出截断）。CDV 通道 A
-  的落地——"测试通过"变成可观测事实。
+- **`sandbox_run`**：无 shell 子进程执行（超时 1–120 秒、输出截断），可选行为断言
+  （expected_exit / expect_output：退出码与输出子串逐项判定，结果附 expectations
+  裁决）——"跑过"升级为"跑出预期结果"（CodeHalu 的执行验证）。CDV 通道 A 的落地。
 - **`schema_validate`**：零依赖 JSON Schema 子集校验（type/enum/const/minLength/
   maxLength/pattern/minItems/maxItems/items/properties/required/additionalProperties）。
 - **`scan_hallucination_words`**：逐行正则词边界扫描**分组信号池（50+ 词）**：

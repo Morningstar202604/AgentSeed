@@ -104,7 +104,8 @@ AgentSeed は「**コードレベル + 実ツール実行 + Skill/MCP クロー�
   スキーマ、`name` 制約、SKILL.md frontmatter（ディレクトリ名一致、
   description ≤1024）、mcp.json の閉じたフィールドと cwd 形式。
 - **`sandbox_run`** — shell なしサブプロセス実行（タイムアウト 1–120 秒、出力
-  トランケート）。CDV チャネル A の実装。
+  トランケート）、任意の振る舞いアサーション（expected_exit / expect_output）
+  付き。CDV チャネル A の実装。
 - **`schema_validate`** — type/enum/const/minLength/maxLength/pattern/minItems/
   maxItems/items/properties/required/additionalProperties をサポートする
   ゼロ依存サブセット検証。
