@@ -61,6 +61,42 @@ contract and the self-conformance gate green.
   README/DESIGN/SKILL, with the adapter list and the ja README's stale
   "8 tools" heading corrected along the way.
 
+### Fixed — field-tested against five real-world repositories
+  (flask, requests, django 2930-file gate, gin, axios) — every class below
+  was a false positive found in real code, then regression-tested:
+
+- **Single-quote string patterns are line-bounded** in the 11 languages
+  where single quotes never span lines (go/rust/java/c/cpp/csharp/kotlin/
+  dart/lua/r/zig). An apostrophe in a comment ("doesn't") opened a
+  multi-line bogus string span that swallowed following code — gin's
+  same-file `processAccounts` definition became a suspect.
+- **The TS/JS native pass masks strings and comments** before scanning
+  (JSDoc text "EF BB BF (the UTF-8 BOM)" matched the bare-call pattern and
+  flagged `BF` on axios), collects **object destructuring from any
+  initializer** (`const {getPrototypeOf} = Object`), **class/object method
+  definitions and their parameters** (`constructor(x) {` is a definition,
+  not a call; `forEach(fn) { fn(h) }` defines fn), **arrow params without a
+  declaration prefix** (`lookup = (host, opt, cb) =>`), and **common
+  Web/Node globals** (URL, Uint8Array, TypeError, XMLHttpRequest,
+  ReadableStream, ...). Member chains split across lines (prettier style
+  `foo.
+  replace(...)`) are no longer misread as bare calls.
+  Result: axios/lib 62 real JS files — 9 files with suspects before, 0 after.
+- **The symbol-index cache records the engine version** and rebuilds when
+  it differs — a cache written by older collection rules otherwise keeps
+  serving stale judgments after an engine fix.
+- **Manifest scanning diff-scopes against git HEAD** (`imports --manifest`):
+  a long-tail unknown the project already depends on is reported separately
+  as `preexisting_unknown`; only NEWLY ADDED names are suspects. Without
+  this the report flagged 49 of axios's 62 real dependencies — noise that
+  trains users to ignore the report. On a real axios clone: 0 suspects.
+- **Python detection honors `# noqa` lines** (flake8 convention — django's
+  own tests mark forward-reference annotations `# NOQA: F821`) and skips
+  dunder protocol names (`__path__`, `__version__`). django gate suspects
+  across 2930 files: 5 → 0; the only remaining finding is django's own
+  deliberately-broken syntax fixture.
+- **Coverage excludes `__pycache__/`** — interpreter cache is not work.
+
 ## [0.5.0] — 2026-08-30
 
 ### Changed

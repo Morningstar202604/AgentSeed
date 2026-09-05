@@ -95,15 +95,17 @@ def _norm_repo_path(root: str, path: str) -> str:
 
 
 # AgentSeed's own state is never "work": the state directory (verification
-# logs, symbol index) and the gate-generated scan baseline must not show up
-# as unverified project changes.
-_INTERNAL_STATE_PREFIX = ".agentseed"
+# logs, symbol index), the gate-generated scan baseline, and the interpreter's
+# bytecode cache must not show up as unverified project changes.
+_INTERNAL_STATE_PREFIXES = (".agentseed", "__pycache__")
 _INTERNAL_STATE_FILES = {"baseline-scan.json"}
 
 
 def _is_internal_state(path: str) -> bool:
     norm = path.replace("\\", "/")
-    return norm.startswith(_INTERNAL_STATE_PREFIX) or norm in _INTERNAL_STATE_FILES
+    return (
+        norm.startswith(_INTERNAL_STATE_PREFIXES) or norm in _INTERNAL_STATE_FILES
+    )
 
 
 def changed_files(root: str) -> list[str] | None:

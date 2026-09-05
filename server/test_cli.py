@@ -256,5 +256,34 @@ class TestCli(unittest.TestCase):
             self.assertIn("does not exist", r.stdout)
 
 
+    def test_imports_manifest_diff_scopes_against_git_head(self):
+        import subprocess
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as d:
+            subprocess.run(["git", "init", "-q"], cwd=d, capture_output=True, timeout=60)
+            req = os.path.join(d, "requirements.txt")
+            with open(req, "w", encoding="utf-8") as fh:
+                fh.write("numpy==1.26.0\npytest-cov==5.0\n")  # pytest-cov: unknown but pre-existing
+            env_git = subprocess.run(
+                ["git", "-C", d, "add", "requirements.txt"], capture_output=True, timeout=60
+            )
+            self.assertEqual(env_git.returncode, 0)
+            subprocess.run(
+                ["git", "-C", d, "-c", "user.name=t", "-c", "user.email=t@t", "commit",
+                 "-q", "-m", "base"],
+                cwd=d, capture_output=True, timeout=60,
+            )
+            # an agent adds a phantom dependency: the only suspect
+            with open(req, "a", encoding="utf-8") as fh:
+                fh.write("phantom-diff-pkg>=1.0\n")
+            r = run_cli("imports", "--manifest", req)
+            self.assertEqual(r.returncode, 1, r.stdout)
+            self.assertIn("phantom-diff-pkg", r.stdout)
+            self.assertIn('"preexisting_unknown"', r.stdout)
+            self.assertIn("pytest-cov", r.stdout)
+            self.assertNotIn("phantom-diff-pkg', 'preexisting", r.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -519,6 +519,19 @@ class TestCheckManifest(unittest.TestCase):
         self.assertFalse(r["manifest_ok"])
         self.assertIn("unsupported", r["note"])
 
+    def test_preexisting_unknowns_are_not_suspects(self):
+        # long-tail unknowns the project itself already depends on are the
+        # project's own history; only NEWLY ADDED names are the hallucination
+        # moment (diff-scoped via the CLI's git-HEAD baseline)
+        text = "pytest-cov==5.0\ntrustme==1.1\nphantom-new-pkg>=1.0\n"
+        r = engine.check_manifest(
+            text, kind="requirements", preexisting=["pytest-cov", "trustme"]
+        )
+        self.assertEqual([s["package"] for s in r["suspicious"]], ["phantom-new-pkg"])
+        self.assertEqual(sorted(r["preexisting_unknown"]), ["pytest-cov", "trustme"])
+        self.assertFalse(r["manifest_ok"])
+        self.assertIn("Diff-scoped", r["note"])
+
     def test_new_research_tokens_flagged(self):
         # tokens added from 2025 research (slopsquatting + overclaim/fabrication)
         r = engine.scan_hallucination_words(

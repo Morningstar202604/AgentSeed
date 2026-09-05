@@ -31,6 +31,7 @@ import time
 
 from .artifact import SKIP_DIRS
 from .symbols import defined_symbols, language_for_file, source_extensions
+from .version import plugin_version
 
 INDEX_SCHEMA = "agentseed.index.v1"
 
@@ -87,8 +88,9 @@ def index_path(root: str) -> str:
 def build_index(root: str) -> dict:
     """Build (or incrementally refresh) the symbol index for a project root.
 
-    Returns the index payload: {"schema", "entries": {path: {"hash",
-    "symbols": [...]}}, "stats": {"files", "cached", "rescanned", "elapsed_s"}}
+    Returns the index payload: {"schema", "engine_version", "entries":
+    {path: {"hash", "symbols": [...]}}, "stats": {"files", "cached",
+    "rescanned", "elapsed_s"}}
     """
     started = time.perf_counter()
     cache_file = index_path(root)
@@ -97,7 +99,13 @@ def build_index(root: str) -> dict:
         try:
             with open(cache_file, encoding="utf-8") as fh:
                 data = json.load(fh)
-            if data.get("schema") == INDEX_SCHEMA:
+            # a cache built by a different engine version may hold judgments
+            # from older collection rules — found in the field when the Go
+            # masking fix landed: stale v1 caches kept pre-fix symbol lists
+            if (
+                data.get("schema") == INDEX_SCHEMA
+                and data.get("engine_version") == plugin_version()
+            ):
                 old_entries = data.get("entries", {})
         except (OSError, ValueError):
             old_entries = {}
@@ -129,6 +137,7 @@ def build_index(root: str) -> dict:
 
     payload = {
         "schema": INDEX_SCHEMA,
+        "engine_version": plugin_version(),
         "entries": entries,
         "stats": {
             "files": n_files,

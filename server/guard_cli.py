@@ -173,10 +173,55 @@ def cmd_contract(args: argparse.Namespace) -> int:
     return 0 if result["contract_ok"] else 1
 
 
+def _git_head_text(path: str) -> str | None:
+    """Manifest content at git HEAD, or None when not recoverable (not a
+    repo / untracked / git missing). Any failure degrades to no baseline —
+    the report then flags every unknown, honestly saying so."""
+    import subprocess as _sp
+
+    directory = os.path.dirname(os.path.abspath(path)) or "."
+    rel = os.path.relpath(os.path.abspath(path), _git_toplevel(directory))
+    try:
+        proc = _sp.run(
+            ["git", "-C", directory, "show", f"HEAD:{rel}"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+            creationflags=getattr(_sp, "CREATE_NO_WINDOW", 0),
+        )
+    except (OSError, _sp.TimeoutExpired):
+        return None
+    return proc.stdout if proc.returncode == 0 else None
+
+
+def _git_toplevel(directory: str) -> str:
+    import subprocess as _sp
+
+    try:
+        proc = _sp.run(
+            ["git", "-C", directory, "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+            creationflags=getattr(_sp, "CREATE_NO_WINDOW", 0),
+        )
+        if proc.returncode == 0:
+            return proc.stdout.strip()
+    except (OSError, _sp.TimeoutExpired):
+        pass
+    return directory
+
+
 def cmd_imports(args: argparse.Namespace) -> int:
     """Slopsquatting gate: exit 1 when a top-level import (or a manifest
     dependency, with --manifest) is neither in the known-package set nor
-    resolvable another way (defaults + config known_packages + --known)."""
+    resolvable another way (defaults + config known_packages + --known).
+    Manifest mode diffs against git HEAD when possible: only NEWLY ADDED
+    unknown names are suspicious; pre-existing unknowns are listed apart."""
     config = engine.load_config(getattr(args, "config", None))
     known = args.known or engine.config_str_list(config, "known_packages")
     manifest_path = getattr(args, "manifest", None)
@@ -186,10 +231,16 @@ def cmd_imports(args: argparse.Namespace) -> int:
             return 2
         with open(manifest_path, encoding="utf-8", errors="replace") as fh:
             text = fh.read()
+        kind = engine.manifest_kind_for_path(manifest_path)
+        pre: list[str] | None = None
+        head = _git_head_text(manifest_path)
+        if head is not None:
+            pre = engine.manifest_names(head, kind)
         result = engine.check_manifest(
             text,
-            kind=engine.manifest_kind_for_path(manifest_path),
+            kind=kind,
             known_packages=known,
+            preexisting=pre,
         )
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0 if result["manifest_ok"] else 1

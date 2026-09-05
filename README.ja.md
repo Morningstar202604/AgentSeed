@@ -197,7 +197,7 @@ python3 server/guard_cli.py scan . --baseline baseline-scan.json  # ツリー検
 | `verify_code` | 捏造 API / 未定義シンボル | Python AST + 設定駆動の汎用語彙パス（17 言語） |
 | `resolve_symbol` | 呼び出す**前**に幻覚 API を予防 | プロジェクト記号インデックス + stdlib/既知パッケージ照会、類似候補提示 |
 | `check_contract` | 仕様に違反するコード | requires/prohibits 契約チェック |
-| `check_imports` | 幻覚パッケージ（slopsquatting） | stdlib + known_packages ホワイトリスト検証；`--manifest` は依存マニフェスト（requirements/pyproject/package.json）を直接スキャン |
+| `check_imports` | 幻覚パッケージ（slopsquatting） | stdlib + known_packages ホワイトリスト検証；`--manifest` は依存マニフェストをスキャンし git HEAD と比較——新規追加のみを疑う |
 | `scan_hallucination` | プレースホルダー、誇張、捏造、ファントムドメイン | 4 グループ 50+ シグナル、EN + CJK |
 | `check_plugin` | 不適合なプラグイン | 厳格 1.0.0 linter |
 | `sandbox_run` | 実行せずに「テスト合格」、実行したが結果が不一致 | 決定的実行チャネル + 振る舞いアサーション（expected_exit / expect_output） |

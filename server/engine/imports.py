@@ -293,10 +293,28 @@ def _parse_package_json(text: str, name_lines: dict[str, int]) -> list[str]:
     return names
 
 
+def manifest_names(text: str, kind: str | None = None) -> list[str]:
+    """Dependency names parsed from a manifest (the check_manifest set).
+
+    Used by the CLI to diff a working manifest against its git-HEAD version:
+    a pre-existing unknown package is the project's own history; a NEWLY
+    ADDED one is what an agent just introduced — the hallucination moment.
+    """
+    k = (kind or "").strip().lower() or _guess_manifest_kind(text or "")
+    if k not in _MANIFEST_KINDS:
+        return []
+    if k == "requirements":
+        return [_pypi_normalize(n) for n, _ in _parse_requirements(text or "")]
+    if k == "pyproject":
+        return [_pypi_normalize(n) for n, _ in _parse_pyproject(text or "")]
+    return _parse_package_json(text or "", {})
+
+
 def check_manifest(
     text: str,
     kind: str | None = None,
     known_packages: list[str] | None = None,
+    preexisting: list[str] | None = None,
 ) -> dict:
     """Flag manifest dependencies that are not in the known-package set.
 
@@ -306,9 +324,18 @@ def check_manifest(
     ``known_packages``. Report, not a gate — same contract as
     ``check_imports``.
 
+    ``preexisting``: names already present in the project's baseline version
+    of this manifest (the CLI diffs against git HEAD). They are reported
+    separately as ``preexisting_unknown`` instead of ``suspicious`` — a
+    long-tail unknown the project itself depends on is not what an agent
+    just hallucinated; the slopsquatting risk moment is a NEWLY ADDED name.
+    Curated sets can never cover every real long-tail package, and without
+    this split the report cries wolf on every honest repo.
+
     Returns:
         {"kind", "manifest_ok", "dependencies_checked",
-         "suspicious": [{"package", "line"}, ...], "note"}
+         "suspicious": [{"package", "line"}, ...],
+         "preexisting_unknown": [package, ...], "note"}
     """
     k = (kind or "").strip().lower() or _guess_manifest_kind(text or "")
     if k not in _MANIFEST_KINDS:
@@ -317,6 +344,7 @@ def check_manifest(
             "manifest_ok": False,
             "dependencies_checked": 0,
             "suspicious": [],
+            "preexisting_unknown": [],
             "note": "unsupported manifest kind: pass kind='requirements', "
             "'pyproject', or 'package.json' (content inference also failed)",
         }
@@ -326,6 +354,7 @@ def check_manifest(
         if isinstance(pkg, str) and pkg.strip():
             known_n.add(_pypi_normalize(pkg))
             npm_known.add(pkg.strip())
+    pre_n = {p.strip().lower() for p in preexisting or [] if isinstance(p, str) and p.strip()}
 
     if k == "requirements":
         entries = _parse_requirements(text or "")
@@ -342,14 +371,18 @@ def check_manifest(
         suspicious = [
             {"package": n, "line": ln}
             for n, ln in checked
-            if n not in npm_known
+            if n not in npm_known and n.lower() not in pre_n
         ]
     else:
         suspicious = [
             {"package": n, "line": ln}
             for n, ln in checked
-            if n and n not in known_n
+            if n and n not in known_n and n not in pre_n
         ]
+    checked_names = [n for n, _ in checked]
+    preexisting_unknown = [
+        n for n in dict.fromkeys(checked_names) if n.lower() in pre_n
+    ]
     note = (
         "Manifest dependency is not in the known-package set (curated common "
         "list + config `known_packages`) — a possible hallucinated package "
@@ -358,10 +391,17 @@ def check_manifest(
         "requirements lines, PEP 621 dependency arrays, Poetry dependency "
         "sections and package.json dependency objects."
     )
+    if pre_n:
+        note += (
+            f" Diff-scoped against the manifest baseline: "
+            f"{len(preexisting_unknown)} pre-existing unknown package(s) are "
+            "listed separately, not as suspects."
+        )
     return {
         "kind": k,
         "manifest_ok": not suspicious,
         "dependencies_checked": len(checked),
         "suspicious": suspicious,
+        "preexisting_unknown": preexisting_unknown,
         "note": note,
     }

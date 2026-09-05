@@ -45,7 +45,7 @@ from .hallucination import (
     merge_allowlist,
     scan_hallucination_words,
 )
-from .imports import check_imports, check_manifest, manifest_kind_for_path
+from .imports import check_imports, check_manifest, manifest_kind_for_path, manifest_names
 from .index import (
     build_index,
     find_project_root,
@@ -90,6 +90,7 @@ __all__ = [
     "list_verifiers",
     "load_config",
     "manifest_kind_for_path",
+    "manifest_names",
     "merge_allowlist",
     "pack_plugin",
     "parse_timeout",

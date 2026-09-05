@@ -177,7 +177,7 @@ upgrade two tools to industry-standard engines (see below).
 | `resolve_symbol` | Hallucinated APIs BEFORE the call is written | Project symbol index + stdlib/known-package lookup with did-you-mean suggestions |
 | `verify_file` | The same class, on real files | Runs the project's own toolchain (ruff, pyflakes, mypy, tsc, eslint, go vet, cargo check, javac) when installed; built-in analyzer as fallback |
 | `check_contract` | Code violates a written spec | requires/prohibits contract check |
-| `check_imports` | Hallucinated packages (slopsquatting) | stdlib + known-packages allowlist check; `--manifest` scans requirements/pyproject/package.json — the package's first contact surface |
+| `check_imports` | Hallucinated packages (slopsquatting) | stdlib + known-packages allowlist check; `--manifest` scans requirements/pyproject/package.json and diff-scopes against git HEAD — only NEWLY ADDED names are suspects |
 | `scan_hallucination` | Placeholder code, overclaims, fabricated content, phantom domains | 50+ signals in 4 groups, EN + CJK |
 | `check_plugin` | Non-conformant plugin packaging | Strict 1.0.0 linter |
 | `sandbox_run` | "Tests pass" without running anything; ran but the result disagrees | Deterministic execution channel + behavioral assertions (expected_exit / expect_output) |
