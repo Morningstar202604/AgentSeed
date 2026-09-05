@@ -34,8 +34,10 @@ DOC_FILES = [
     "DESIGN.ja.md",
 ]
 
-# A canonical repository: the GitHub home.
-REPO_SLUG = "agentseed-mcp"
+# The canonical repository: the GitHub home.
+REPO_SLUG = "AgentSeed"
+# npm package / registry identity (plain `agentseed` is taken by an unrelated publisher).
+NPM_SLUG = "agentseed-mcp"
 CANONICAL_HOSTS = ("github.com",)
 
 
@@ -161,7 +163,7 @@ class TestRepositoryIdentity(unittest.TestCase):
     def test_registry_name_follows_the_canonical_repository(self):
         """Reverse-DNS identity must be derived from where the code actually lives."""
         server = _manifest("server.json")
-        self.assertEqual(server.get("name"), f"io.github.morningstar202604/{REPO_SLUG}")
+        self.assertEqual(server.get("name"), f"io.github.morningstar202604/{NPM_SLUG}")
         self.assertEqual(_manifest("package.json").get("mcpName"), server.get("name"))
 
     def test_server_json_offers_at_least_one_installable_package(self):
