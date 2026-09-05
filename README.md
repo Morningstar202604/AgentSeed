@@ -175,7 +175,7 @@ upgrade two tools to industry-standard engines (see below).
 | --- | --- | --- |
 | `verify_code` | Invented APIs / undefined symbols | Python AST + config-driven lexical passes (17 languages) |
 | `resolve_symbol` | Hallucinated APIs BEFORE the call is written | Project symbol index + stdlib/known-package lookup with did-you-mean suggestions |
-| `verify_file` | The same class, on real files | Runs the project's own toolchain (ruff, pyflakes, tsc, eslint, go vet, cargo check) when installed; built-in analyzer as fallback |
+| `verify_file` | The same class, on real files | Runs the project's own toolchain (ruff, pyflakes, mypy, tsc, eslint, go vet, cargo check, javac) when installed; built-in analyzer as fallback |
 | `check_contract` | Code violates a written spec | requires/prohibits contract check |
 | `check_imports` | Hallucinated packages (slopsquatting) | stdlib + known-packages allowlist check; `--manifest` scans requirements/pyproject/package.json — the package's first contact surface |
 | `scan_hallucination` | Placeholder code, overclaims, fabricated content, phantom domains | 50+ signals in 4 groups, EN + CJK |
@@ -220,6 +220,8 @@ python3 server/guard_cli.py verify src/app.py --engine builtin # force the built
 | `eslint` | JavaScript | `no-undef` rule |
 | `govet` | Go | `go vet` (`undefined:`) |
 | `cargo` | Rust | `cargo check --message-format json` (E0425) |
+| `mypy` | Python | `mypy --no-error-summary` (`[name-defined]`) |
+| `javac` | Java | `javac -d` (`cannot find symbol`, stderr) |
 
 `--engine auto` picks the first installed adapter and falls back to the
 built-in analyzer; an explicit `--engine <name>` fails loudly when missing.

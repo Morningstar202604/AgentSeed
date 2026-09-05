@@ -87,7 +87,7 @@ AgentSeed fills: **code-level + real tooling + Skill/MCP closed-loop enforcement
 | `references/VENDOR-SOLUTIONS.md` | vendor technique adoption map (EN/ZH/JA) |
 | `server/guard_engine.py` | pure-stdlib checks behind every tool |
 | `server/engine/symbols.py` | undefined-symbol detection: Python AST, TS/JS lexical, config-driven registry |
-| `server/engine/verifiers.py` | toolchain verifier adapters (ruff/pyflakes/tsc/eslint/go vet/cargo) behind `verify_file` |
+| `server/engine/verifiers.py` | toolchain verifier adapters (ruff/pyflakes/mypy/tsc/eslint/go vet/cargo/javac) behind `verify_file` |
 | `server/engine/hallucination.py` | grouped word-pool scanner (EN + CJK), severity model |
 | `server/engine/sandbox.py` | bounded execution channel (no shell, tree kill, env scrub) |
 | `server/engine/audit.py` | JSONL verification audit trail |
@@ -259,7 +259,7 @@ The registry proves "cheap and broad"; the adapters prove "deep where it
 matters". A `VerifierSpec` (name, languages, binary, fixed args, parser id)
 runs the project's own toolchain through `sandbox_run` — no shell, capped
 output, timeout, tree kill — and extracts only the undefined-name class
-(F821 / TS2304 / `undefined:` / E0425 / no-undef) into the same `suspects`
+(F821 / name-defined / TS2304 / `undefined:` / E0425 / no-undef / `cannot find symbol`) into the same `suspects`
 shape the built-in analyzer returns. Policy:
 
 - `auto` = first installed adapter, else the built-in analyzer (noted);

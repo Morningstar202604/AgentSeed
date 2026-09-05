@@ -79,7 +79,7 @@ AgentSeed 填补：**代码级 + 真跑工具 + Skill/MCP 闭环强制**。`chec
 | `tools/list` | 返回 10 个工具 |
 | `tools/call` | 调用 `verify_code` / `resolve_symbol` / `verify_file` / `check_contract` / `check_imports` / `scan_hallucination` / `check_plugin` / `sandbox_run` / `schema_validate` / `record_verification` |
 
-工具签名：见英文版 §4.2。`verify_file` 在已安装时运行项目自带工具链（ruff/pyflakes/tsc/eslint/go vet/cargo check），否则回退内置分析器，详见 §10.1。
+工具签名：见英文版 §4.2。`verify_file` 在已安装时运行项目自带工具链（ruff/pyflakes/mypy/tsc/eslint/go vet/cargo check/javac），否则回退内置分析器，详见 §10.1。
 
 ## 5. 关键算法
 

@@ -142,8 +142,9 @@ TOOLS = [
         "verify_file",
         "Verify a file that exists on disk with the best available engine. "
         "engine='auto' (default) runs a project toolchain verifier when "
-        "installed — ruff or pyflakes for Python, tsc for TypeScript, eslint "
-        "for JavaScript, go vet for Go, cargo check for Rust — through the "
+        "installed — ruff or pyflakes or mypy for Python, tsc for TypeScript, "
+        "eslint for JavaScript, go vet for Go, cargo check for Rust, javac "
+        "for Java — through the "
         "bounded execution channel (no shell, capped output, timeout, tree "
         "kill), and falls back to the built-in analyzer otherwise; "
         "engine='builtin' forces the built-in analyzer; engine='<name>' "

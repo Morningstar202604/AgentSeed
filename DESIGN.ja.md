@@ -77,7 +77,7 @@ AgentSeed は「**コードレベル + 実ツール実行 + Skill/MCP クロー�
 | ツール | 説明 |
 | --- | --- |
 | `verify_code` | 未定義/未インポートシンボルの静的検出（Python は AST、他は語彙パス） |
-| `verify_file` | ディスク上のファイルを最適なエンジンで検証（ruff/pyflakes/tsc/eslint/go vet/cargo、§10.1） |
+| `verify_file` | ディスク上のファイルを最適なエンジンで検証（ruff/pyflakes/mypy/tsc/eslint/go vet/cargo/javac、§10.1） |
 | `check_contract` | 書かれた契約（requires/prohibits）に対してソースを検証 |
 | `check_imports` | stdlib と `known_packages` に無いトップレベル import を報告（slopsquatting ガード） |
 | `scan_hallucination` | 3 グループ幻覚シグナルスキャン（stub_code/oversold/fabricated） |

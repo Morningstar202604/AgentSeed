@@ -56,7 +56,7 @@ AgentSeed ガードレール保護下のセッションにいます。`agentseed
 
 ディスク上に既に存在するファイルは `verify_file(path=..., engine="auto")`
 を優先：プロジェクトのツールチェーンがインストール済みなら（ruff、
-pyflakes、tsc、go vet、cargo check）本物のコンパイラ級エンジンで検証し、
+pyflakes、mypy、tsc、go vet、cargo check、javac）本物のコンパイラ級エンジンで検証し、
 なければ内蔵アナライザにフォールバックする。
 
 ```

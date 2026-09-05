@@ -69,8 +69,8 @@ scan_hallucination(source=<final source>)
 ```
 
 For a file that already exists on disk, prefer `verify_file(path=..., engine="auto")`:
-when the project's toolchain is installed (ruff, pyflakes, tsc, go vet,
-cargo check) it verifies with the real compiler-grade engine and falls back
+when the project's toolchain is installed (ruff, pyflakes, mypy, tsc,
+go vet, cargo check, javac) it verifies with the real compiler-grade engine and falls back
 to the built-in analyzer otherwise.
 
 **If the `agentseed` MCP tools are not available in this session**, do NOT

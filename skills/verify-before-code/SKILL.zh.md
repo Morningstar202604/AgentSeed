@@ -53,7 +53,7 @@ metadata:
 在告诉用户任务完成之前，对最终源码**同时调用**两个工具：
 
 对磁盘上已存在的文件，优先用 `verify_file(path=..., engine="auto")`：项目
-工具链已安装时（ruff、pyflakes、tsc、go vet、cargo check）用真实的编译器
+工具链已安装时（ruff、pyflakes、mypy、tsc、go vet、cargo check、javac）用真实的编译器
 级引擎验证，否则回退内置分析器。
 
 ```
