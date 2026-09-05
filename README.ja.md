@@ -20,9 +20,6 @@ AI は存在しない API を捏造し、何も実行せずに「テスト全部
 
 [English](./README.md) · [中文](./README.zh.md) · **日本語**
 
-⭐ **気に入ったら Star を——幻覚コードを出荷する前に、開発者がガードレールに
-出会える最良のシグナルです。**
-
 </div>
 
 ---
@@ -124,7 +121,6 @@ bash install.sh --client auto --hooks        # macOS / Linux
 
 ```bash
 git clone https://github.com/Morningstar202604/AgentSeed.git
-# ミラー：https://gitee.com/badhope/agentseed-mcp · https://gitcode.com/badhope/agentseed-mcp
 ```
 
 1. クローンした `AgentSeed/` ディレクトリを Agent Plugins 対応クライアント（Cursor、
@@ -359,8 +355,5 @@ PolyForm Noncommercial 1.0.0 © AgentSeed。研究・学習・個人利用は無
 ---
 
 <div align="center">
-
-⭐ **AgentSeed が幻覚コードの出荷を防いだなら、Star を——それは「ガードレールは
-役に立つ」という最良のシグナルです。**
 
 </div>

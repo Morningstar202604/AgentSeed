@@ -19,8 +19,6 @@ AI 会编造不存在的 API，会不跑任何测试就说"全部通过"，会�
 
 [English](./README.md) · **中文** · [日本語](./README.ja.md)
 
-⭐ **觉得有用？点个 Star——让更多开发者在上线幻觉代码之前找到护栏。**
-
 </div>
 
 ---
@@ -118,7 +116,6 @@ bash install.sh --client auto --hooks        # macOS / Linux
 
 ```bash
 git clone https://github.com/Morningstar202604/AgentSeed.git
-# 镜像：https://gitee.com/badhope/agentseed-mcp · https://gitcode.com/badhope/agentseed-mcp
 ```
 
 1. 把克隆出来的 `AgentSeed/` 目录**丢进**任意支持 Agent Plugins 的客户端
@@ -344,7 +341,5 @@ PolyForm Noncommercial 1.0.0 © AgentSeed。学习、研究与个人使用免费
 ---
 
 <div align="center">
-
-⭐ **如果 AgentSeed 帮你拦下了要上线的幻觉代码，点个 Star——这是"护栏有用"最好的信号。**
 
 </div>

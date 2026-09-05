@@ -5,7 +5,7 @@
   "description": "Guardrails for coding agents: a hybrid Agent Plugin (Skill + MCP Server) that forces spec-driven development and blocks hallucinated code before it is marked done. Built to the Agent Plugins 1.0.0 spec.",
   "author": {
     "name": "AgentSeed",
-    "url": "https://github.com/Morningstar202604/agentseed-mcp"
+    "url": "https://github.com/Morningstar202604/AgentSeed"
   },
   "license": "PolyForm-Noncommercial-1.0.0",
   "keywords": [
@@ -17,6 +17,6 @@
     "agent-plugins",
     "coding-agent"
   ],
-  "homepage": "https://github.com/Morningstar202604/agentseed-mcp",
-  "repository": "https://github.com/Morningstar202604/agentseed-mcp.git"
+  "homepage": "https://github.com/Morningstar202604/AgentSeed",
+  "repository": "https://github.com/Morningstar202604/AgentSeed.git"
 }

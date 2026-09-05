@@ -14,8 +14,8 @@ better.
 ## Quick start
 
 ```bash
-git clone https://github.com/Morningstar202604/agentseed-mcp.git
-cd agentseed-mcp
+git clone https://github.com/Morningstar202604/AgentSeed.git
+cd AgentSeed
 python -m unittest discover -s server -p "test_*.py"   # no deps needed
 python server/guard_cli.py gate --root .               # the CI-equivalent hard gate
 ```

@@ -12,7 +12,7 @@
 
 Do NOT open a public issue for security reports.
 
-1. Use GitCode private issue / contact the maintainer (`badhope`) directly.
+1. Report privately via GitHub Security Advisories / contact the maintainer (`Morningstar202604`) directly.
 2. Include: affected version (plugin.json `version`), reproduction steps,
    impact assessment.
 3. Expect an initial response within 7 days; fixes ship as a patch release

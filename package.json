@@ -18,11 +18,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/Morningstar202604/agentseed-mcp.git"
+    "url": "https://github.com/Morningstar202604/AgentSeed.git"
   },
-  "homepage": "https://github.com/Morningstar202604/agentseed-mcp#readme",
+  "homepage": "https://github.com/Morningstar202604/AgentSeed#readme",
   "bugs": {
-    "url": "https://github.com/Morningstar202604/agentseed-mcp/issues"
+    "url": "https://github.com/Morningstar202604/AgentSeed/issues"
   },
   "engines": {
     "node": ">=16"
@@ -45,6 +45,6 @@
   ],
   "author": {
     "name": "Morningstar202604",
-    "url": "https://github.com/Morningstar202604/agentseed-mcp"
+    "url": "https://github.com/Morningstar202604/AgentSeed"
   }
 }

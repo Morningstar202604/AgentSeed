@@ -5,7 +5,7 @@
   "description": "Anti-hallucination guardrails for AI coding agents: hybrid Skill + MCP server that forces spec-driven development and verifies code (AST analysis, hallucination scan, sandboxed execution, schema validation) before it is marked done.",
   "version": "0.5.0",
   "repository": {
-    "url": "https://github.com/Morningstar202604/agentseed-mcp"
+    "url": "https://github.com/Morningstar202604/AgentSeed"
   },
   "packages": [
     {

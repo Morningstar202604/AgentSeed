@@ -7,9 +7,8 @@
 #
 # --url   : download a specific release zip directly (any host). Skips repo
 #           resolution entirely.
-# --repo  : override the repository (default: Morningstar202604/agentseed-mcp,
-#           the canonical GitHub home; gitee/gitcode mirrors live under
-#           badhope/agentseed-mcp).
+# --repo  : override the repository (default: Morningstar202604/AgentSeed,
+#           the canonical GitHub home).
 # --forge : which release API to query (default: github). Use `gitcode` only
 #           for the CN mirror - its release API does NOT order newest-first,
 #           so the newest tag is resolved from /tags and sorted by version.
@@ -17,7 +16,7 @@
 #           merges into ~/.claude/settings.json, idempotent, previous config
 #           kept as settings.json.bak).
 set -e
-repo="Morningstar202604/agentseed-mcp"
+repo="Morningstar202604/AgentSeed"
 forge="github"
 client="auto"
 dir=""

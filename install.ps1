@@ -6,9 +6,8 @@
 #
 # -Url   : download a specific release zip directly (any host). Skips repo
 #          resolution entirely.
-# -Repo  : override the repository (default: Morningstar202604/agentseed-mcp,
-#          the canonical GitHub home; gitee/gitcode mirrors live under
-#          badhope/agentseed-mcp).
+# -Repo  : override the repository (default: Morningstar202604/AgentSeed,
+#          the canonical GitHub home).
 # -Forge : which release API to query (default: github). Use `gitcode` only
 #          for the CN mirror - its release API does NOT order newest-first, so
 #          the newest tag is resolved from /tags and sorted by version.
@@ -23,7 +22,7 @@ param(
     [string]$Url = "",
     [ValidateSet("github", "gitcode")]
     [string]$Forge = "github",
-    [string]$Repo = "Morningstar202604/agentseed-mcp",
+    [string]$Repo = "Morningstar202604/AgentSeed",
     [switch]$Hooks
 )
 $ErrorActionPreference = "Stop"

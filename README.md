@@ -20,8 +20,6 @@ a zero-dependency plugin that verifies code *before* it is marked done, so
 
 **English** · [中文](./README.zh.md) · [日本語](./README.ja.md)
 
-⭐ **Like this project? Star it — it helps developers find guardrails before they ship hallucinated code.**
-
 </div>
 
 ---
@@ -123,7 +121,6 @@ bash install.sh --client auto --hooks        # macOS / Linux
 
 ```bash
 git clone https://github.com/Morningstar202604/AgentSeed.git
-# mirrors: https://gitee.com/badhope/agentseed-mcp · https://gitcode.com/badhope/agentseed-mcp
 ```
 
 1. **Drop** the cloned `AgentSeed/` directory into any Agent Plugins–capable client
@@ -414,7 +411,5 @@ PolyForm Noncommercial 1.0.0 © AgentSeed. Free for research, learning, and pers
 ---
 
 <div align="center">
-
-⭐ **If AgentSeed saved you from shipping hallucinated code, star the repo — it's the best signal that guardrails matter.**
 
 </div>
