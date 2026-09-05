@@ -34,9 +34,9 @@ DOC_FILES = [
     "DESIGN.ja.md",
 ]
 
-# A canonical repository: the GitHub home plus the two CN mirrors.
+# A canonical repository: the GitHub home.
 REPO_SLUG = "agentseed-mcp"
-CANONICAL_HOSTS = ("github.com", "gitee.com", "gitcode.com")
+CANONICAL_HOSTS = ("github.com",)
 
 
 def _read(rel: str) -> str:

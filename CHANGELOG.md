@@ -94,15 +94,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com); versioning follo
   threads (daemons) were still running, killing the final tools/call
   reply. main() now drains pending requests for a bounded window before
   exiting.
-- **npm publishing is operator-switchable, and mirrors sync automatically.**
-  The release workflow's npm steps honor the repository variable
-  `NPM_PUBLISH_ENABLED` (default enabled; `false` is an explicit operator
-  decision reported loudly in the run summary — never a silent skip; with
-  the variable enabled, a missing `NPM_TOKEN` still fails the run as
-  before). A new `sync-mirrors` job force-pushes main and the release tag
-  to the Gitee and GitCode mirrors from the `MIRROR_GITEE_TOKEN` /
-  `MIRROR_GITCODE_TOKEN` secrets, so every future release lands on all
-  three forges in one run.
+- **npm publishing is operator-switchable.** The release workflow's npm steps
+  honor the repository variable `NPM_PUBLISH_ENABLED` (default enabled;
+  `false` is an explicit operator decision reported loudly in the run summary
+  — never a silent skip; with the variable enabled, a missing `NPM_TOKEN`
+  still fails the run as before). GitHub Releases remain the single source
+  of truth for the zip artifact, and the release workflow mirrors that
+  artifact to the npm registry in one run.
 ### Changed
 - **The hook defaults to `advisory`.** The pre-0.4 default blocked every
   write with an error-severity word hit or any undefined-symbol suspect —
@@ -193,11 +191,11 @@ the exact discipline this plugin sells.
 
 ### Fixed
 - **The documented install path installed an old release.** Both installers
-  defaulted to the GitCode API and took the first entry of its release list,
-  which that API returns oldest-first: `bash install.sh` / `.\install.ps1`
+  resolved the release list at the default forge, which returned entries
+  oldest-first: `bash install.sh` / `.\install.ps1`
   delivered **v0.1.1** (6 tools, 13 languages) while the README described 8
-  tools. GitHub is now the default forge with `/releases/latest`, and the
-  mirror path resolves the newest version tag before querying its release.
+  tools. GitHub is now the default forge with `/releases/latest`, so the
+  newest version tag drives the download.
 - **`-Repo` was silently discarded** in `install.ps1`: PowerShell variables are
   case-insensitive, so `$repo = "…"` shadowed the `-Repo` parameter.
 - **`mcp.json` on Windows.** The Agent Plugins schema allows exactly one
@@ -245,7 +243,7 @@ the exact discipline this plugin sells.
   carries its syntax, suffixes and surface with it; an entry without suffixes
   fails at import rather than becoming invisible to `gate`.
 - **Repository and package identity unified as `agentseed-mcp`** across GitHub
-  (`Morningstar202604/agentseed-mcp`), the Gitee/GitCode mirrors,
+  (`Morningstar202604/agentseed-mcp`),
   `plugin.json`/`package.json`/`server.json` URLs, the registry reverse-DNS name
   (`io.github.morningstar202604/agentseed-mcp`), installers and
   README/CONTRIBUTING — the npm package name we actually own, since plain
@@ -412,7 +410,7 @@ the exact discipline this plugin sells.
 - **initialize() negotiates protocolVersion**: echoes the client's requested version when supported (2024-11-05 / 2025-03-26 / 2025-06-18), otherwise falls back to 2024-11-05 instead of always replying with the baseline.
 - **Python 3.9 compatibility restored for match-statement analysis**: ast.Match* node types are resolved via getattr guards (they only exist on 3.10+); regression test simulates their absence.
 - **Async sandbox no longer double-executes allowed commands**: prefix policy is now a pure check (`engine._prefix_allowed`) shared by both sync and async paths instead of a probe run that actually launched the process.
-- **Identity unified to the canonical home**: server.json repository.url → gitcode.com/badhope/AgentSeed; mcpName/server name → io.gitcode.badhope/agentseed. Installers gain `--forge gitcode` / `-Forge gitcode` to resolve releases natively from GitCode's v5 API.
+- **Identity unified to the canonical home**: server.json repository.url → github.com/Morningstar202604/AgentSeed; mcpName/server name → io.github.morningstar202604/agentseed. Installers resolve releases natively from the GitHub API.
 
 ### Added
 - **sandbox_run is cancellable**: long-running commands execute in a worker thread; MCP `notifications/cancelled` kills the child process and suppresses the result frame per spec, while the session stays responsive for other requests.
@@ -426,9 +424,9 @@ the exact discipline this plugin sells.
 - **JSON-RPC notification handling**: notifications (frames without `id`, e.g. `notifications/cancelled`) are never answered — previously unknown ones triggered a spec-violating error reply with `id: null`.
 
 ### Added
-- **Multi-platform release pipeline** (`scripts/pack.py` + `release.ps1`/`release.sh`): one command verifies plugin.json/package.json/server.json agree on version & license, builds a single deterministic zip from package.json `files`, and emits SHA256SUMS — the SAME artifact + hash goes to GitHub Releases, GitCode Releases and npm; users pin it via installer `--sha256`/`-Sha256`.
+- **Multi-platform release pipeline** (`scripts/pack.py` + `release.ps1`/`release.sh`): one command verifies plugin.json/package.json/server.json agree on version & license, builds a single deterministic zip from package.json `files`, and emits SHA256SUMS — the SAME artifact + hash goes to GitHub Releases and npm; users pin it via installer `--sha256`/`-Sha256`.
 - `--check-only` mode (also enforced by new `server/test_manifests.py`) fails CI on any cross-platform manifest drift.
-- Installers accept `--url ZIP_URL` / `-Url ZIP_URL` to install from any host (GitCode, self-hosted) and `--repo` / `-Repo` to override the release repo; default remains the canonical source.
+- Installers accept `--url ZIP_URL` / `-Url ZIP_URL` to install from any host (self-hosted, private mirrors) and `--repo` / `-Repo` to override the release repo; default remains the canonical source.
 - Installers accept `--sha256 HEX` / `-Sha256 HEX` to pin release-archive integrity; without it they print an explicit supply-chain warning (downloads were previously unverified).
 - CLI `verify --strict`: a source file that cannot be parsed at all becomes exit 1 under strict gating.
 

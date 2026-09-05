@@ -3,21 +3,17 @@
 #
 # Usage: ./install.sh [--client auto|claude|opencode|cursor|manual] [--dir TARGET]
 #                     [--sha256 HEX] [--url ZIP_URL] [--hooks]
-#                     [--repo owner/name] [--forge github|gitcode]
+#                     [--repo owner/name]
 #
 # --url   : download a specific release zip directly (any host). Skips repo
 #           resolution entirely.
 # --repo  : override the repository (default: Morningstar202604/AgentSeed,
 #           the canonical GitHub home).
-# --forge : which release API to query (default: github). Use `gitcode` only
-#           for the CN mirror - its release API does NOT order newest-first,
-#           so the newest tag is resolved from /tags and sorted by version.
 # --hooks : additionally register the client-enforcement hook (Claude Code:
 #           merges into ~/.claude/settings.json, idempotent, previous config
 #           kept as settings.json.bak).
 set -e
 repo="Morningstar202604/AgentSeed"
-forge="github"
 client="auto"
 dir=""
 want_sha=""
@@ -30,7 +26,6 @@ while [ $# -gt 0 ]; do
     --sha256) want_sha="$2"; shift 2 ;;
     --url) direct_url="$2"; shift 2 ;;
     --repo) repo="$2"; shift 2 ;;
-    --forge) forge="$2"; shift 2 ;;
     --hooks) want_hooks=1; shift ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
@@ -55,19 +50,6 @@ resolve_python() {
 
 if [ -n "$direct_url" ]; then
   url="$direct_url"
-elif [ "$forge" = "gitcode" ]; then
-  echo "==> resolving newest release of $repo on GitCode"
-  # GitCode/Gitee list releases oldest-first and /releases/latest 400s on an
-  # empty repo, so take the highest version tag first, then its release.
-  newest=$(curl -fsSL "https://api.gitcode.com/api/v5/repos/$repo/tags?per_page=100" |
-    grep -o '"name": *"v[0-9][^"]*"' | sed 's/.*"\([^"]*\)"$/\1/' |
-    sed 's/^v//' | sort -V | tail -1)
-  [ -n "$newest" ] || { echo "no tags on $repo" >&2; exit 1; }
-  url=$(curl -fsSL "https://api.gitcode.com/api/v5/repos/$repo/releases/tags/v${newest}" |
-    grep -o '"browser_download_url": *"[^"]*\.zip"' | head -1 |
-    sed 's/.*"\(https[^"]*\)"/\1/')
-  [ -n "$url" ] || { echo "no .zip asset on $repo release v${newest}" >&2; exit 1; }
-  echo "==> newest mirror tag: v${newest}"
 else
   echo "==> resolving latest release of $repo"
   url=$(curl -fsSL "https://api.github.com/repos/$repo/releases/latest" |

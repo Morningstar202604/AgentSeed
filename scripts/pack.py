@@ -1,7 +1,6 @@
 """AgentSeed release packer — consistency gate + artifact build + SHA256.
 
-Single source of truth for publishing to every platform (GitHub Releases,
-GitCode Releases, npm). One invocation:
+Single source of truth for publishing (GitHub Releases, npm). One invocation:
 
   1. Verifies plugin.json / package.json / server.json agree on version and
      license (exits non-zero on any drift — the multi-platform killer).
@@ -190,11 +189,10 @@ def main(argv: list[str]) -> int:
     print(f"built {os.path.relpath(zip_path, ROOT)}")
     print(f"sha256 {digest}")
     print("")
-    print("publish steps (same artifact + same hash on ALL platforms):")
+    print("publish steps (same artifact + same hash everywhere):")
     print(
         f"  GitHub : gh release create v{version} '{zip_path}' --title v{version} --notes-file <notes>"
     )
-    print("  GitCode: upload the SAME zip via web UI or API release endpoint")
     print(f"  npm    : npm publish   (bin/cli.js shim; package.json already at {version})")
     print("")
     print("tell users to pin integrity:")

@@ -1,7 +1,7 @@
 """Cross-platform manifest consistency tests.
 
-AgentSeed ships as one artifact to GitHub Releases and GitCode Releases
-(npm is advertised in server.json only once the package actually exists).
+AgentSeed ships as one artifact to GitHub Releases (npm is advertised in
+server.json only once the package actually exists).
 These tests fail the build when plugin.json / package.json / server.json
 drift apart (version, license, files list) — the exact failure mode that
 shipped 1.3.3 vs 0.1.0 in the past.

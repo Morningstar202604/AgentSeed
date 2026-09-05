@@ -1,16 +1,12 @@
 # AgentSeed installer - download the latest release and wire it into a client.
 #
 # Usage: .\install.ps1 [-Client auto|claude|opencode|cursor|manual] [-Dir TARGET]
-#                      [-Sha256 HEX] [-Url ZIP_URL] [-Repo owner/name]
-#                      [-Forge github|gitcode] [-Hooks]
+#                      [-Sha256 HEX] [-Url ZIP_URL] [-Repo owner/name] [-Hooks]
 #
 # -Url   : download a specific release zip directly (any host). Skips repo
 #          resolution entirely.
 # -Repo  : override the repository (default: Morningstar202604/AgentSeed,
 #          the canonical GitHub home).
-# -Forge : which release API to query (default: github). Use `gitcode` only
-#          for the CN mirror - its release API does NOT order newest-first, so
-#          the newest tag is resolved from /tags and sorted by version.
 # -Hooks : additionally register the client-enforcement hook (Claude Code:
 #          merges into ~\.claude\settings.json, idempotent; the previous config
 #          is kept as settings.json.bak).
@@ -20,8 +16,6 @@ param(
     [string]$Dir = "",
     [string]$Sha256 = "",
     [string]$Url = "",
-    [ValidateSet("github", "gitcode")]
-    [string]$Forge = "github",
     [string]$Repo = "Morningstar202604/AgentSeed",
     [switch]$Hooks
 )
@@ -33,22 +27,6 @@ $targetRepo = $Repo
 
 function Resolve-LatestUrl {
     if ($Url) { return $Url }
-    if ($Forge -eq "gitcode") {
-        Write-Host "==> resolving newest release of $targetRepo on GitCode"
-        # GitCode/Gitee return releases oldest-first and /releases/latest 400s
-        # when empty: take the highest version tag first, then its release.
-        $tags = Invoke-RestMethod -Uri "https://api.gitcode.com/api/v5/repos/$targetRepo/tags?per_page=100" `
-                -Headers @{ "User-Agent" = "agentseed-installer" }
-        $newest = @($tags | ForEach-Object { $_.name } | Where-Object { $_ -match '^v\d+(\.\d+)*$' } |
-            Sort-Object { [version]($_.TrimStart('v')) } -Descending | Select-Object -First 1)
-        if (-not $newest) { throw "no version tags on $targetRepo" }
-        Write-Host "==> newest mirror tag: $newest"
-        $rel = Invoke-RestMethod -Uri "https://api.gitcode.com/api/v5/repos/$targetRepo/releases/tags/$newest" `
-                -Headers @{ "User-Agent" = "agentseed-installer" }
-        $asset = @($rel.assets) | Where-Object { $_.name -like "*.zip" } | Select-Object -First 1
-        if (-not $asset) { throw "no .zip asset on $targetRepo release $newest" }
-        return $asset.browser_download_url
-    }
     Write-Host "==> resolving latest release of $targetRepo"
     $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/$targetRepo/releases/latest" `
             -Headers @{ "User-Agent" = "agentseed-installer" }
