@@ -161,6 +161,7 @@ python3 /path/to/AgentSeed/server/guard_cli.py init --root /your/project
 ```bash
 python3 server/guard_cli.py suppress legacy_helper    # verify がマークしなくなる（suppressed には残る）
 python3 server/guard_cli.py allow works-on-my-machine # scan が報告しなくなる（内蔵デフォルトの後に統合）
+python3 server/guard_cli.py baseline audit           # 凍結済みシグナルの監査とレビューLoop
 ```
 
 どちらもプロジェクトの `agentseed.config.json` を原子的に書き換え、パースに

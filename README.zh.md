@@ -154,6 +154,7 @@ workflow、跑第一次 gate 自举基线，并打印把客户端指向本插件
 ```bash
 python3 server/guard_cli.py suppress legacy_helper   # verify 不再标记（仍在 suppressed 中可见）
 python3 server/guard_cli.py allow works-on-my-machine # scan 不再报告（合并在内置默认之后）
+python3 server/guard_cli.py baseline audit           # 基线冻结了什么 + 复审闭环
 ```
 
 两者都原子写入你项目的 `agentseed.config.json`，且拒绝覆盖解析失败的配置。

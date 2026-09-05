@@ -248,6 +248,7 @@ A gate only survives if it gets quieter as you use it:
 ```bash
 python3 server/guard_cli.py suppress legacy_helper    # verify stops flagging it (still reported in 'suppressed')
 python3 server/guard_cli.py allow works-on-my-machine # scan stops flagging it (merged after built-in defaults)
+python3 server/guard_cli.py baseline audit           # what is frozen, and the review loop
 ```
 
 Both write your project's `agentseed.config.json` atomically and refuse to

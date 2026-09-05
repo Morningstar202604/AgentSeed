@@ -229,5 +229,32 @@ class TestCli(unittest.TestCase):
             self.assertIn('"status": "pass"', r.stdout)
 
 
+    def test_baseline_audit_reports_composition(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as d:
+            src = os.path.join(d, "mod.py")
+            base = os.path.join(d, "baseline.json")
+            with open(src, "w", encoding="utf-8") as fh:
+                fh.write("# TODO: later\nall tests pass, guaranteed\n")
+            run_cli("scan", src, "--baseline", base)  # freeze 2 hits
+            r = run_cli("baseline", "audit", base)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertIn('"ok": true', r.stdout)
+            self.assertIn('"hits": 3', r.stdout)
+            self.assertIn("stub_code", r.stdout)
+            self.assertIn("oversold", r.stdout)
+            self.assertIn("update-baseline", r.stdout)
+
+    def test_baseline_audit_missing_is_report_not_crash(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as d:
+            r = run_cli("baseline", "audit", os.path.join(d, "nope.json"))
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertIn('"ok": false', r.stdout)
+            self.assertIn("does not exist", r.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()

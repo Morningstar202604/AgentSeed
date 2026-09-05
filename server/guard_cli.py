@@ -776,6 +776,64 @@ def cmd_allow(args: argparse.Namespace) -> int:
     return 0 if result.get("ok") else 1
 
 
+def cmd_baseline_audit(args: argparse.Namespace) -> int:
+    """Report what the frozen scan baseline contains.
+
+    The baseline is the noise-decay mechanism that keeps 'only NEW signals
+    fail' livable — and, unreviewed, a permanent hiding place. The audit is
+    the review discipline: composition by group, the loudest frozen signals,
+    and the prune-and-freeze loop. Report-only: always exits 0.
+    """
+    path = args.path or "baseline-scan.json"
+    payload: dict = {"baseline": os.path.abspath(path)}
+    if not os.path.isfile(path):
+        payload["ok"] = False
+        payload["error"] = (
+            f"baseline does not exist: {path} (a gate or 'scan --baseline' run creates it)"
+        )
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return 0
+    try:
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+        files = data.get("files") or {}
+        if not isinstance(files, dict):
+            raise ValueError("files must be an object")
+    except (OSError, ValueError) as exc:
+        payload["ok"] = False
+        payload["error"] = f"cannot read baseline: {exc}"
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return 0
+    totals: dict[str, int] = {}
+    for counts in files.values():
+        for key, count in (counts or {}).items():
+            totals[key] = totals.get(key, 0) + int(count)
+    groups: dict[str, int] = {}
+    for key, count in totals.items():
+        group = key.split("|", 1)[0]
+        groups[group] = groups.get(group, 0) + count
+    top = sorted(totals.items(), key=lambda kv: (-kv[1], kv[0]))[:10]
+    payload.update(
+        {
+            "ok": True,
+            "schema_version": data.get("version"),
+            "files": len(files),
+            "hits": sum(totals.values()),
+            "distinct_signals": len(totals),
+            "groups": dict(sorted(groups.items())),
+            "top_frozen_signals": [{"signal": k, "count": v} for k, v in top],
+            "advice": (
+                "audit is a report: fix what is fixed upstream, allow the "
+                "legitimate idioms (guard_cli allow <word>), then freeze the "
+                "reduced state with scan --update-baseline. Recreate the audit "
+                "after every freeze."
+            ),
+        }
+    )
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
+    return 0
+
+
 def cmd_gate(args: argparse.Namespace) -> int:
     """Composite CI gate — the hard layer behind the soft skill:
     1) plugin conformance (spec linter; skipped on non-plugin roots so the
@@ -1026,6 +1084,15 @@ def main(argv: list[str] | None = None) -> int:
     )
     p_gate.add_argument("--config", help="explicit config file path")
     p_gate.set_defaults(func=cmd_gate)
+
+    p_baseline = sub.add_parser(
+        "baseline", help="baseline maintenance (audit: what is frozen, review advice)"
+    )
+    p_baseline.add_argument("action", choices=["audit"], help="report baseline composition")
+    p_baseline.add_argument(
+        "path", nargs="?", default=None, help="baseline JSON (default: ./baseline-scan.json)"
+    )
+    p_baseline.set_defaults(func=cmd_baseline_audit)
 
     p_sandbox = sub.add_parser("sandbox", help="run a command with timeout + captured output")
     p_sandbox.add_argument(
