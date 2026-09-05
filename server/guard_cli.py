@@ -590,7 +590,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
         with:
-          repository: Morningstar202604/agentseed-mcp
+          repository: Morningstar202604/AgentSeed
           path: agentseed
       - uses: actions/setup-python@v5
         with:
