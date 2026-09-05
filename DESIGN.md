@@ -170,14 +170,20 @@ and cross-file symbols are not analyzed; dynamic/global references may
 produce false positives, destructured edge cases may be missed.
 
 ### 5.2 `scan_hallucination_words`
-Word-boundary regex scan over a **grouped pool of 28+ signals**:
+Word-boundary regex scan over a **grouped pool of 50+ signals**:
 - `stub_code`: stub/mock/fake/placeholder/dummy/todo/fixme/xxx/tbd/tba/wip/
   "not implemented"/"coming soon"
 - `oversold`: guaranteed/"definitely works"/"all tests pass"/"everything works"/
   "fully tested"/"production ready"/"no bugs"/"works perfectly"/"should work"/
-  "trust me"/"works on my machine"/"100% correct"/"bug free"/"zero errors"
+  "trust me"/"works on my machine"/"100% correct"/"bug free"/"zero errors",
+  plus unverified security claims ("no vulnerabilities"/"secure by design"/
+  "unhackable") and performance claims ("highly optimized"/"zero downtime")
 - `fabricated`: simulated/hypothetical/imaginary/invented/fabricated/fictional/
   pretend/"made up"
+- `fabricated_url`: structural domain pass — placeholder stand-ins
+  ("api.yourdomain.com"), reserved TLDs used as if real ("myapp.test"), and
+  "example" fabricated into non-reserved domains ("docs.example-fake-api.dev");
+  the reserved example.com/net/org/edu set stays clean
 Returns `hits[]` (word/group/line), `clean`, and per-group counts.
 Source: SFD Lab 5-step anti-hallucination checklist (step 5); CDV
 ("'done, all tests pass' is a claim, not evidence"); reze83

@@ -244,7 +244,8 @@ def cmd_scan_baseline(args: argparse.Namespace) -> int:
         or engine.DEFAULT_ALLOWLIST
     )
     severities = (
-        {"stub_code": "error"}
+        # registry-driven: every default-warning group blocks under --strict
+        {g: "error" for g, s in engine.DEFAULT_SEVERITIES.items() if s == "warning"}
         if (args.strict and not args.stub_ok)
         else engine.config_severities(config)
     )
@@ -300,7 +301,8 @@ def cmd_scan(args: argparse.Namespace) -> int:
         or engine.DEFAULT_ALLOWLIST
     )
     severities = (
-        {"stub_code": "error"}
+        # registry-driven: every default-warning group blocks under --strict
+        {g: "error" for g, s in engine.DEFAULT_SEVERITIES.items() if s == "warning"}
         if (args.strict and not args.stub_ok)
         else engine.config_severities(config)
     )
@@ -924,7 +926,7 @@ def main(argv: list[str] | None = None) -> int:
         "--strict", action="store_true", help="disable default exclusions; stub hits become errors"
     )
     p_scan.add_argument(
-        "--stub-ok", action="store_true", help="with --strict: keep stub_code at warning severity"
+        "--stub-ok", action="store_true", help="with --strict: keep default-warning groups (stub_code, fabricated_url) at warning"
     )
     p_scan.add_argument("--config", help="explicit config file path")
     p_scan.add_argument(

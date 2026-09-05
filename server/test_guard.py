@@ -548,6 +548,30 @@ class TestHallucinationScan(unittest.TestCase):
         self.assertFalse(r["clean"])
         self.assertFalse(r["blocking"])
 
+    def test_fabricated_url_group(self):
+        # phantom squatting: placeholder stand-ins, reserved TLDs, and
+        # "example" fabricated into non-reserved domains all fire
+        src = (
+            "docs: https://docs.example-fake-api.dev/v2\n"
+            "curl https://api.yourdomain.com/ping\n"
+            "endpoint = https://myapp.test/hook\n"
+            "部署到你的域名即可生效。\n"
+        )
+        r = engine.scan_hallucination_words(src)
+        url_hits = [h for h in r["hits"] if h["group"] == "fabricated_url"]
+        self.assertEqual(len(url_hits), 4, url_hits)
+        self.assertIn("fabricated_url", r["groups"])
+        self.assertFalse(r["blocking"])  # default severity is warning
+
+    def test_fabricated_url_reserved_and_real_domains_clean(self):
+        src = (
+            "clone https://github.com/Morningstar202604/AgentSeed\n"
+            "docs: https://example.com/a and https://example.net and https://example.org\n"
+            "https://docs.example.edu/guide and https://docs.python.org/3/\n"
+        )
+        r = engine.scan_hallucination_words(src)
+        self.assertTrue(r["clean"], r["hits"])
+
 
 class TestConformance(unittest.TestCase):
     def test_self_conformant(self):

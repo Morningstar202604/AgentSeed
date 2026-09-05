@@ -177,7 +177,7 @@ upgrade two tools to industry-standard engines (see below).
 | `verify_file` | The same class, on real files | Runs the project's own toolchain (ruff, pyflakes, tsc, eslint, go vet, cargo check) when installed; built-in analyzer as fallback |
 | `check_contract` | Code violates a written spec | requires/prohibits contract check |
 | `check_imports` | Hallucinated packages (slopsquatting) | stdlib + known-packages allowlist check |
-| `scan_hallucination` | Placeholder code, overclaims, fabricated content | 28+ signals in 3 groups, EN + CJK |
+| `scan_hallucination` | Placeholder code, overclaims, fabricated content, phantom domains | 50+ signals in 4 groups, EN + CJK |
 | `check_plugin` | Non-conformant plugin packaging | Strict 1.0.0 linter |
 | `sandbox_run` | "Tests pass" without running anything | Deterministic execution channel (bounded-memory output) |
 | `schema_validate` | Invalid structured output | JSON Schema validation |
@@ -369,7 +369,7 @@ techniques). Every library lives under
 | --- | --- | --- | --- |
 | Touches code | ❌ prompt only | ✅ import graphs | ✅ AST + lexical (registry-wide) |
 | Runs verification tools | ❌ | lint gates | ✅ 9 MCP tools incl. sandbox |
-| Hallucination-language scan | ❌ | ❌ | ✅ stub/oversold/fabricated, EN + CJK |
+| Hallucination-language scan | ❌ | ❌ | ✅ stub/oversold/fabricated/fabricated_url, EN + CJK |
 | Enforcement | soft (skill text) | CI gate | **tiered**: skill + MCP + CI exit codes + hook profiles (advisory → diff → strict) |
 | 1.0.0 conformance linter | ❌ | ❌ | ✅ first |
 

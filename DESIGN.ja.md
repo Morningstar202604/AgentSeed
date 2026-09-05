@@ -97,7 +97,7 @@ AgentSeed は「**コードレベル + 実ツール実行 + Skill/MCP クロー�
   文字列をマスク → 定義を収集 → 未定義の裸呼び出し・`new` を検出。言語追加は
   レジストリ追加のみでエンジン変更不要。Ruby の括弧なし呼び出しは `bare_calls`
   フラグで対応。
-- **`scan_hallucination_words`** — 28+ シグナルのグループ化ワード境界スキャン。
+- **`scan_hallucination_words`** — 50+ シグナルのグループ化ワード境界スキャン（プレースホルダー/予約 TLD ドメインを構造的に検出する `fabricated_url` を含む）。
   出典：SFD Lab 5 ステップチェックリスト、CDV（"'done, all tests pass' は主張であり
   証拠ではない"）、reze83 先検証ルール。
 - **`check_plugin_conformance`** — §5/§6/§7 の厳格 linter：閉じたトップレベル

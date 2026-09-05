@@ -33,6 +33,7 @@ from .config import (
 )
 from .hallucination import (
     DEFAULT_ALLOWLIST,
+    DEFAULT_SEVERITIES,
     HALLUCINATION_WORDS,
     merge_allowlist,
     scan_hallucination_words,
@@ -50,6 +51,7 @@ from .version import plugin_version
 __all__ = [
     "CONFIG_FILENAME",
     "DEFAULT_ALLOWLIST",
+    "DEFAULT_SEVERITIES",
     "HALLUCINATION_WORDS",
     "KNOWN_CONFIG_KEYS",
     "SANDBOX_ENV_MODES",

@@ -196,7 +196,7 @@ python3 server/guard_cli.py scan . --baseline baseline-scan.json  # ツリー検
 | `verify_code` | 捏造 API / 未定義シンボル | Python AST + 設定駆動の汎用語彙パス（17 言語） |
 | `check_contract` | 仕様に違反するコード | requires/prohibits 契約チェック |
 | `check_imports` | 幻覚パッケージ（slopsquatting） | stdlib + known_packages ホワイトリスト検証 |
-| `scan_hallucination` | プレースホルダー、誇張、捏造 | 3 グループ 28+ シグナル、EN + CJK |
+| `scan_hallucination` | プレースホルダー、誇張、捏造、ファントムドメイン | 4 グループ 50+ シグナル、EN + CJK |
 | `check_plugin` | 不適合なプラグイン | 厳格 1.0.0 linter |
 | `sandbox_run` | 実行せずに「テスト合格」 | 決定的実行チャネル（メモリ有界出力） |
 | `schema_validate` | 不正な構造化出力 | JSON Schema 検証 |
@@ -325,7 +325,7 @@ pip install -r server/requirements.txt
 | --- | --- | --- | --- |
 | コードに触れる | ❌ プロンプトのみ | ✅ import グラフ | ✅ AST + 語彙（17 言語） |
 | 検証ツールを実行 | ❌ | lint ゲート | ✅ 9 MCP ツール（sandbox 含む） |
-| 幻覚言語スキャン | ❌ | ❌ | ✅ stub/oversold/fabricated、EN + CJK |
+| 幻覚言語スキャン | ❌ | ❌ | ✅ stub/oversold/fabricated/fabricated_url、EN + CJK |
 | 強制力 | 軟（skill 文面） | CI ゲート | **硬**：skill + MCP + hook + CLI 終了コード |
 | 1.0.0 適合 linter | ❌ | ❌ | ✅ 最初 |
 

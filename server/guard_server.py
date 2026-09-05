@@ -182,15 +182,17 @@ TOOLS = [
     ),
     _tool(
         "scan_hallucination",
-        "Scan source for hallucination signals in three groups: stub_code "
+        "Scan source for hallucination signals in four groups: stub_code "
         "(stub/mock/fake/placeholder/todo/占位/待实现/...), oversold "
         "(guaranteed/all tests pass/production ready/保证通过/...), fabricated "
-        "(simulated/invented/虚构/编造/...). English AND CJK tokens; extend "
-        "the pool via config 'extra_tokens'. Each hit carries a severity; "
-        "only error-severity hits set 'blocking': true. A blocking result "
-        "means the task is NOT done — fix the flagged lines or downgrade "
-        "deliberately via config. Warning/info hits must be reported but do "
-        "not block completion.",
+        "(simulated/invented/虚构/编造/...), and fabricated_url (placeholder "
+        "or reserved-TLD domains like api.yourdomain.com or myapp.test — "
+        "phantom squatting; the reserved example.com/net/org/edu set stays "
+        "clean). English AND CJK tokens; extend the pool via config "
+        "'extra_tokens'. Each hit carries a severity; only error-severity "
+        "hits set 'blocking': true. A blocking result means the task is NOT "
+        "done — fix the flagged lines or downgrade deliberately via config. "
+        "Warning/info hits must be reported but do not block completion.",
         {
             "source": {"type": "string", "description": "Source code to scan."},
             "allowlist": {

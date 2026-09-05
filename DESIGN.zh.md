@@ -102,14 +102,19 @@ AgentSeed 填补：**代码级 + 真跑工具 + Skill/MCP 闭环强制**。`chec
   的落地——"测试通过"变成可观测事实。
 - **`schema_validate`**：零依赖 JSON Schema 子集校验（type/enum/const/minLength/
   maxLength/pattern/minItems/maxItems/items/properties/required/additionalProperties）。
-- **`scan_hallucination_words`**：逐行正则词边界扫描**分组信号池（28+ 词）**：
+- **`scan_hallucination_words`**：逐行正则词边界扫描**分组信号池（50+ 词）**：
   - `stub_code`：stub/mock/fake/placeholder/dummy/todo/fixme/xxx/tbd/tba/wip/
     "not implemented"/"coming soon"
   - `oversold`：guaranteed/"definitely works"/"all tests pass"/"everything works"/
     "fully tested"/"production ready"/"no bugs"/"works perfectly"/"should work"/
-    "trust me"/"works on my machine"/"100% correct"/"bug free"/"zero errors"
+    "trust me"/"works on my machine"/"100% correct"/"bug free"/"zero errors"，
+    另含未验证的安全声称（"no vulnerabilities"/"secure by design"/"unhackable"）
+    与性能声称（"highly optimized"/"zero downtime"）
   - `fabricated`：simulated/hypothetical/imaginary/invented/fabricated/fictional/
     pretend/"made up"
+  - `fabricated_url`：结构化域名检测——占位域名（"api.yourdomain.com"）、被当作
+    真实使用的保留 TLD（"myapp.test"）、把 "example" 编进非保留域名
+    （"docs.example-fake-api.dev"）；保留的 example.com/net/org/edu 集合不命中
   返回 `hits[]`（word/group/line）、`clean` 与分组计数。
   来源：SFD Lab 五步反幻觉清单第 5 步；CDV（"'done, all tests pass' 是声明不是
   证据"）；reze83 先验证后声称规则。
